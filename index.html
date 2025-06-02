@@ -119,6 +119,7 @@
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
         .chart-title {
@@ -254,11 +255,11 @@
             <div class="charts-section">
                 <div class="chart-container">
                     <div class="chart-title">📈 Évolution de l'Investissement</div>
-                    <canvas id="investmentChart"></canvas>
+                    <canvas id="investmentChart" width="400" height="300"></canvas>
                 </div>
                 <div class="chart-container">
                     <div class="chart-title">🏠 Répartition par Propriété</div>
-                    <canvas id="distributionChart"></canvas>
+                    <canvas id="distributionChart" width="400" height="300"></canvas>
                 </div>
             </div>
 
@@ -513,9 +514,10 @@
             
             console.log('Données pour le graphique:', { labels, data });
 
-            investmentChart = new Chart(ctx, {
-                type: 'line',
-                data: {
+            try {
+                investmentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
                     labels: labels,
                     datasets: [{
                         label: 'Investissement Cumulé (€)',
@@ -533,7 +535,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: true,
                     plugins: {
                         legend: {
                             display: true,
@@ -559,6 +561,10 @@
                     }
                 }
             });
+            } catch (err) {
+                console.error("Error creating investment chart:", err);
+                showError("Erreur lors de la création du graphique d'évolution des investissements.");
+            }
         }
 
         function createDistributionChart(properties) {
@@ -568,8 +574,31 @@
                 distributionChart.destroy();
             }
 
-            const labels = properties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
-            const data = properties.map(p => p.investment);
+            const MAX_SEGMENTS = 10;
+            let chartLabels = [];
+            let chartData = [];
+
+            if (properties.length > MAX_SEGMENTS) {
+                // Trier les propriétés par investissement décroissant
+                const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
+
+                // Prendre les MAX_SEGMENTS - 1 premières propriétés
+                const topProperties = sortedProperties.slice(0, MAX_SEGMENTS - 1);
+                chartLabels = topProperties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+                chartData = topProperties.map(p => p.investment);
+
+                // Calculer la somme des investissements pour les autres propriétés
+                const otherPropertiesInvestment = sortedProperties.slice(MAX_SEGMENTS - 1)
+                                                                .reduce((sum, p) => sum + p.investment, 0);
+
+                if (otherPropertiesInvestment > 0) {
+                    chartLabels.push('Autres');
+                    chartData.push(otherPropertiesInvestment);
+                }
+            } else {
+                chartLabels = properties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+                chartData = properties.map(p => p.investment);
+            }
             
             const colors = [
                 '#667eea', '#764ba2', '#f093fb', '#f5576c',
@@ -577,20 +606,21 @@
                 '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3'
             ];
 
-            distributionChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
+            try {
+                distributionChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                    labels: chartLabels,
                     datasets: [{
-                        data: data,
-                        backgroundColor: colors.slice(0, properties.length),
+                        data: chartData,
+                        backgroundColor: colors.slice(0, chartData.length),
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: true,
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -604,7 +634,8 @@
                                 label: function(context) {
                                     const label = context.label || '';
                                     const value = context.parsed;
-                                    const percentage = ((value / data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    const total = chartData.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                     return `${label}: ${value.toFixed(2)}€ (${percentage}%)`;
                                 }
                             }
@@ -612,6 +643,10 @@
                     }
                 }
             });
+            } catch (err) {
+                console.error("Error creating distribution chart:", err);
+                showError("Erreur lors de la création du graphique de répartition des propriétés.");
+            }
         }
 
         // Ajustement de la taille des graphiques
