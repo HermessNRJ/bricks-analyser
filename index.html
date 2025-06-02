@@ -155,10 +155,11 @@
             overflow-y: auto; /* Enable vertical scroll if content overflows */
             min-height: 150px; /* Ensure it's visible even if there's little other content */
             
-            /* Added for multi-column layout */
+            /* Properties for multi-column layout REMOVED:
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 20px;
+            gap: 20px; 
+            */
         }
 
         .property-card {
@@ -375,6 +376,10 @@
                     <div class="chart-title">🏠 Répartition par Propriété</div>
                     <canvas id="distributionChart" width="400" height="300"></canvas>
                 </div>
+                <div class="chart-container">
+                    <div class="chart-title">📈 Évolution des Revenus Mensuels Nets</div>
+                    <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
+                </div>
             </div>
 
             <div class="properties-list">
@@ -399,6 +404,7 @@
     <script>
         let investmentChart = null;
         let distributionChart = null;
+        let revenueEvolutionChart = null; // For the new chart
         let allData = []; // This will hold the definitive data used by the app
         window.projectIdsToRemoveLater = []; // Stores project IDs from storage not in the new file
         const LOCAL_STORAGE_KEY = 'bricksInvestmentData';
@@ -408,6 +414,22 @@
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
         const keepItemsBtn = document.getElementById('keepItemsBtn');
         let currentDataContextForModal = null; // To store mergedData for modal operations
+
+        function generateMonthRange(startYYYYMM, endYYYYMM) {
+            const months = [];
+            let [currentYear, currentMonth] = startYYYYMM.split('-').map(Number);
+            const [endYear, endMonth] = endYYYYMM.split('-').map(Number);
+
+            while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+                months.push(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+                currentMonth++;
+                if (currentMonth > 12) {
+                    currentMonth = 1;
+                    currentYear++;
+                }
+            }
+            return months;
+        }
 
         // Helper function to get unique project IDs from a dataset
         function getUniqueProjectIds(dataset) {
@@ -654,10 +676,11 @@
         function calculateInvestmentStats(data) {
             let totalBricks = 0;
             let totalInvestment = 0;
-            let monthlyRevenue = 0;
+            let monthlyRevenue = 0; // This is NET monthly revenue
             let properties = [];
             let investmentEvolution = {};
-            let uniqueProjects = new Map(); // Pour éviter les doublons
+            let uniqueProjects = new Map(); 
+            let projectRevenueEntries = []; // For revenue evolution chart
 
             console.log('Calculating stats for:', data);
 
@@ -723,8 +746,15 @@
                     investment: projectInvestment,
                     yearlyReturn: project.yearlyReturn, // Store gross yearly return percentage for display
                     monthlyRevenue: netMonthlyReturn, // Store net monthly revenue
-                    thumbnailUrl: project.thumbnailUrl
+                    thumbnailUrl: project.thumbnailUrl,
+                    // funding: project.funding // Keep funding info if needed for other purposes
                 });
+
+                // For revenue evolution chart
+                const revenueStartDate = project.funding?.revenueStartDate; // Safely access
+                if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/) && netMonthlyReturn > 0) {
+                    projectRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
+                }
             });
 
             // Calculer l'évolution mensuelle (investissements par mois d'apparition)
@@ -758,12 +788,63 @@
                 propertiesCount: properties.length
             });
 
+            // Process data for Revenue Evolution Chart
+            let revenueEvolutionData = {};
+            if (projectRevenueEntries.length > 0) {
+                const allRevenueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
+                
+                if (allRevenueStartDates.length > 0) {
+                    const firstMonth = allRevenueStartDates[0];
+                    const lastMonth = allRevenueStartDates[allRevenueStartDates.length - 1]; 
+                    // To get a sensible chart, we might want to extend lastMonth to current month or a bit longer
+                    // For now, just use the range of known revenue start dates.
+                    // A more robust solution might involve finding the LATEST month any revenue is active.
+                    // However, the current logic of summing up if startDate <= currentMonth covers active revenue.
+                    // We need a continuous range of months for the chart's X-axis.
+                    
+                    // Let's use the range from first investment month to last known revenue start date.
+                    // Or, if investmentEvolution is available and has a wider range, consider that.
+                    const investmentMonths = Object.keys(investmentEvolution).sort();
+                    let overallFirstMonth = firstMonth;
+                    let overallLastMonth = lastMonth;
+
+                    if (investmentMonths.length > 0) {
+                        if (investmentMonths[0] < overallFirstMonth) {
+                            overallFirstMonth = investmentMonths[0];
+                        }
+                        // Determine a sensible end month for the revenue chart.
+                        // For now, let's take the latest of investment or revenue start.
+                        // A better approach might be to go up to the current actual month.
+                        const latestInvestmentMonth = investmentMonths[investmentMonths.length - 1];
+                        if (latestInvestmentMonth > overallLastMonth) {
+                            overallLastMonth = latestInvestmentMonth;
+                        }
+                    }
+
+
+                    if (overallFirstMonth && overallLastMonth) {
+                        const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
+                        allMonthsInRange.forEach(currentMonth => {
+                            let totalRevenueInCurrentMonth = 0;
+                            projectRevenueEntries.forEach(entry => {
+                                if (entry.startDate <= currentMonth) {
+                                    totalRevenueInCurrentMonth += entry.revenue;
+                                }
+                            });
+                            revenueEvolutionData[currentMonth] = totalRevenueInCurrentMonth;
+                        });
+                    }
+                }
+            }
+            console.log("Revenue Evolution Data:", revenueEvolutionData);
+
             return {
                 totalBricks,
                 totalInvestment,
                 monthlyRevenue,
                 properties,
-                investmentEvolution
+                investmentEvolution,
+                revenueEvolutionData
             };
         }
 
@@ -798,6 +879,76 @@
         function createCharts(results) {
             createInvestmentChart(results.investmentEvolution);
             createDistributionChart(results.properties);
+            createRevenueEvolutionChart(results.revenueEvolutionData); // Call the new function
+        }
+
+        function createRevenueEvolutionChart(revenueData) {
+            const ctx = document.getElementById('revenueEvolutionChart').getContext('2d');
+            
+            if (revenueEvolutionChart) {
+                revenueEvolutionChart.destroy();
+            }
+
+            if (!revenueData || Object.keys(revenueData).length === 0) {
+                console.log("No data for revenue evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); 
+                // Optionally, display a "No data" message on the canvas
+                // ctx.font = "16px Segoe UI";
+                // ctx.fillStyle = "#888";
+                // ctx.textAlign = "center";
+                // ctx.fillText("Aucune donnée disponible pour ce graphique.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            const labels = Object.keys(revenueData).sort(); 
+            const data = labels.map(label => revenueData[label]);
+            
+            revenueEvolutionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Revenus Mensuels Nets Cumulés (€)',
+                        data: data,
+                        borderColor: '#4bc0c0', 
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.1, 
+                        pointBackgroundColor: '#4bc0c0',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, 
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Revenus: ${context.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                                }
+                            }
+                        },
+                        x: {
+                             // Optional: ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 0, minRotation: 0 }
+                        }
+                    }
+                }
+            });
         }
 
         function createInvestmentChart(investmentEvolution) {
@@ -951,6 +1102,7 @@
         window.addEventListener('resize', function() {
             if (investmentChart) investmentChart.resize();
             if (distributionChart) distributionChart.resize();
+            if (revenueEvolutionChart) revenueEvolutionChart.resize();
         });
 
         // Load data from local storage on page load
