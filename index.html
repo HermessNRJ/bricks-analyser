@@ -752,6 +752,7 @@
 
                 // For revenue evolution chart
                 const revenueStartDate = project.funding?.revenueStartDate; // Safely access
+                console.log('Revenue Chart Processing Project:', project.id, 'StartDate:', revenueStartDate, 'NetReturn:', netMonthlyReturn);
                 if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/) && netMonthlyReturn > 0) {
                     projectRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
                 }
@@ -789,41 +790,51 @@
             });
 
             // Process data for Revenue Evolution Chart
+            console.log('Populated projectRevenueEntries:', JSON.stringify(projectRevenueEntries, null, 2));
             let revenueEvolutionData = {};
             if (projectRevenueEntries.length > 0) {
-                const allRevenueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
+                const sortedUniqueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
+                console.log('Sorted Unique Revenue Start Dates:', JSON.stringify(sortedUniqueStartDates, null, 2));
                 
-                if (allRevenueStartDates.length > 0) {
-                    const firstMonth = allRevenueStartDates[0];
-                    const lastMonth = allRevenueStartDates[allRevenueStartDates.length - 1]; 
-                    // To get a sensible chart, we might want to extend lastMonth to current month or a bit longer
-                    // For now, just use the range of known revenue start dates.
-                    // A more robust solution might involve finding the LATEST month any revenue is active.
-                    // However, the current logic of summing up if startDate <= currentMonth covers active revenue.
-                    // We need a continuous range of months for the chart's X-axis.
+                if (sortedUniqueStartDates.length > 0) {
+                    const firstRevenueMonth = sortedUniqueStartDates[0];
+                    const lastRevenueMonth = sortedUniqueStartDates[sortedUniqueStartDates.length - 1]; 
+                    console.log('Date Range from Revenue Entries: firstMonth:', firstRevenueMonth, 'lastMonth:', lastRevenueMonth);
                     
-                    // Let's use the range from first investment month to last known revenue start date.
-                    // Or, if investmentEvolution is available and has a wider range, consider that.
-                    const investmentMonths = Object.keys(investmentEvolution).sort();
-                    let overallFirstMonth = firstMonth;
-                    let overallLastMonth = lastMonth;
-
-                    if (investmentMonths.length > 0) {
-                        if (investmentMonths[0] < overallFirstMonth) {
-                            overallFirstMonth = investmentMonths[0];
-                        }
-                        // Determine a sensible end month for the revenue chart.
-                        // For now, let's take the latest of investment or revenue start.
-                        // A better approach might be to go up to the current actual month.
-                        const latestInvestmentMonth = investmentMonths[investmentMonths.length - 1];
-                        if (latestInvestmentMonth > overallLastMonth) {
-                            overallLastMonth = latestInvestmentMonth;
-                        }
+                    const investmentMonths = Object.keys(investmentEvolution || {}).sort();
+                    const firstInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[0] : null;
+                    const lastInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[investmentMonths.length - 1] : null;
+                    if (firstInvestmentMonth && lastInvestmentMonth) {
+                        console.log('Date Range from Investment Evolution: firstMonth:', firstInvestmentMonth, 'lastMonth:', lastInvestmentMonth);
+                    } else {
+                        console.log('No valid date range from Investment Evolution.');
                     }
 
+                    let determinedFirstMonth = null;
+                    let determinedLastMonth = null;
+
+                    if (firstRevenueMonth) {
+                        determinedFirstMonth = firstRevenueMonth;
+                        determinedLastMonth = lastRevenueMonth;
+                    }
+
+                    if (firstInvestmentMonth) {
+                        if (!determinedFirstMonth || firstInvestmentMonth < determinedFirstMonth) {
+                            determinedFirstMonth = firstInvestmentMonth;
+                        }
+                        if (!determinedLastMonth || lastInvestmentMonth > determinedLastMonth) {
+                            determinedLastMonth = lastInvestmentMonth;
+                        }
+                    }
+                    
+                    const overallFirstMonth = determinedFirstMonth;
+                    const overallLastMonth = determinedLastMonth;
+
+                    console.log('Overall Date Range for Chart: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth);
 
                     if (overallFirstMonth && overallLastMonth) {
                         const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
+                        console.log('Generated allMonthsInRange for Chart:', JSON.stringify(allMonthsInRange, null, 2));
                         allMonthsInRange.forEach(currentMonth => {
                             let totalRevenueInCurrentMonth = 0;
                             projectRevenueEntries.forEach(entry => {
@@ -834,9 +845,12 @@
                             revenueEvolutionData[currentMonth] = totalRevenueInCurrentMonth;
                         });
                     }
+                } else {
+                     console.warn("Could not determine a valid overall date range for revenue evolution chart.");
+                     // revenueEvolutionData remains {}
                 }
             }
-            console.log("Revenue Evolution Data:", revenueEvolutionData);
+            // console.log("Revenue Evolution Data:", revenueEvolutionData); // Logged at the start of updateUI
 
             return {
                 totalBricks,
@@ -849,6 +863,8 @@
         }
 
         function updateUI(results) {
+            console.log('Final revenueEvolutionData for chart:', JSON.stringify(results.revenueEvolutionData, null, 2)); // Added here
+            document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
             document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
             document.getElementById('totalInvestment').textContent = results.totalInvestment.toLocaleString() + '€';
             document.getElementById('monthlyRevenue').textContent = results.monthlyRevenue.toFixed(2) + '€';
