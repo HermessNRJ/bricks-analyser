@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  bricks-analyzer:
+    build: .
+    container_name: bricks-analyzer
+    ports:
+      - "8080:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+    restart: unless-stopped
+    networks:
+      - bricks-network
+
+networks:
+  bricks-network:
+    driver: bridge
+
+# Optional: Ajouter un volume pour persister les données si nécessaire
+volumes:
+  bricks-data:
+    driver: local
