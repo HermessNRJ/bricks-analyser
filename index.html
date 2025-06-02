@@ -716,7 +716,8 @@
                                 brickPrice: brickPrice,
                                 yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
                                 thumbnailUrl: project.thumbnailUrl || '',
-                                firstSeenMonth: monthKey
+                                firstSeenMonth: monthKey,
+                                funding: project.funding // Ensure funding object is passed for revenueStartDate
                             });
                         }
                     } catch (projectErr) {
@@ -752,7 +753,7 @@
 
                 // For revenue evolution chart
                 const revenueStartDate = project.funding?.revenueStartDate; // Safely access
-                console.log('Revenue Chart Processing Project:', project.id, 'StartDate:', revenueStartDate, 'NetReturn:', netMonthlyReturn);
+                // console.log('Revenue Chart Processing Project:', project.id, 'StartDate:', revenueStartDate, 'NetReturn:', netMonthlyReturn); // Cleaned up
                 if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/) && netMonthlyReturn > 0) {
                     projectRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
                 }
@@ -779,10 +780,11 @@
                 investmentEvolution[month] = cumulativeInvestment;
             });
 
+            // Basic console logs kept for general overview
             console.log('Projets uniques trouvés:', uniqueProjects.size);
-            console.log('Investissements mensuels:', monthlyInvestments);
-            console.log('Évolution cumulative:', investmentEvolution);
-            console.log('Résultats calculés:', {
+            // console.log('Investissements mensuels:', monthlyInvestments); // Can be verbose
+            // console.log('Évolution cumulative:', investmentEvolution); // Can be verbose
+            console.log('Résultats calculés (hors revenueEvolution):', {
                 totalBricks,
                 totalInvestment,
                 monthlyRevenue,
@@ -790,25 +792,25 @@
             });
 
             // Process data for Revenue Evolution Chart
-            console.log('Populated projectRevenueEntries:', JSON.stringify(projectRevenueEntries, null, 2));
+            // console.log('Populated projectRevenueEntries:', JSON.stringify(projectRevenueEntries, null, 2)); // Cleaned up
             let revenueEvolutionData = {};
             if (projectRevenueEntries.length > 0) {
                 const sortedUniqueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
-                console.log('Sorted Unique Revenue Start Dates:', JSON.stringify(sortedUniqueStartDates, null, 2));
+                // console.log('Sorted Unique Revenue Start Dates:', JSON.stringify(sortedUniqueStartDates, null, 2)); // Cleaned up
                 
                 if (sortedUniqueStartDates.length > 0) {
                     const firstRevenueMonth = sortedUniqueStartDates[0];
                     const lastRevenueMonth = sortedUniqueStartDates[sortedUniqueStartDates.length - 1]; 
-                    console.log('Date Range from Revenue Entries: firstMonth:', firstRevenueMonth, 'lastMonth:', lastRevenueMonth);
+                    // console.log('Date Range from Revenue Entries: firstMonth:', firstRevenueMonth, 'lastMonth:', lastRevenueMonth); // Cleaned up
                     
                     const investmentMonths = Object.keys(investmentEvolution || {}).sort();
                     const firstInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[0] : null;
                     const lastInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[investmentMonths.length - 1] : null;
-                    if (firstInvestmentMonth && lastInvestmentMonth) {
-                        console.log('Date Range from Investment Evolution: firstMonth:', firstInvestmentMonth, 'lastMonth:', lastInvestmentMonth);
-                    } else {
-                        console.log('No valid date range from Investment Evolution.');
-                    }
+                    // if (firstInvestmentMonth && lastInvestmentMonth) { // Cleaned up
+                    //     console.log('Date Range from Investment Evolution: firstMonth:', firstInvestmentMonth, 'lastMonth:', lastInvestmentMonth);
+                    // } else {
+                    //     console.log('No valid date range from Investment Evolution.');
+                    // }
 
                     let determinedFirstMonth = null;
                     let determinedLastMonth = null;
@@ -830,11 +832,11 @@
                     const overallFirstMonth = determinedFirstMonth;
                     const overallLastMonth = determinedLastMonth;
 
-                    console.log('Overall Date Range for Chart: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth);
+                    // console.log('Overall Date Range for Chart: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth); // Cleaned up
 
                     if (overallFirstMonth && overallLastMonth) {
                         const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
-                        console.log('Generated allMonthsInRange for Chart:', JSON.stringify(allMonthsInRange, null, 2));
+                        // console.log('Generated allMonthsInRange for Chart:', JSON.stringify(allMonthsInRange, null, 2)); // Cleaned up
                         allMonthsInRange.forEach(currentMonth => {
                             let totalRevenueInCurrentMonth = 0;
                             projectRevenueEntries.forEach(entry => {
@@ -846,11 +848,13 @@
                         });
                     }
                 } else {
-                     console.warn("Could not determine a valid overall date range for revenue evolution chart.");
+                     console.warn("Could not determine a valid overall date range for revenue evolution chart (no sorted unique start dates).");
                      // revenueEvolutionData remains {}
                 }
+            } else {
+                console.log("No project revenue entries to process for revenue evolution chart.");
             }
-            // console.log("Revenue Evolution Data:", revenueEvolutionData); // Logged at the start of updateUI
+            // console.log("Final revenueEvolutionData for chart:", JSON.stringify(revenueEvolutionData, null, 2)); // Logged at start of updateUI
 
             return {
                 totalBricks,
