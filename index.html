@@ -208,6 +208,81 @@
                 min-width: 300px;
             }
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #deletionList {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 25px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        #deletionList li {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 1rem;
+            color: #555;
+        }
+        #deletionList li:last-child {
+            border-bottom: none;
+        }
+
+        .modal-buttons button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+
+        #confirmDeleteBtn {
+            background-color: #ff4d4d;
+            color: white;
+        }
+        #confirmDeleteBtn:hover {
+            background-color: #e60000;
+        }
+
+        #keepItemsBtn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #keepItemsBtn:hover {
+            background-color: #5a6268;
+        }
     </style>
 </head>
 <body>
@@ -270,10 +345,72 @@
         </div>
     </div>
 
+    <div id="deletionModalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Confirmer la suppression</h3>
+            <p style="margin-bottom: 15px; color: #666;">Les projets suivants ne sont pas présents dans le nouveau fichier. Voulez-vous les supprimer de vos données locales ?</p>
+            <ul id="deletionList"></ul>
+            <div class="modal-buttons">
+                <button id="confirmDeleteBtn">Supprimer les éléments listés</button>
+                <button id="keepItemsBtn">Garder tous les éléments</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let investmentChart = null;
         let distributionChart = null;
-        let allData = [];
+        let allData = []; // This will hold the definitive data used by the app
+        window.projectIdsToRemoveLater = []; // Stores project IDs from storage not in the new file
+        const LOCAL_STORAGE_KEY = 'bricksInvestmentData';
+
+        const deletionModalOverlay = document.getElementById('deletionModalOverlay');
+        const deletionListUL = document.getElementById('deletionList');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const keepItemsBtn = document.getElementById('keepItemsBtn');
+        let currentDataContextForModal = null; // To store mergedData for modal operations
+
+        // Helper function to get unique project IDs from a dataset
+        function getUniqueProjectIds(dataset) {
+            const projectIds = new Set();
+            if (dataset && Array.isArray(dataset)) {
+                dataset.forEach(monthEntry => {
+                    if (monthEntry.projects && Array.isArray(monthEntry.projects)) {
+                        monthEntry.projects.forEach(project => {
+                            if (project.id) {
+                                projectIds.add(project.id);
+                            }
+                        });
+                    }
+                });
+            }
+            return projectIds;
+        }
+
+        function loadDataFromLocalStorage() {
+            const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (storedData) {
+                try {
+                    console.log("Loading data from Local Storage...");
+                    const parsedData = JSON.parse(storedData);
+                    if (parsedData && Array.isArray(parsedData)) { // Basic validation
+                        console.log("Data from Local Storage will be processed by finalizeProcessing.");
+                        finalizeProcessing(parsedData); // Use the centralized processing function
+                    } else {
+                        console.warn("Stored data is not in the expected format (array). Clearing.");
+                        // Ensure allData is empty if localStorage is cleared here, to prevent using stale data.
+                        allData = []; 
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                    }
+                } catch (err) {
+                    console.error("Error parsing data from Local Storage:", err);
+                    showError("Erreur lors de la lecture des données locales. Les données pourraient être corrompues.");
+                    localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
+                }
+            } else {
+                console.log("No data found in Local Storage.");
+            }
+        }
 
         document.getElementById('fileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -320,37 +457,157 @@
             error.classList.remove('hidden');
         }
 
-        function processData(data) {
+        function getProjectNameById(projectId, dataContext) {
+            for (const month of dataContext) {
+                if (month.projects && Array.isArray(month.projects)) {
+                    const project = month.projects.find(p => p.id === projectId);
+                    if (project) {
+                        return project.name?.fr || project.name?.en || project.name || `Projet ID: ${projectId}`;
+                    }
+                }
+            }
+            return `Projet ID: ${projectId} (Nom non trouvé)`;
+        }
+
+        function showDeletionModal(projectIds, dataContext) {
+            currentDataContextForModal = dataContext; // Store context
+            deletionListUL.innerHTML = ''; // Clear previous list
+            projectIds.forEach(id => {
+                const listItem = document.createElement('li');
+                listItem.textContent = getProjectNameById(id, dataContext);
+                deletionListUL.appendChild(listItem);
+            });
+            deletionModalOverlay.style.display = 'flex';
+
+            // Remove previous listeners to avoid multiple triggers if modal is shown multiple times
+            const newConfirmBtn = confirmDeleteBtn.cloneNode(true);
+            confirmDeleteBtn.parentNode.replaceChild(newConfirmBtn, confirmDeleteBtn);
+            // confirmDeleteBtn = newConfirmBtn; // Reassign if needed elsewhere, for now direct use
+
+            const newKeepBtn = keepItemsBtn.cloneNode(true);
+            keepItemsBtn.parentNode.replaceChild(newKeepBtn, keepItemsBtn);
+            // keepItemsBtn = newKeepBtn; // Reassign
+
+            newConfirmBtn.addEventListener('click', handleConfirmDelete);
+            newKeepBtn.addEventListener('click', handleKeepItems);
+        }
+
+        function closeDeletionModal() {
+            deletionModalOverlay.style.display = 'none';
+            deletionListUL.innerHTML = '';
+            currentDataContextForModal = null;
+             // Event listeners are implicitly removed by cloning and replacing buttons,
+            // or should be explicitly removed if not cloning.
+        }
+
+        function handleConfirmDelete() {
+            console.log("Deletion confirmed for IDs:", window.projectIdsToRemoveLater);
+            let dataAfterDeletions = JSON.parse(JSON.stringify(currentDataContextForModal)); // Deep copy
+
+            window.projectIdsToRemoveLater.forEach(idToRemove => {
+                dataAfterDeletions.forEach(monthEntry => {
+                    if (monthEntry.projects && Array.isArray(monthEntry.projects)) {
+                        monthEntry.projects = monthEntry.projects.filter(p => p.id !== idToRemove);
+                    }
+                });
+                // Remove month entries if they become empty of projects
+                // This might be too aggressive depending on data structure, adjust if needed
+                // dataAfterDeletions = dataAfterDeletions.filter(monthEntry => monthEntry.projects.length > 0);
+            });
+            
+            finalizeProcessing(dataAfterDeletions);
+            closeDeletionModal();
+        }
+
+        function handleKeepItems() {
+            console.log("Keeping all items. No deletions.");
+            finalizeProcessing(currentDataContextForModal); // Use the data before any deletions
+            closeDeletionModal();
+        }
+        
+        function finalizeProcessing(finalData) {
+            console.log("Finalizing processing with data:", finalData);
+            allData = finalData; // Set the global allData
+
+            const results = calculateInvestmentStats(allData);
+            updateUI(results);
+            createCharts(results);
+            document.getElementById('results').classList.remove('hidden');
+
             try {
-                console.log('Processing data:', data);
-                
-                // Validation de la structure des données
-                if (!Array.isArray(data)) {
-                    throw new Error('Les données doivent être un tableau JSON');
+                console.log("Saving final data to Local Storage...");
+                const jsonData = JSON.stringify(allData);
+                localStorage.setItem(LOCAL_STORAGE_KEY, jsonData);
+                console.log("Final data saved to Local Storage.");
+            } catch (lsErr) {
+                console.error("Error saving final data to Local Storage:", lsErr);
+                showError("Erreur lors de la sauvegarde des données finales localement.");
+            }
+            window.projectIdsToRemoveLater = []; // Clear the list
+        }
+
+        function processData(fileData) {
+            try {
+                console.log('Processing fileData:', fileData);
+
+                // Basic validation for fileData
+                if (!Array.isArray(fileData) || fileData.length === 0) {
+                    showError('Le fichier de données est vide ou invalide.');
+                    return;
                 }
-                
-                if (data.length === 0) {
-                    throw new Error('Le fichier ne contient aucune donnée');
-                }
-                
-                // Vérifier la structure de base
-                for (let i = 0; i < data.length; i++) {
-                    const monthData = data[i];
-                    if (!monthData.yearMonthDate) {
-                        throw new Error(`Élément ${i}: yearMonthDate manquant`);
+                for (let i = 0; i < fileData.length; i++) {
+                    const monthEntry = fileData[i];
+                    if (!monthEntry.yearMonthDate || !monthEntry.projects || !Array.isArray(monthEntry.projects)) {
+                        showError(`Format de données invalide dans le fichier pour l'entrée ${i}.`);
+                        return;
                     }
-                    if (!monthData.projects || !Array.isArray(monthData.projects)) {
-                        throw new Error(`Élément ${i}: projects manquant ou invalide`);
-                    }
                 }
+
+                // Deep copy current allData (from Local Storage or initial empty) to serve as base for merging
+                let mergedData = allData && allData.length > 0 ? JSON.parse(JSON.stringify(allData)) : [];
                 
-                allData = data;
-                const results = calculateInvestmentStats(data);
-                updateUI(results);
-                createCharts(results);
-                document.getElementById('results').classList.remove('hidden');
+                const storageProjectIds = getUniqueProjectIds(mergedData);
+                const fileProjectIds = getUniqueProjectIds(fileData);
+
+                console.log("Storage Project IDs:", storageProjectIds);
+                console.log("File Project IDs:", fileProjectIds);
+
+                // Merge fileData into mergedData
+                fileData.forEach(newMonthEntry => {
+                    let monthInMergedData = mergedData.find(m => m.yearMonthDate === newMonthEntry.yearMonthDate);
+                    if (monthInMergedData) {
+                        // Month exists, merge projects
+                        newMonthEntry.projects.forEach(newProject => {
+                            let existingProject = monthInMergedData.projects.find(p => p.id === newProject.id);
+                            if (existingProject) {
+                                Object.assign(existingProject, newProject); // Update existing project
+                            } else {
+                                monthInMergedData.projects.push(JSON.parse(JSON.stringify(newProject))); // Add new project (deep copy)
+                            }
+                        });
+                    } else {
+                        // Month does not exist, add new month entry (deep copy)
+                        mergedData.push(JSON.parse(JSON.stringify(newMonthEntry)));
+                    }
+                });
+                
+                // Identify project IDs in storage that are NOT in the new file
+                window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
+                console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
+                
+                // Identify project IDs in storage that are NOT in the new file
+                window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
+                console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
+
+                if (window.projectIdsToRemoveLater.length > 0) {
+                    console.log("Showing deletion modal for:", window.projectIdsToRemoveLater);
+                    showDeletionModal(window.projectIdsToRemoveLater, mergedData);
+                } else {
+                    console.log("No projects to delete, finalizing processing.");
+                    finalizeProcessing(mergedData);
+                }
             } catch (err) {
-                console.error('Erreur de traitement:', err);
+                console.error('Erreur de traitement du fichier:', err); // Changed error origin for clarity
                 showError('Erreur lors du traitement des données: ' + err.message);
             }
         }
@@ -649,6 +906,9 @@
             if (investmentChart) investmentChart.resize();
             if (distributionChart) distributionChart.resize();
         });
+
+        // Load data from local storage on page load
+        document.addEventListener('DOMContentLoaded', loadDataFromLocalStorage);
     </script>
 </body>
 </html>
