@@ -384,13 +384,8 @@
                             // Gestion flexible du prix des briques
                             let brickPrice = 10; // Prix par défaut d'une brick (10€)
                             
-                            if (project.brickPrice) {
-                                // Si le prix est en centimes, on divise par 100
-                                if (project.brickPrice >= 1000) {
-                                    brickPrice = project.brickPrice / 100;
-                                } else {
-                                    brickPrice = project.brickPrice;
-                                }
+                            if (typeof project.brickPrice === 'number') { // Check if brickPrice exists and is a number
+                                brickPrice = project.brickPrice / 100;
                             }
 
                             // Stocker ou mettre à jour les informations du projet
@@ -581,7 +576,7 @@
             if (properties.length > MAX_SEGMENTS) {
                 // Trier les propriétés par investissement décroissant
                 const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
-
+                
                 // Prendre les MAX_SEGMENTS - 1 premières propriétés
                 const topProperties = sortedProperties.slice(0, MAX_SEGMENTS - 1);
                 chartLabels = topProperties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
@@ -590,7 +585,7 @@
                 // Calculer la somme des investissements pour les autres propriétés
                 const otherPropertiesInvestment = sortedProperties.slice(MAX_SEGMENTS - 1)
                                                                 .reduce((sum, p) => sum + p.investment, 0);
-
+                
                 if (otherPropertiesInvestment > 0) {
                     chartLabels.push('Autres');
                     chartData.push(otherPropertiesInvestment);
