@@ -154,6 +154,11 @@
             flex-grow: 1; /* Allow this to take available space */
             overflow-y: auto; /* Enable vertical scroll if content overflows */
             min-height: 150px; /* Ensure it's visible even if there's little other content */
+            
+            /* Added for multi-column layout */
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
         }
 
         .property-card {
@@ -353,7 +358,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="monthlyRevenue">0€</div>
-                    <div class="stat-label">Revenus Mensuels Espérés</div>
+                    <div class="stat-label">Revenus Mensuels Nets Espérés</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalProperties">0</div>
@@ -705,9 +710,10 @@
                 totalInvestment += projectInvestment;
                 
                 // Calcul des revenus mensuels espérés
-                const yearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
-                const monthlyReturn = yearlyReturn / 12;
-                monthlyRevenue += monthlyReturn;
+                const grossYearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
+                const grossMonthlyReturn = grossYearlyReturn / 12;
+                const netMonthlyReturn = grossMonthlyReturn * 0.70; // Apply 30% tax
+                monthlyRevenue += netMonthlyReturn; // Accumulate net revenue
 
                 properties.push({
                     id: project.id,
@@ -715,8 +721,8 @@
                     address: project.address,
                     ownedBricks: project.ownedBricks,
                     investment: projectInvestment,
-                    yearlyReturn: project.yearlyReturn,
-                    monthlyRevenue: monthlyReturn,
+                    yearlyReturn: project.yearlyReturn, // Store gross yearly return percentage for display
+                    monthlyRevenue: netMonthlyReturn, // Store net monthly revenue
                     thumbnailUrl: project.thumbnailUrl
                 });
             });
@@ -782,7 +788,7 @@
                         <div><strong>Briques:</strong> ${property.ownedBricks}</div>
                         <div><strong>Investissement:</strong> ${property.investment.toFixed(2)}€</div>
                         <div><strong>Rendement annuel:</strong> ${property.yearlyReturn}%</div>
-                        <div><strong>Revenus mensuels:</strong> ${property.monthlyRevenue.toFixed(2)}€</div>
+                        <div><strong>Revenus mensuels nets:</strong> ${property.monthlyRevenue.toFixed(2)}€</div>
                     </div>
                 </div>
             `;
