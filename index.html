@@ -12,23 +12,36 @@
             box-sizing: border-box;
         }
 
+        html {
+            height: 100%;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            min-height: 100%; /* Changed from 100vh to work with html height 100% */
             color: #333;
+            display: flex;
+            flex-direction: column;
+            margin: 0; /* Ensure no default margin */
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            width: 100%; /* Ensure it takes full width for flex children */
+            min-height: 0; /* Allow container to shrink if content is small */
         }
 
         .header {
             text-align: center;
             color: white;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .header h1 {
@@ -44,6 +57,7 @@
             margin-bottom: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             text-align: center;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .file-input-wrapper {
@@ -78,6 +92,7 @@
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .stat-card {
@@ -112,6 +127,7 @@
             grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 30px;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .chart-container {
@@ -135,6 +151,9 @@
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            flex-grow: 1; /* Allow this to take available space */
+            overflow-y: auto; /* Enable vertical scroll if content overflows */
+            min-height: 150px; /* Ensure it's visible even if there's little other content */
         }
 
         .property-card {
@@ -168,6 +187,13 @@
 
         .hidden {
             display: none;
+        }
+
+        #results { /* This is the main content area that should flex */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-height: 0; /* Important for flex children to not overflow parent */
         }
 
         .error {
@@ -282,6 +308,14 @@
         }
         #keepItemsBtn:hover {
             background-color: #5a6268;
+        }
+
+        .property-thumbnail {
+            width: 100%; /* Make it responsive within the card */
+            max-height: 200px; /* Limit height */
+            object-fit: cover; /* Crop to fit, maintain aspect ratio */
+            border-radius: 8px; /* Match card rounding */
+            margin-bottom: 15px; /* Space below image */
         }
     </style>
 </head>
@@ -735,8 +769,13 @@
 
             // Mise à jour de la liste des propriétés
             const propertiesList = document.getElementById('propertiesList');
-            propertiesList.innerHTML = results.properties.map(property => `
+            propertiesList.innerHTML = results.properties.map(property => {
+                const imageUrl = property.thumbnailUrl;
+                const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">` : '';
+                
+                return `
                 <div class="property-card">
+                    ${imageHtml}
                     <div class="property-name">${property.name}</div>
                     <div class="property-details">
                         <div><strong>Adresse:</strong> ${property.address}</div>
@@ -746,7 +785,8 @@
                         <div><strong>Revenus mensuels:</strong> ${property.monthlyRevenue.toFixed(2)}€</div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function createCharts(results) {
