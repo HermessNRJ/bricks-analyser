@@ -154,11 +154,11 @@
             flex-grow: 1; /* Allow this to take available space */
             overflow-y: auto; /* Enable vertical scroll if content overflows */
             min-height: 150px; /* Ensure it's visible even if there's little other content */
-            
+
             /* Properties for multi-column layout REMOVED:
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 20px; 
+            gap: 20px;
             */
         }
 
@@ -345,6 +345,19 @@
             
             <div id="fileName" style="margin-top: 10px; color: #666;"></div>
             <div id="error" class="error hidden"></div>
+
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
+                <h3 style="margin-bottom: 10px; font-size: 1.2rem; color: #555;">Alternative: Charger via API</h3>
+                <div>
+                    <input type="password" id="apiTokenInput" placeholder="Entrez votre Bearer Token API"
+                           style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 280px; margin-right: 10px; font-size: 14px;">
+                    <button id="fetchApiDataBtn"
+                            style="padding: 10px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                        Charger les données API
+                    </button>
+                </div>
+                <div id="apiLoadingMessage" style="display:none; color: #6c757d; margin-top:10px; font-size: 0.9em;">Chargement des données API...</div>
+            </div>
         </div>
 
         <div id="results" class="hidden">
@@ -415,6 +428,10 @@
         const keepItemsBtn = document.getElementById('keepItemsBtn');
         let currentDataContextForModal = null; // To store mergedData for modal operations
 
+        const apiTokenInput = document.getElementById('apiTokenInput');
+        const fetchApiDataBtn = document.getElementById('fetchApiDataBtn');
+        const apiLoadingMessage = document.getElementById('apiLoadingMessage');
+
         function generateMonthRange(startYYYYMM, endYYYYMM) {
             const months = [];
             let [currentYear, currentMonth] = startYYYYMM.split('-').map(Number);
@@ -460,7 +477,7 @@
                     } else {
                         console.warn("Stored data is not in the expected format (array). Clearing.");
                         // Ensure allData is empty if localStorage is cleared here, to prevent using stale data.
-                        allData = []; 
+                        allData = [];
                         localStorage.removeItem(LOCAL_STORAGE_KEY);
                     }
                 } catch (err) {
@@ -510,6 +527,53 @@
                 };
                 reader.readAsText(file, 'UTF-8');
             }
+        });
+
+        fetchApiDataBtn.addEventListener('click', function() {
+            const token = apiTokenInput.value.trim();
+            if (!token) {
+                showError("Veuillez entrer un Bearer Token API.");
+                return;
+            }
+
+            apiLoadingMessage.style.display = 'block';
+            fetchApiDataBtn.disabled = true;
+            fetchApiDataBtn.style.opacity = '0.7';
+            document.getElementById('error').classList.add('hidden'); // Hide general file error
+
+            fetch('https://api.bricks.co/projects/financed', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().catch(() => {
+                        // If response body is not JSON or other error, throw with status text
+                        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+                    }).then(errorData => {
+                        // If errorData is successfully parsed
+                        throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('error').classList.add('hidden'); // Ensure general error is hidden on success
+                processData(data);
+                apiTokenInput.value = ''; // Clear token after successful fetch
+            })
+            .catch(err => {
+                console.error('Erreur lors de la récupération API:', err);
+                showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
+            })
+            .finally(() => {
+                apiLoadingMessage.style.display = 'none';
+                fetchApiDataBtn.disabled = false;
+                fetchApiDataBtn.style.opacity = '1';
+            });
         });
 
         function showError(message) {
@@ -575,7 +639,7 @@
                 // This might be too aggressive depending on data structure, adjust if needed
                 // dataAfterDeletions = dataAfterDeletions.filter(monthEntry => monthEntry.projects.length > 0);
             });
-            
+
             finalizeProcessing(dataAfterDeletions);
             closeDeletionModal();
         }
@@ -585,7 +649,7 @@
             finalizeProcessing(currentDataContextForModal); // Use the data before any deletions
             closeDeletionModal();
         }
-        
+
         function finalizeProcessing(finalData) {
             console.log("Finalizing processing with data:", finalData);
             allData = finalData; // Set the global allData
@@ -651,7 +715,7 @@
                         mergedData.push(JSON.parse(JSON.stringify(newMonthEntry)));
                     }
                 });
-                
+
                 // Identify project IDs in storage that are NOT in the new file
                 window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
                 console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
@@ -679,7 +743,7 @@
             let monthlyRevenue = 0; // This is NET monthly revenue
             let properties = [];
             let investmentEvolution = {};
-            let uniqueProjects = new Map(); 
+            let uniqueProjects = new Map();
             let projectRevenueEntries = []; // For revenue evolution chart
 
             console.log('Calculating stats for:', data);
@@ -797,12 +861,12 @@
             if (projectRevenueEntries.length > 0) {
                 const sortedUniqueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
                 // console.log('Sorted Unique Revenue Start Dates:', JSON.stringify(sortedUniqueStartDates, null, 2)); // Cleaned up
-                
+
                 if (sortedUniqueStartDates.length > 0) {
                     const firstRevenueMonth = sortedUniqueStartDates[0];
-                    const lastRevenueMonth = sortedUniqueStartDates[sortedUniqueStartDates.length - 1]; 
+                    const lastRevenueMonth = sortedUniqueStartDates[sortedUniqueStartDates.length - 1];
                     // console.log('Date Range from Revenue Entries: firstMonth:', firstRevenueMonth, 'lastMonth:', lastRevenueMonth); // Cleaned up
-                    
+
                     const investmentMonths = Object.keys(investmentEvolution || {}).sort();
                     const firstInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[0] : null;
                     const lastInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[investmentMonths.length - 1] : null;
@@ -828,7 +892,7 @@
                             determinedLastMonth = lastInvestmentMonth;
                         }
                     }
-                    
+
                     const overallFirstMonth = determinedFirstMonth;
                     const overallLastMonth = determinedLastMonth;
 
@@ -879,7 +943,7 @@
             propertiesList.innerHTML = results.properties.map(property => {
                 const imageUrl = property.thumbnailUrl;
                 const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">` : '';
-                
+
                 return `
                 <div class="property-card">
                     ${imageHtml}
@@ -904,14 +968,14 @@
 
         function createRevenueEvolutionChart(revenueData) {
             const ctx = document.getElementById('revenueEvolutionChart').getContext('2d');
-            
+
             if (revenueEvolutionChart) {
                 revenueEvolutionChart.destroy();
             }
 
             if (!revenueData || Object.keys(revenueData).length === 0) {
                 console.log("No data for revenue evolution chart.");
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); 
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
                 // Optionally, display a "No data" message on the canvas
                 // ctx.font = "16px Segoe UI";
                 // ctx.fillStyle = "#888";
@@ -920,9 +984,9 @@
                 return;
             }
 
-            const labels = Object.keys(revenueData).sort(); 
+            const labels = Object.keys(revenueData).sort();
             const data = labels.map(label => revenueData[label]);
-            
+
             revenueEvolutionChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -930,11 +994,11 @@
                     datasets: [{
                         label: 'Revenus Mensuels Nets Cumulés (€)',
                         data: data,
-                        borderColor: '#4bc0c0', 
+                        borderColor: '#4bc0c0',
                         backgroundColor: 'rgba(75, 192, 192, 0.1)',
                         borderWidth: 3,
                         fill: true,
-                        tension: 0.1, 
+                        tension: 0.1,
                         pointBackgroundColor: '#4bc0c0',
                         pointBorderColor: '#ffffff',
                         pointBorderWidth: 2,
@@ -943,7 +1007,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: true, 
+                    maintainAspectRatio: true,
                     plugins: {
                         legend: { display: true, position: 'top' },
                         tooltip: {
@@ -1050,7 +1114,7 @@
             if (properties.length > MAX_SEGMENTS) {
                 // Trier les propriétés par investissement décroissant
                 const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
-                
+
                 // Prendre les MAX_SEGMENTS - 1 premières propriétés
                 const topProperties = sortedProperties.slice(0, MAX_SEGMENTS - 1);
                 chartLabels = topProperties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
@@ -1059,7 +1123,7 @@
                 // Calculer la somme des investissements pour les autres propriétés
                 const otherPropertiesInvestment = sortedProperties.slice(MAX_SEGMENTS - 1)
                                                                 .reduce((sum, p) => sum + p.investment, 0);
-                
+
                 if (otherPropertiesInvestment > 0) {
                     chartLabels.push('Autres');
                     chartData.push(otherPropertiesInvestment);
