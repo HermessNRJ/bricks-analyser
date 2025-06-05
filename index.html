@@ -323,6 +323,21 @@
             border-radius: 8px; /* Match card rounding */
             margin-bottom: 15px; /* Space below image */
         }
+
+        .property-refunded {
+            border-left-color: #868e96 !important;
+            background-color: #f1f3f5 !important;
+            opacity: 0.75;
+        }
+        .property-refunded:hover {
+            opacity: 0.9;
+            transform: translateY(-1px); /* More subtle hover for refunded items */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        }
+        /* Optional: Adjust text color if needed for readability on the new background */
+        .property-refunded .property-name, .property-refunded .property-details div {
+            color: #495057; /* Slightly darker text for better contrast on lighter bg */
+        }
     </style>
 </head>
 <body>
@@ -385,6 +400,10 @@
                 <div class="stat-card">
                     <div class="stat-value" id="totalTaxesSinceBeginning">0€</div>
                     <div class="stat-label">Total Impôts Cumulés (Réel)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="refundedProjectsCountValue">0</div>
+                    <div class="stat-label">Projets Remboursés</div>
                 </div>
             </div>
 
@@ -768,6 +787,7 @@
             let properties = [];
             let investmentEvolution = {};
             let uniqueProjects = new Map();
+            let refundedProjectsCount = 0; // For refunded projects
             let projectNetRevenueEntries = []; // Renamed for NET revenue
             let projectGrossRevenueEntries = []; // For GROSS revenue evolution
 
@@ -816,15 +836,23 @@
                 const projectInvestment = project.ownedBricks * project.brickPrice;
                 totalBricks += project.ownedBricks;
                 totalInvestment += projectInvestment;
+
+                // Check for refunded projects
+                if (project.ownedBricks > 0 && projectInvestment === 0) {
+                    refundedProjectsCount++;
+                }
                 
                 const grossYearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
                 const grossMonthlyReturn = grossYearlyReturn / 12;
                 const netMonthlyReturn = grossMonthlyReturn * 0.70;
                 monthlyRevenue += netMonthlyReturn;
 
+                const isRefunded = (projectInvestment === 0 && project.ownedBricks > 0);
+
                 properties.push({
                     id: project.id,
                     name: project.name,
+                    isRefunded: isRefunded, // Add isRefunded flag
                     address: project.address,
                     ownedBricks: project.ownedBricks,
                     investment: projectInvestment,
@@ -956,7 +984,8 @@
                 grossRevenueEvolutionData,
                 taxAmountEvolutionData,
                 totalNetRevenueSinceBeginning,
-                totalTaxesSinceBeginning
+                totalTaxesSinceBeginning,
+                refundedProjectsCount
             };
         }
 
@@ -970,6 +999,7 @@
             document.getElementById('totalProperties').textContent = results.properties.length;
             document.getElementById('totalNetRevenueSinceBeginning').textContent = results.totalNetRevenueSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
             document.getElementById('totalTaxesSinceBeginning').textContent = results.totalTaxesSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+            if (document.getElementById('refundedProjectsCountValue')) { document.getElementById('refundedProjectsCountValue').textContent = results.refundedProjectsCount || 0; }
 
 
             // Mise à jour de la liste des propriétés
@@ -979,9 +1009,9 @@
                 const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">` : '';
 
                 return `
-                <div class="property-card">
+                <div class="property-card ${property.isRefunded ? 'property-refunded' : ''}">
                     ${imageHtml}
-                    <div class="property-name">${property.name}</div>
+                    <div class="property-name">${property.name} ${property.isRefunded ? '<span style="font-weight:normal; color:#5a6268; font-size: 0.9em;">(Remboursé)</span>' : ''}</div>
                     <div class="property-details">
                         <div><strong>Adresse:</strong> ${property.address}</div>
                         <div><strong>Briques:</strong> ${property.ownedBricks}</div>
@@ -1311,7 +1341,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: true,
+                            maintainAspectRatio: true,
                     plugins: {
                         legend: {
                             position: 'bottom',
