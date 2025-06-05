@@ -378,6 +378,24 @@
                     <div class="stat-value" id="totalProperties">0</div>
                     <div class="stat-label">Propriétés</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalNetRevenueSinceBeginning">0€</div>
+                    <div class="stat-label">Total Net Cumulé (Réel)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTaxesSinceBeginning">0€</div>
+                    <div class="stat-label">Total Impôts Cumulés (Réel)</div>
+                </div>
+            </div>
+
+            <div class="projections-section" style="margin-top: 30px; background: white; border-radius: 15px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); flex-shrink: 0;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #333; font-size: 1.4rem; font-weight: 600;">🗓️ Projections Revenus Mensuels Nets</h3>
+                <div id="projectedRevenuesDisplay" style="display: flex; flex-wrap: wrap; justify-content: space-around; text-align: center; gap: 15px;">
+                    <!-- Projections will be dynamically inserted here by JavaScript -->
+                </div>
+                <p style="font-size: 0.85em; color: #666; text-align: center; margin-top: 20px;">
+                    Note: Les revenus sont généralement versés autour du 8 du mois.
+                </p>
             </div>
 
             <div class="charts-section">
@@ -392,6 +410,10 @@
                 <div class="chart-container">
                     <div class="chart-title">📈 Évolution des Revenus Mensuels Nets</div>
                     <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">💸 Montant de l'Impôt Mensuel (est. 30%)</div>
+                    <canvas id="taxAmountChart" width="400" height="300"></canvas>
                 </div>
             </div>
 
@@ -417,7 +439,9 @@
     <script>
         let investmentChart = null;
         let distributionChart = null;
-        let revenueEvolutionChart = null; // For the new chart
+        let revenueEvolutionChart = null; // Will be for NET revenue
+        let grossRevenueEvolutionChart = null; // For GROSS revenue
+        let taxAmountEvolutionChart = null; // For TAX amounts
         let allData = []; // This will hold the definitive data used by the app
         window.projectIdsToRemoveLater = []; // Stores project IDs from storage not in the new file
         const LOCAL_STORAGE_KEY = 'bricksInvestmentData';
@@ -744,13 +768,14 @@
             let properties = [];
             let investmentEvolution = {};
             let uniqueProjects = new Map();
-            let projectRevenueEntries = []; // For revenue evolution chart
+            let projectNetRevenueEntries = []; // Renamed for NET revenue
+            let projectGrossRevenueEntries = []; // For GROSS revenue evolution
 
             console.log('Calculating stats for:', data);
 
             // Première passe : collecter toutes les propriétés uniques
             data.forEach((monthData, monthIndex) => {
-                console.log(`Processing month ${monthIndex}:`, monthData);
+                // console.log(`Processing month ${monthIndex}:`, monthData); // Verbose
                 
                 const monthKey = monthData.yearMonthDate;
 
@@ -764,14 +789,11 @@
                         const ownedBricks = project.ownedBricks || project.investorBricks?.owned || 0;
                         
                         if (ownedBricks > 0) {
-                            // Gestion flexible du prix des briques
-                            let brickPrice = 10; // Prix par défaut d'une brick (10€)
-                            
-                            if (typeof project.brickPrice === 'number') { // Check if brickPrice exists and is a number
+                            let brickPrice = 10;
+                            if (typeof project.brickPrice === 'number') {
                                 brickPrice = project.brickPrice / 100;
                             }
 
-                            // Stocker ou mettre à jour les informations du projet
                             uniqueProjects.set(project.id, {
                                 id: project.id,
                                 name: (project.name?.fr || project.name?.en || project.name || 'Propriété sans nom'),
@@ -781,7 +803,7 @@
                                 yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
                                 thumbnailUrl: project.thumbnailUrl || '',
                                 firstSeenMonth: monthKey,
-                                funding: project.funding // Ensure funding object is passed for revenueStartDate
+                                funding: project.funding
                             });
                         }
                     } catch (projectErr) {
@@ -790,18 +812,15 @@
                 });
             });
 
-            // Calculer les totaux à partir des projets uniques
             uniqueProjects.forEach((project) => {
                 const projectInvestment = project.ownedBricks * project.brickPrice;
-                
                 totalBricks += project.ownedBricks;
                 totalInvestment += projectInvestment;
                 
-                // Calcul des revenus mensuels espérés
                 const grossYearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
                 const grossMonthlyReturn = grossYearlyReturn / 12;
-                const netMonthlyReturn = grossMonthlyReturn * 0.70; // Apply 30% tax
-                monthlyRevenue += netMonthlyReturn; // Accumulate net revenue
+                const netMonthlyReturn = grossMonthlyReturn * 0.70;
+                monthlyRevenue += netMonthlyReturn;
 
                 properties.push({
                     id: project.id,
@@ -809,116 +828,123 @@
                     address: project.address,
                     ownedBricks: project.ownedBricks,
                     investment: projectInvestment,
-                    yearlyReturn: project.yearlyReturn, // Store gross yearly return percentage for display
-                    monthlyRevenue: netMonthlyReturn, // Store net monthly revenue
+                    yearlyReturn: project.yearlyReturn,
+                    monthlyRevenue: netMonthlyReturn,
                     thumbnailUrl: project.thumbnailUrl,
-                    // funding: project.funding // Keep funding info if needed for other purposes
                 });
 
-                // For revenue evolution chart
-                const revenueStartDate = project.funding?.revenueStartDate; // Safely access
-                // console.log('Revenue Chart Processing Project:', project.id, 'StartDate:', revenueStartDate, 'NetReturn:', netMonthlyReturn); // Cleaned up
-                if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/) && netMonthlyReturn > 0) {
-                    projectRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
+                const revenueStartDate = project.funding?.revenueStartDate;
+                if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/)) {
+                    if (netMonthlyReturn > 0) {
+                        projectNetRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
+                    }
+                    if (grossMonthlyReturn > 0) {
+                        projectGrossRevenueEntries.push({ startDate: revenueStartDate, revenue: grossMonthlyReturn });
+                    }
                 }
             });
 
-            // Calculer l'évolution mensuelle (investissements par mois d'apparition)
             const monthlyInvestments = {};
             uniqueProjects.forEach((project) => {
                 const monthKey = project.firstSeenMonth;
                 const projectInvestment = project.ownedBricks * project.brickPrice;
-                
                 if (!monthlyInvestments[monthKey]) {
                     monthlyInvestments[monthKey] = 0;
                 }
                 monthlyInvestments[monthKey] += projectInvestment;
             });
 
-            // Créer l'évolution cumulative
             const sortedMonths = Object.keys(monthlyInvestments).sort();
             let cumulativeInvestment = 0;
-            
             sortedMonths.forEach(month => {
                 cumulativeInvestment += monthlyInvestments[month];
                 investmentEvolution[month] = cumulativeInvestment;
             });
 
-            // Basic console logs kept for general overview
             console.log('Projets uniques trouvés:', uniqueProjects.size);
-            // console.log('Investissements mensuels:', monthlyInvestments); // Can be verbose
-            // console.log('Évolution cumulative:', investmentEvolution); // Can be verbose
             console.log('Résultats calculés (hors revenueEvolution):', {
-                totalBricks,
-                totalInvestment,
-                monthlyRevenue,
-                propertiesCount: properties.length
+                totalBricks, totalInvestment, monthlyRevenue, propertiesCount: properties.length
             });
 
-            // Process data for Revenue Evolution Chart
-            // console.log('Populated projectRevenueEntries:', JSON.stringify(projectRevenueEntries, null, 2)); // Cleaned up
-            let revenueEvolutionData = {};
-            if (projectRevenueEntries.length > 0) {
-                const sortedUniqueStartDates = [...new Set(projectRevenueEntries.map(e => e.startDate))].sort();
-                // console.log('Sorted Unique Revenue Start Dates:', JSON.stringify(sortedUniqueStartDates, null, 2)); // Cleaned up
+            let netRevenueEvolutionData = {};
+            let grossRevenueEvolutionData = {};
+            let taxAmountEvolutionData = {};
+            let totalNetRevenueSinceBeginning = 0;
+            let totalTaxesSinceBeginning = 0;
 
-                if (sortedUniqueStartDates.length > 0) {
-                    const firstRevenueMonth = sortedUniqueStartDates[0];
-                    const lastRevenueMonth = sortedUniqueStartDates[sortedUniqueStartDates.length - 1];
-                    // console.log('Date Range from Revenue Entries: firstMonth:', firstRevenueMonth, 'lastMonth:', lastRevenueMonth); // Cleaned up
+            const allPossibleStartDates = [];
+            projectNetRevenueEntries.forEach(e => allPossibleStartDates.push(e.startDate));
+            projectGrossRevenueEntries.forEach(e => allPossibleStartDates.push(e.startDate));
+            Object.keys(investmentEvolution || {}).forEach(m => allPossibleStartDates.push(m));
 
-                    const investmentMonths = Object.keys(investmentEvolution || {}).sort();
-                    const firstInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[0] : null;
-                    const lastInvestmentMonth = investmentMonths.length > 0 ? investmentMonths[investmentMonths.length - 1] : null;
-                    // if (firstInvestmentMonth && lastInvestmentMonth) { // Cleaned up
-                    //     console.log('Date Range from Investment Evolution: firstMonth:', firstInvestmentMonth, 'lastMonth:', lastInvestmentMonth);
-                    // } else {
-                    //     console.log('No valid date range from Investment Evolution.');
-                    // }
+            let overallFirstMonth = null;
+            let overallLastMonth = null;
 
-                    let determinedFirstMonth = null;
-                    let determinedLastMonth = null;
-
-                    if (firstRevenueMonth) {
-                        determinedFirstMonth = firstRevenueMonth;
-                        determinedLastMonth = lastRevenueMonth;
-                    }
-
-                    if (firstInvestmentMonth) {
-                        if (!determinedFirstMonth || firstInvestmentMonth < determinedFirstMonth) {
-                            determinedFirstMonth = firstInvestmentMonth;
-                        }
-                        if (!determinedLastMonth || lastInvestmentMonth > determinedLastMonth) {
-                            determinedLastMonth = lastInvestmentMonth;
-                        }
-                    }
-
-                    const overallFirstMonth = determinedFirstMonth;
-                    const overallLastMonth = determinedLastMonth;
-
-                    // console.log('Overall Date Range for Chart: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth); // Cleaned up
-
-                    if (overallFirstMonth && overallLastMonth) {
-                        const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
-                        // console.log('Generated allMonthsInRange for Chart:', JSON.stringify(allMonthsInRange, null, 2)); // Cleaned up
-                        allMonthsInRange.forEach(currentMonth => {
-                            let totalRevenueInCurrentMonth = 0;
-                            projectRevenueEntries.forEach(entry => {
-                                if (entry.startDate <= currentMonth) {
-                                    totalRevenueInCurrentMonth += entry.revenue;
-                                }
-                            });
-                            revenueEvolutionData[currentMonth] = totalRevenueInCurrentMonth;
-                        });
-                    }
-                } else {
-                     console.warn("Could not determine a valid overall date range for revenue evolution chart (no sorted unique start dates).");
-                     // revenueEvolutionData remains {}
-                }
-            } else {
-                console.log("No project revenue entries to process for revenue evolution chart.");
+            if (allPossibleStartDates.length > 0) {
+                const sortedAllDates = [...new Set(allPossibleStartDates)].sort();
+                overallFirstMonth = sortedAllDates[0];
+                overallLastMonth = sortedAllDates[sortedAllDates.length - 1];
             }
-            // console.log("Final revenueEvolutionData for chart:", JSON.stringify(revenueEvolutionData, null, 2)); // Logged at start of updateUI
+
+            // console.log('Overall Date Range for All Evolution Charts: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth); // Cleaned
+
+            if (overallFirstMonth && overallLastMonth) {
+                const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
+                // console.log('Generated allMonthsInRange for Charts:', JSON.stringify(allMonthsInRange, null, 2)); // Cleaned
+
+                if (projectNetRevenueEntries.length > 0) {
+                    allMonthsInRange.forEach(currentMonth => {
+                        let totalNetRevenueInCurrentMonth = 0;
+                        projectNetRevenueEntries.forEach(entry => {
+                            if (entry.startDate <= currentMonth) {
+                                totalNetRevenueInCurrentMonth += entry.revenue;
+                            }
+                        });
+                        netRevenueEvolutionData[currentMonth] = totalNetRevenueInCurrentMonth;
+                    });
+                } else {
+                    // console.log("No project net revenue entries to process for net revenue evolution chart."); // Kept for clarity
+                }
+
+                if (projectGrossRevenueEntries.length > 0) {
+                    allMonthsInRange.forEach(currentMonth => {
+                        let totalGrossRevenueInCurrentMonth = 0;
+                        projectGrossRevenueEntries.forEach(entry => {
+                            if (entry.startDate <= currentMonth) {
+                                totalGrossRevenueInCurrentMonth += entry.revenue;
+                            }
+                        });
+                        grossRevenueEvolutionData[currentMonth] = totalGrossRevenueInCurrentMonth;
+                    });
+                } else {
+                    // console.log("No project gross revenue entries to process for gross revenue evolution chart."); // Kept for clarity
+                }
+
+                const todayForTotals = new Date();
+                const currentSystemMonthKey = `${todayForTotals.getFullYear()}-${String(todayForTotals.getMonth() + 1).padStart(2, '0')}`;
+
+                allMonthsInRange.forEach(currentMonth => {
+                    const gross = grossRevenueEvolutionData[currentMonth] || 0;
+                    const net = netRevenueEvolutionData[currentMonth] || 0;
+                    const tax = gross - net;
+                    taxAmountEvolutionData[currentMonth] = tax;
+
+                    if (currentMonth <= currentSystemMonthKey) {
+                        totalNetRevenueSinceBeginning += net; // This is actually summing cumulative values, not monthly. Needs fix if monthly is desired.
+                        totalTaxesSinceBeginning += tax; // Same issue here.
+                    }
+                });
+                 // The above totals are incorrect if net/grossRevenueEvolutionData store cumulative sums per month.
+                // Correct approach for totals if evolution data IS cumulative:
+                totalNetRevenueSinceBeginning = netRevenueEvolutionData[currentSystemMonthKey] || 0;
+                totalTaxesSinceBeginning = taxAmountEvolutionData[currentSystemMonthKey] || 0;
+                // If evolution data is NOT cumulative but monthly actuals, then the loop sum is correct.
+                // Based on current logic, evolution data IS cumulative active revenue for the month.
+                // So, the direct lookup for currentSystemMonthKey is more appropriate for "total as of current month".
+
+            } else {
+                console.warn("Could not determine a valid overall date range for any evolution chart.");
+            }
 
             return {
                 totalBricks,
@@ -926,17 +952,25 @@
                 monthlyRevenue,
                 properties,
                 investmentEvolution,
-                revenueEvolutionData
+                netRevenueEvolutionData,
+                grossRevenueEvolutionData,
+                taxAmountEvolutionData,
+                totalNetRevenueSinceBeginning,
+                totalTaxesSinceBeginning
             };
         }
 
         function updateUI(results) {
-            console.log('Final revenueEvolutionData for chart:', JSON.stringify(results.revenueEvolutionData, null, 2)); // Added here
-            document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
+            console.log('Final netRevenueEvolutionData for chart:', JSON.stringify(results.netRevenueEvolutionData, null, 2));
+            console.log('Final grossRevenueEvolutionData for chart:', JSON.stringify(results.grossRevenueEvolutionData, null, 2));
+            console.log('Final taxAmountEvolutionData for chart:', JSON.stringify(results.taxAmountEvolutionData, null, 2));
             document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
             document.getElementById('totalInvestment').textContent = results.totalInvestment.toLocaleString() + '€';
             document.getElementById('monthlyRevenue').textContent = results.monthlyRevenue.toFixed(2) + '€';
             document.getElementById('totalProperties').textContent = results.properties.length;
+            document.getElementById('totalNetRevenueSinceBeginning').textContent = results.totalNetRevenueSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+            document.getElementById('totalTaxesSinceBeginning').textContent = results.totalTaxesSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+
 
             // Mise à jour de la liste des propriétés
             const propertiesList = document.getElementById('propertiesList');
@@ -958,34 +992,136 @@
                 </div>
             `;
             }).join('');
+
+            // Populate Projected Revenues
+            const projectedDisplay = document.getElementById('projectedRevenuesDisplay');
+            if (projectedDisplay) { // Check if the element exists
+                projectedDisplay.innerHTML = ''; // Clear previous entries
+
+                const netRevenueData = results.netRevenueEvolutionData || {};
+                const today = new Date();
+                let currentYear = today.getFullYear();
+                let currentMonth = today.getMonth() + 1; // JS months are 0-11
+
+                const monthsToDisplay = [];
+                const monthLabels = ["Ce Mois-ci (est.)", "Mois M+1", "Mois M+2", "Mois M+3"];
+
+                for (let i = 0; i < 4; i++) {
+                    const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                    monthsToDisplay.push({
+                        label: monthLabels[i],
+                        key: monthStr,
+                        value: netRevenueData[monthStr]
+                    });
+
+                    currentMonth++;
+                    if (currentMonth > 12) {
+                        currentMonth = 1;
+                        currentYear++;
+                    }
+                }
+
+                monthsToDisplay.forEach(item => {
+                    const revenueValue = typeof item.value === 'number' ? item.value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : 'N/D';
+                    const cardHtml = `
+                        <div class="stat-card" style="flex-basis: 200px; padding: 15px;">
+                            <div class="stat-value" style="font-size: 1.8rem; margin-bottom: 8px;">${revenueValue}</div>
+                            <div class="stat-label" style="font-size: 0.9rem;">${item.label}</div>
+                        </div>
+                    `;
+                    projectedDisplay.innerHTML += cardHtml;
+                });
+            } else {
+                console.warn("#projectedRevenuesDisplay element not found. Skipping projections update.");
+            }
         }
 
         function createCharts(results) {
             createInvestmentChart(results.investmentEvolution);
             createDistributionChart(results.properties);
-            createRevenueEvolutionChart(results.revenueEvolutionData); // Call the new function
+            createRevenueEvolutionChart(results.netRevenueEvolutionData);
+            createTaxAmountChart(results.taxAmountEvolutionData);
         }
 
-        function createRevenueEvolutionChart(revenueData) {
+        function createTaxAmountChart(taxData) {
+            const ctx = document.getElementById('taxAmountChart').getContext('2d');
+            if (!ctx) return; // Ensure canvas context is found
+
+            if (taxAmountEvolutionChart) {
+                taxAmountEvolutionChart.destroy();
+            }
+
+            const chartContainer = document.getElementById('taxAmountChart')?.closest('.chart-container');
+            if (!taxData || Object.keys(taxData).length === 0) {
+                console.log("No data for tax amount evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
+            const labels = Object.keys(taxData).sort();
+            const data = labels.map(label => taxData[label]);
+
+            taxAmountEvolutionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Montant de l'Impôt (est. 30%)",
+                        data: data,
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Impôt: ${context.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createRevenueEvolutionChart(netRevenueData) { // Parameter renamed
             const ctx = document.getElementById('revenueEvolutionChart').getContext('2d');
+            if (!ctx) return;
 
             if (revenueEvolutionChart) {
                 revenueEvolutionChart.destroy();
             }
 
-            if (!revenueData || Object.keys(revenueData).length === 0) {
+            const chartContainer = document.getElementById('revenueEvolutionChart')?.closest('.chart-container');
+            if (!netRevenueData || Object.keys(netRevenueData).length === 0) {
                 console.log("No data for revenue evolution chart.");
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                // Optionally, display a "No data" message on the canvas
-                // ctx.font = "16px Segoe UI";
-                // ctx.fillStyle = "#888";
-                // ctx.textAlign = "center";
-                // ctx.fillText("Aucune donnée disponible pour ce graphique.", ctx.canvas.width / 2, ctx.canvas.height / 2);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
                 return;
             }
+             if (chartContainer) { chartContainer.style.display = 'block'; }
 
-            const labels = Object.keys(revenueData).sort();
-            const data = labels.map(label => revenueData[label]);
+
+            const labels = Object.keys(netRevenueData).sort();
+            const data = labels.map(label => netRevenueData[label]);
 
             revenueEvolutionChart = new Chart(ctx, {
                 type: 'line',
@@ -1037,15 +1173,26 @@
 
         function createInvestmentChart(investmentEvolution) {
             const ctx = document.getElementById('investmentChart').getContext('2d');
+            if (!ctx) return;
             
             if (investmentChart) {
                 investmentChart.destroy();
             }
 
+            const chartContainer = document.getElementById('investmentChart')?.closest('.chart-container');
+            if (!investmentEvolution || Object.keys(investmentEvolution).length === 0) {
+                 console.log("No data for investment evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
+
             const labels = Object.keys(investmentEvolution).sort();
             const data = labels.map(label => investmentEvolution[label]);
             
-            console.log('Données pour le graphique:', { labels, data });
+            console.log('Données pour le graphique d\'investissement:', { labels, data });
 
             try {
                 investmentChart = new Chart(ctx, {
@@ -1102,10 +1249,21 @@
 
         function createDistributionChart(properties) {
             const ctx = document.getElementById('distributionChart').getContext('2d');
+            if (!ctx) return;
             
             if (distributionChart) {
                 distributionChart.destroy();
             }
+
+            const chartContainer = document.getElementById('distributionChart')?.closest('.chart-container');
+            if (!properties || properties.length === 0) {
+                console.log("No data for distribution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
 
             const MAX_SEGMENTS = 10;
             let chartLabels = [];
@@ -1187,6 +1345,8 @@
             if (investmentChart) investmentChart.resize();
             if (distributionChart) distributionChart.resize();
             if (revenueEvolutionChart) revenueEvolutionChart.resize();
+            if (grossRevenueEvolutionChart) grossRevenueEvolutionChart.resize();
+            if (taxAmountEvolutionChart) taxAmountEvolutionChart.resize();
         });
 
         // Load data from local storage on page load
