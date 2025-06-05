@@ -951,24 +951,42 @@
                 const todayForTotals = new Date();
                 const currentSystemMonthKey = `${todayForTotals.getFullYear()}-${String(todayForTotals.getMonth() + 1).padStart(2, '0')}`;
 
+                // Populate taxAmountEvolutionData first
                 allMonthsInRange.forEach(currentMonth => {
                     const gross = grossRevenueEvolutionData[currentMonth] || 0;
                     const net = netRevenueEvolutionData[currentMonth] || 0;
-                    const tax = gross - net;
-                    taxAmountEvolutionData[currentMonth] = tax;
-
-                    if (currentMonth <= currentSystemMonthKey) {
-                        totalNetRevenueSinceBeginning += net; // This is actually summing cumulative values, not monthly. Needs fix if monthly is desired.
-                        totalTaxesSinceBeginning += tax; // Same issue here.
-                    }
+                    taxAmountEvolutionData[currentMonth] = gross - net;
                 });
-                 // The above totals are incorrect if net/grossRevenueEvolutionData store cumulative sums per month.
-                // Correct approach for totals if evolution data IS cumulative:
-                totalNetRevenueSinceBeginning = netRevenueEvolutionData[currentSystemMonthKey] || 0;
-                totalTaxesSinceBeginning = taxAmountEvolutionData[currentSystemMonthKey] || 0;
-                // If evolution data is NOT cumulative but monthly actuals, then the loop sum is correct.
-                // Based on current logic, evolution data IS cumulative active revenue for the month.
-                // So, the direct lookup for currentSystemMonthKey is more appropriate for "total as of current month".
+
+                // Calculate totalNetRevenueSinceBeginning with logging
+                let calculatedTotalNetRevenueSinceBeginning = 0;
+                console.log('[CUMULATIVE_NET_DEBUG] Calculating totalNetRevenueSinceBeginning. Current System Month Key:', currentSystemMonthKey);
+                console.log('[CUMULATIVE_NET_DEBUG] Iterating netRevenueEvolutionData:', JSON.stringify(netRevenueEvolutionData, null, 2));
+                for (const month in netRevenueEvolutionData) {
+                    const isMonthIncluded = month <= currentSystemMonthKey;
+                    console.log(`[CUMULATIVE_NET_DEBUG] Month: ${month}, Value: ${netRevenueEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isMonthIncluded}`);
+                    if (isMonthIncluded) {
+                        calculatedTotalNetRevenueSinceBeginning += netRevenueEvolutionData[month];
+                        console.log('[CUMULATIVE_NET_DEBUG] Added to totalNet. New Sum:', calculatedTotalNetRevenueSinceBeginning);
+                    }
+                }
+                console.log('[CUMULATIVE_NET_DEBUG] Final calculatedTotalNetRevenueSinceBeginning:', calculatedTotalNetRevenueSinceBeginning);
+                totalNetRevenueSinceBeginning = calculatedTotalNetRevenueSinceBeginning;
+
+                // Calculate totalTaxesSinceBeginning with logging
+                let calculatedTotalTaxesSinceBeginning = 0;
+                console.log('[CUMULATIVE_TAX_DEBUG] Calculating totalTaxesSinceBeginning. Current System Month Key:', currentSystemMonthKey);
+                console.log('[CUMULATIVE_TAX_DEBUG] Iterating taxAmountEvolutionData:', JSON.stringify(taxAmountEvolutionData, null, 2));
+                for (const month in taxAmountEvolutionData) {
+                    const isTaxMonthIncluded = month <= currentSystemMonthKey;
+                    console.log(`[CUMULATIVE_TAX_DEBUG] Month: ${month}, Value: ${taxAmountEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isTaxMonthIncluded}`);
+                    if (isTaxMonthIncluded) {
+                        calculatedTotalTaxesSinceBeginning += taxAmountEvolutionData[month];
+                        console.log('[CUMULATIVE_TAX_DEBUG] Added to totalTaxes. New Sum:', calculatedTotalTaxesSinceBeginning);
+                    }
+                }
+                console.log('[CUMULATIVE_TAX_DEBUG] Final calculatedTotalTaxesSinceBeginning:', calculatedTotalTaxesSinceBeginning);
+                totalTaxesSinceBeginning = calculatedTotalTaxesSinceBeginning;
 
             } else {
                 console.warn("Could not determine a valid overall date range for any evolution chart.");
