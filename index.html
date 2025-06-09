@@ -351,6 +351,28 @@
         .property-ongoing:hover, .property-upcoming:hover {
             opacity: 1; /* Ensure full opacity on hover if base has some transparency */
         }
+
+        #scrollToTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            z-index: 99;
+            border: none;
+            outline: none;
+            background-color: #667eea;
+            color: white;
+            cursor: pointer;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s, opacity 0.3s;
+        }
+
+        #scrollToTopBtn:hover {
+            background-color: #5a6bcd;
+        }
     </style>
 </head>
 <body>
@@ -385,6 +407,9 @@
                     </button>
                 </div>
                 <div id="apiLoadingMessage" style="display:none; color: #6c757d; margin-top:10px; font-size: 0.9em;">Chargement des données API...</div>
+                    <button id="resetCacheBtn" style="margin-left: 15px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                        Effacer les Données Locales
+                    </button>
             </div>
         </div>
 
@@ -491,6 +516,21 @@
         const apiTokenInput = document.getElementById('apiTokenInput');
         const fetchApiDataBtn = document.getElementById('fetchApiDataBtn');
         const apiLoadingMessage = document.getElementById('apiLoadingMessage');
+
+        function addMonthsToYYYYMM(yyyymm, monthsToAdd) {
+            if (!yyyymm || !yyyymm.includes('-')) return null;
+            let [year, month] = yyyymm.split('-').map(Number);
+            month += monthsToAdd;
+            while (month > 12) {
+                month -= 12;
+                year++;
+            }
+            while (month <= 0) { // Should handle cases where monthsToAdd is negative, though not used here
+                month += 12;
+                year--;
+            }
+            return `${year}-${String(month).padStart(2, '0')}`;
+        }
 
         function generateMonthRange(startYYYYMM, endYYYYMM) {
             const months = [];
@@ -795,7 +835,7 @@
 
         function processData(fileData) {
             try {
-                console.log('Processing fileData:', fileData);
+                console.log('[EVO_DEBUG_PROCESS_DATA] Data received by processData:', JSON.stringify(fileData, null, 2));
 
                 // Basic validation for fileData
                 if (!Array.isArray(fileData) || fileData.length === 0) {
@@ -968,6 +1008,12 @@
                     }
                 }
             });
+            console.log('[EVO_DEBUG_CALC_STATS] projectNetRevenueEntries:', JSON.stringify(projectNetRevenueEntries, null, 2));
+            console.log('[EVO_DEBUG_CALC_STATS] projectGrossRevenueEntries:', JSON.stringify(projectGrossRevenueEntries, null, 2));
+
+            // Note: The determination of firstRevenueMonth, lastRevenueMonth, etc. for logging
+            // was already integrated in the previous step while adding other EVO_DEBUG logs.
+            // The existing log for "[EVO_DEBUG_CALC_STATS] Date components:" is sufficient.
 
             const monthlyInvestments = {};
             uniqueProjects.forEach((project) => {
@@ -1005,20 +1051,56 @@
             projectGrossRevenueEntries.forEach(e => allPossibleStartDates.push(e.startDate));
             Object.keys(investmentEvolution || {}).forEach(m => allPossibleStartDates.push(m));
 
-            let overallFirstMonth = null;
-            let overallLastMonth = null;
-
-            if (allPossibleStartDates.length > 0) {
-                const sortedAllDates = [...new Set(allPossibleStartDates)].sort();
-                overallFirstMonth = sortedAllDates[0];
-                overallLastMonth = sortedAllDates[sortedAllDates.length - 1];
+            let firstRevenueMonth = null, lastRevenueMonth = null;
+            if (projectNetRevenueEntries.length > 0 || projectGrossRevenueEntries.length > 0) {
+                const revenueDates = [...projectNetRevenueEntries, ...projectGrossRevenueEntries].map(e => e.startDate).sort();
+                firstRevenueMonth = revenueDates[0];
+                lastRevenueMonth = revenueDates[revenueDates.length - 1];
             }
 
-            // console.log('Overall Date Range for All Evolution Charts: firstMonth:', overallFirstMonth, 'lastMonth:', overallLastMonth); // Cleaned
+            let firstInvestmentMonth = null, lastInvestmentMonth = null;
+            const investmentMonths = Object.keys(investmentEvolution);
+            if (investmentMonths.length > 0) {
+                firstInvestmentMonth = investmentMonths[0]; // Already sorted
+                lastInvestmentMonth = investmentMonths[investmentMonths.length - 1];
+            }
+            console.log('[EVO_DEBUG_CALC_STATS] Date components: firstRevenueMonth:', firstRevenueMonth, 'lastRevenueMonth:', lastRevenueMonth, 'firstInvestmentMonth:', firstInvestmentMonth, 'lastInvestmentMonth:', lastInvestmentMonth);
+
+            let determinedFirstMonth = null;
+            let determinedLastMonth = null;
+
+            if (allPossibleStartDates.length > 0) {
+                const sortedAllDates = [...new Set(allPossibleStartDates)].filter(d => d && d !== "N/A").sort();
+                if (sortedAllDates.length > 0) {
+                    determinedFirstMonth = sortedAllDates[0];
+                    determinedLastMonth = sortedAllDates[sortedAllDates.length - 1];
+                }
+            }
+
+            const todayForProjection = new Date();
+            const currentSystemMonthKeyForProjection = `${todayForProjection.getFullYear()}-${String(todayForProjection.getMonth() + 1).padStart(2, '0')}`;
+            const projectionEndMonth = addMonthsToYYYYMM(currentSystemMonthKeyForProjection, 3);
+
+            let finalOverallFirstMonth = determinedFirstMonth;
+            let finalOverallLastMonth = determinedLastMonth;
+
+            if (projectionEndMonth) {
+                if (!finalOverallLastMonth || projectionEndMonth > finalOverallLastMonth) {
+                    finalOverallLastMonth = projectionEndMonth;
+                }
+                if (!finalOverallFirstMonth) {
+                    finalOverallFirstMonth = currentSystemMonthKeyForProjection;
+                }
+            }
+
+            overallFirstMonth = finalOverallFirstMonth; // Assign to the variables used by generateMonthRange
+            overallLastMonth = finalOverallLastMonth;
+
+            console.log('[EVO_DEBUG_CALC_STATS] Final overall date range: overallFirstMonth:', overallFirstMonth, 'overallLastMonth:', overallLastMonth);
 
             if (overallFirstMonth && overallLastMonth) {
                 const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
-                // console.log('Generated allMonthsInRange for Charts:', JSON.stringify(allMonthsInRange, null, 2)); // Cleaned
+                console.log('[EVO_DEBUG_CALC_STATS] allMonthsInRange:', JSON.stringify(allMonthsInRange, null, 2));
 
                 if (projectNetRevenueEntries.length > 0) {
                     allMonthsInRange.forEach(currentMonth => {
@@ -1061,12 +1143,12 @@
                 // Calculate totalNetRevenueSinceBeginning with logging
                 let calculatedTotalNetRevenueSinceBeginning = 0;
                 console.log('[CUMULATIVE_NET_DEBUG] Calculating totalNetRevenueSinceBeginning. Current System Month Key:', currentSystemMonthKey);
-                console.log('[CUMULATIVE_NET_DEBUG] Iterating netRevenueEvolutionData:', JSON.stringify(netRevenueEvolutionData, null, 2));
+                console.log('[CUMULATIVE_NET_DEBUG] Iterating local netRevenueEvolutionData for sum:', JSON.stringify(netRevenueEvolutionData, null, 2)); // Ensure this uses local
                 for (const month in netRevenueEvolutionData) {
                     const isMonthIncluded = month <= currentSystemMonthKey;
-                    console.log(`[CUMULATIVE_NET_DEBUG] Month: ${month}, Value: ${netRevenueEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isMonthIncluded}`);
+                    console.log(`[CUMULATIVE_NET_DEBUG] Net Month: ${month}, Value: ${netRevenueEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isMonthIncluded}`);
                     if (isMonthIncluded) {
-                        calculatedTotalNetRevenueSinceBeginning += netRevenueEvolutionData[month];
+                        calculatedTotalNetRevenueSinceBeginning += netRevenueEvolutionData[month]; // Use local
                         console.log('[CUMULATIVE_NET_DEBUG] Added to totalNet. New Sum:', calculatedTotalNetRevenueSinceBeginning);
                     }
                 }
@@ -1076,17 +1158,21 @@
                 // Calculate totalTaxesSinceBeginning with logging
                 let calculatedTotalTaxesSinceBeginning = 0;
                 console.log('[CUMULATIVE_TAX_DEBUG] Calculating totalTaxesSinceBeginning. Current System Month Key:', currentSystemMonthKey);
-                console.log('[CUMULATIVE_TAX_DEBUG] Iterating taxAmountEvolutionData:', JSON.stringify(taxAmountEvolutionData, null, 2));
+                console.log('[CUMULATIVE_TAX_DEBUG] Iterating local taxAmountEvolutionData for sum:', JSON.stringify(taxAmountEvolutionData, null, 2)); // Ensure this uses local
                 for (const month in taxAmountEvolutionData) {
                     const isTaxMonthIncluded = month <= currentSystemMonthKey;
-                    console.log(`[CUMULATIVE_TAX_DEBUG] Month: ${month}, Value: ${taxAmountEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isTaxMonthIncluded}`);
+                    console.log(`[CUMULATIVE_TAX_DEBUG] Tax Month: ${month}, Value: ${taxAmountEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isTaxMonthIncluded}`);
                     if (isTaxMonthIncluded) {
-                        calculatedTotalTaxesSinceBeginning += taxAmountEvolutionData[month];
+                        calculatedTotalTaxesSinceBeginning += taxAmountEvolutionData[month]; // Use local
                         console.log('[CUMULATIVE_TAX_DEBUG] Added to totalTaxes. New Sum:', calculatedTotalTaxesSinceBeginning);
                     }
                 }
                 console.log('[CUMULATIVE_TAX_DEBUG] Final calculatedTotalTaxesSinceBeginning:', calculatedTotalTaxesSinceBeginning);
                 totalTaxesSinceBeginning = calculatedTotalTaxesSinceBeginning;
+
+                console.log('[EVO_DEBUG_CALC_STATS] Generated netRevenueEvolutionData:', JSON.stringify(netRevenueEvolutionData, null, 2));
+                console.log('[EVO_DEBUG_CALC_STATS] Generated grossRevenueEvolutionData:', JSON.stringify(grossRevenueEvolutionData, null, 2));
+                console.log('[EVO_DEBUG_CALC_STATS] Generated taxAmountEvolutionData:', JSON.stringify(taxAmountEvolutionData, null, 2));
 
             } else {
                 console.warn("Could not determine a valid overall date range for any evolution chart.");
@@ -1162,7 +1248,7 @@
             const projectedDisplay = document.getElementById('projectedRevenuesDisplay');
             if (projectedDisplay) { // Check if the element exists
                 projectedDisplay.innerHTML = ''; // Clear previous entries
-
+                console.log('[PROJECTION_DEBUG] results.netRevenueEvolutionData received by updateUI for projections:', JSON.stringify(results.netRevenueEvolutionData, null, 2));
                 const netRevenueData = results.netRevenueEvolutionData || {};
                 const today = new Date();
                 let currentYear = today.getFullYear();
@@ -1173,10 +1259,13 @@
 
                 for (let i = 0; i < 4; i++) {
                     const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                    console.log(`[PROJECTION_DEBUG] For Label: "${monthLabels[i]}",  Month Key: "${monthStr}"`);
+                    const currentMonthValue = netRevenueData[monthStr];
+                    console.log(`[PROJECTION_DEBUG] Looked up value for "${monthStr}":`, currentMonthValue);
                     monthsToDisplay.push({
                         label: monthLabels[i],
                         key: monthStr,
-                        value: netRevenueData[monthStr]
+                        value: currentMonthValue
                     });
 
                     currentMonth++;
@@ -1185,7 +1274,7 @@
                         currentYear++;
                     }
                 }
-
+                console.log('[PROJECTION_DEBUG] monthsToDisplay array for projections:', JSON.stringify(monthsToDisplay, null, 2));
                 monthsToDisplay.forEach(item => {
                     const revenueValue = typeof item.value === 'number' ? item.value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : 'N/D';
                     const cardHtml = `
@@ -1515,7 +1604,36 @@
         });
 
         // Load data from local storage on page load
-        document.addEventListener('DOMContentLoaded', loadDataFromLocalStorage);
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDataFromLocalStorage();
+
+            // Scroll to Top Button Logic
+            const scrollToTopBtn = document.getElementById("scrollToTopBtn");
+            if (scrollToTopBtn) {
+                window.onscroll = function() {
+                    if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                        scrollToTopBtn.style.display = "block";
+                    } else {
+                        scrollToTopBtn.style.display = "none";
+                    }
+                };
+                scrollToTopBtn.addEventListener('click', function() {
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                });
+            }
+
+            // Reset Cache Button Logic
+            const localResetCacheBtn = document.getElementById('resetCacheBtn');
+            if(localResetCacheBtn) {
+                 localResetCacheBtn.addEventListener('click', function() {
+                    if (confirm("Êtes-vous sûr de vouloir effacer toutes les données stockées localement ? Cette action est irréversible.")) {
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                        location.reload();
+                    }
+                });
+            }
+        });
     </script>
+    <button id="scrollToTopBtn" title="Retour en haut">↑</button>
 </body>
 </html>
