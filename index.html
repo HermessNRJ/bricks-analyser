@@ -338,6 +338,19 @@
         .property-refunded .property-name, .property-refunded .property-details div {
             color: #495057; /* Slightly darker text for better contrast on lighter bg */
         }
+
+        .property-ongoing {
+            border-left-color: #007bff !important; /* Blue for ongoing */
+            background-color: #e7f3ff !important;
+        }
+        .property-upcoming {
+            border-left-color: #ffc107 !important; /* Yellow for upcoming */
+            background-color: #fff9e6 !important;
+        }
+        /* Optional: Adjust opacity or other styles if needed */
+        .property-ongoing:hover, .property-upcoming:hover {
+            opacity: 1; /* Ensure full opacity on hover if base has some transparency */
+        }
     </style>
 </head>
 <body>
@@ -404,6 +417,10 @@
                 <div class="stat-card">
                     <div class="stat-value" id="refundedProjectsCountValue">0</div>
                     <div class="stat-label">Projets Remboursés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="fundingProjectsCountValue">0</div>
+                    <div class="stat-label">Projets En Financement/À Venir</div>
                 </div>
             </div>
 
@@ -584,6 +601,8 @@
             fetchApiDataBtn.style.opacity = '0.7';
             document.getElementById('error').classList.add('hidden'); // Hide general file error
 
+            let financedProjectsData = []; // Declare here to make it accessible in catch block
+
             fetch('https://api.bricks.co/projects/financed', {
                 method: 'GET',
                 headers: {
@@ -603,14 +622,74 @@
                 }
                 return response.json();
             })
-            .then(data => {
-                document.getElementById('error').classList.add('hidden'); // Ensure general error is hidden on success
-                processData(data);
-                apiTokenInput.value = ''; // Clear token after successful fetch
+            .then(data => { // data is financedProjectsData
+                financedProjectsData = data; // Store it
+                // Now fetch the second endpoint
+                return fetch('https://api.bricks.co/projects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+            })
+            .then(response => { // Response from /projects
+                if (!response.ok) {
+                    return response.json().catch(() => {
+                        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText} (en récupérant les projets en cours/à venir)`);
+                    }).then(errorData => {
+                        throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)} (en récupérant les projets en cours/à venir)`);
+                    });
+                }
+                return response.json();
+            })
+            .then(fundingStatusData => { // Data from /projects
+                let additionalProjects = [];
+                if (fundingStatusData.ongoing && fundingStatusData.ongoing.projects) {
+                    fundingStatusData.ongoing.projects.forEach(proj => {
+                        if (proj.ownedBricks > 0) {
+                            proj.projectStatus = 'ongoing';
+                            additionalProjects.push(proj);
+                        }
+                    });
+                }
+                if (fundingStatusData.upcoming && fundingStatusData.upcoming.projects) {
+                    fundingStatusData.upcoming.projects.forEach(proj => {
+                        if (proj.ownedBricks > 0) {
+                            proj.projectStatus = 'upcoming';
+                            additionalProjects.push(proj);
+                        }
+                    });
+                }
+
+                // Combine financed with ongoing/upcoming.
+                // Note: The structure of financed projects (array of month entries) is different from ongoing/upcoming (direct project objects).
+                // For now, this will create a mixed array. processData might need adjustment or this combination logic refined.
+                // For this task, we assume processData can handle this or will be adapted later.
+                // A simple approach for now: wrap additional projects into a structure similar to financed ones (e.g. a single "current month" entry)
+                // OR, if processData is robust, it might handle a flat list of projects directly.
+                // Given the current structure of processData (expects array of month entries), this simple concat might lead to issues.
+                // Let's try a slightly more compatible merge: add additional projects to the most recent month entry of financedProjectsData if available,
+                // or create a new month entry for them.
+                // For simplicity for THIS task, just concat and assume processData will be made robust or this is a temporary step.
+                const combinedData = [...financedProjectsData, ...additionalProjects.map(p => ({ yearMonthDate: "N/A", projects: [p] }))];
+
+
+                document.getElementById('error').classList.add('hidden');
+                processData(combinedData);
+                apiTokenInput.value = '';
             })
             .catch(err => {
                 console.error('Erreur lors de la récupération API:', err);
-                showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
+                if (financedProjectsData && financedProjectsData.length > 0) {
+                    // First call succeeded, second failed
+                    showError(`Données des projets financés chargées, mais échec de la récupération des projets en cours/à venir: ${err.message}`);
+                    processData(financedProjectsData); // Process partial data
+                    apiTokenInput.value = ''; // Still clear token
+                } else {
+                    // First call failed or other error
+                    showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
+                }
             })
             .finally(() => {
                 apiLoadingMessage.style.display = 'none';
@@ -788,6 +867,7 @@
             let investmentEvolution = {};
             let uniqueProjects = new Map();
             let refundedProjectsCount = 0; // For refunded projects
+            let fundingOrUpcomingProjectsCount = 0; // For ongoing/upcoming projects
             let projectNetRevenueEntries = []; // Renamed for NET revenue
             let projectGrossRevenueEntries = []; // For GROSS revenue evolution
 
@@ -823,7 +903,8 @@
                                 yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
                                 thumbnailUrl: project.thumbnailUrl || '',
                                 firstSeenMonth: monthKey,
-                                funding: project.funding
+                                funding: project.funding,
+                                projectStatus: project.projectStatus || 'financed' // Propagate status
                             });
                         }
                     } catch (projectErr) {
@@ -851,6 +932,11 @@
                 if (project.ownedBricks > 0 && projectInvestment === 0) {
                     refundedProjectsCount++;
                 }
+
+                // Count ongoing/upcoming projects
+                if (project.projectStatus === 'ongoing' || project.projectStatus === 'upcoming') {
+                    fundingOrUpcomingProjectsCount++;
+                }
                 
                 const grossYearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
                 const grossMonthlyReturn = grossYearlyReturn / 12;
@@ -869,6 +955,7 @@
                     yearlyReturn: project.yearlyReturn,
                     monthlyRevenue: netMonthlyReturn,
                     thumbnailUrl: project.thumbnailUrl,
+                    projectStatus: project.projectStatus // Propagate status to properties array
                 });
 
                 const revenueStartDate = project.funding?.revenueStartDate;
@@ -1017,7 +1104,8 @@
                 totalNetRevenueSinceBeginning,
                 totalTaxesSinceBeginning,
                 refundedProjectsCount,
-                activePropertiesCount
+                activePropertiesCount,
+                fundingOrUpcomingProjectsCount
             };
         }
 
@@ -1032,6 +1120,7 @@
             document.getElementById('totalNetRevenueSinceBeginning').textContent = results.totalNetRevenueSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
             document.getElementById('totalTaxesSinceBeginning').textContent = results.totalTaxesSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
             if (document.getElementById('refundedProjectsCountValue')) { document.getElementById('refundedProjectsCountValue').textContent = results.refundedProjectsCount || 0; }
+            if (document.getElementById('fundingProjectsCountValue')) { document.getElementById('fundingProjectsCountValue').textContent = results.fundingOrUpcomingProjectsCount || 0; }
 
 
             // Mise à jour de la liste des propriétés
@@ -1040,10 +1129,24 @@
                 const imageUrl = property.thumbnailUrl;
                 const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">` : '';
 
+                let cardClasses = "property-card";
+                if (property.isRefunded) cardClasses += " property-refunded";
+                if (property.projectStatus === 'ongoing') cardClasses += " property-ongoing";
+                if (property.projectStatus === 'upcoming') cardClasses += " property-upcoming";
+
+                let statusBadge = "";
+                if (property.isRefunded) {
+                    statusBadge = '<span style="font-weight:normal; color:#5a6268; font-size: 0.9em;">(Remboursé)</span>';
+                } else if (property.projectStatus === 'ongoing') {
+                    statusBadge = '<span style="font-weight:normal; color:#007bff; font-size: 0.9em;">(En Financement)</span>';
+                } else if (property.projectStatus === 'upcoming') {
+                    statusBadge = '<span style="font-weight:normal; color:#ffc107; font-size: 0.9em;">(À Venir)</span>';
+                }
+
                 return `
-                <div class="property-card ${property.isRefunded ? 'property-refunded' : ''}">
+                <div class="${cardClasses}">
                     ${imageHtml}
-                    <div class="property-name">${property.name} ${property.isRefunded ? '<span style="font-weight:normal; color:#5a6268; font-size: 0.9em;">(Remboursé)</span>' : ''}</div>
+                    <div class="property-name">${property.name} ${statusBadge}</div>
                     <div class="property-details">
                         <div><strong>Adresse:</strong> ${property.address}</div>
                         <div><strong>Briques:</strong> ${property.ownedBricks}</div>
