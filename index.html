@@ -834,8 +834,18 @@
 
             uniqueProjects.forEach((project) => {
                 const projectInvestment = project.ownedBricks * project.brickPrice;
+                // INVEST_DEBUG: Log project contribution details
+                console.log(
+                    '[INVEST_DEBUG] Processing Project for Total Investment:',
+                    'ID:', project.id,
+                    'Name:', project.name,
+                    'OwnedBricks:', project.ownedBricks,
+                    'BrickPrice (calc):', project.brickPrice,
+                    'Contribution:', projectInvestment
+                );
                 totalBricks += project.ownedBricks;
                 totalInvestment += projectInvestment;
+                console.log('[INVEST_DEBUG] Running totalInvestment:', totalInvestment); // INVEST_DEBUG: Log running total
 
                 // Check for refunded projects
                 if (project.ownedBricks > 0 && projectInvestment === 0) {
@@ -890,8 +900,11 @@
             });
 
             console.log('Projets uniques trouvés:', uniqueProjects.size);
+            // Calculate active properties count
+            const activePropertiesCount = properties.filter(p => !p.isRefunded).length;
+            console.log('[INVEST_DEBUG] Final totalInvestment before returning results:', totalInvestment); // INVEST_DEBUG: Log final total
             console.log('Résultats calculés (hors revenueEvolution):', {
-                totalBricks, totalInvestment, monthlyRevenue, propertiesCount: properties.length
+                totalBricks, totalInvestment, monthlyRevenue, totalPropertiesInList: properties.length, activePropertiesCount
             });
 
             let netRevenueEvolutionData = {};
@@ -1003,7 +1016,8 @@
                 taxAmountEvolutionData,
                 totalNetRevenueSinceBeginning,
                 totalTaxesSinceBeginning,
-                refundedProjectsCount
+                refundedProjectsCount,
+                activePropertiesCount
             };
         }
 
@@ -1014,7 +1028,7 @@
             document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
             document.getElementById('totalInvestment').textContent = results.totalInvestment.toLocaleString() + '€';
             document.getElementById('monthlyRevenue').textContent = results.monthlyRevenue.toFixed(2) + '€';
-            document.getElementById('totalProperties').textContent = results.properties.length;
+            document.getElementById('totalProperties').textContent = results.activePropertiesCount || 0;
             document.getElementById('totalNetRevenueSinceBeginning').textContent = results.totalNetRevenueSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
             document.getElementById('totalTaxesSinceBeginning').textContent = results.totalTaxesSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
             if (document.getElementById('refundedProjectsCountValue')) { document.getElementById('refundedProjectsCountValue').textContent = results.refundedProjectsCount || 0; }
