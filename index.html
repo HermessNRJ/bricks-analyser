@@ -12,23 +12,36 @@
             box-sizing: border-box;
         }
 
+        html {
+            height: 100%;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            min-height: 100%; /* Changed from 100vh to work with html height 100% */
             color: #333;
+            display: flex;
+            flex-direction: column;
+            margin: 0; /* Ensure no default margin */
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            width: 100%; /* Ensure it takes full width for flex children */
+            min-height: 0; /* Allow container to shrink if content is small */
         }
 
         .header {
             text-align: center;
             color: white;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .header h1 {
@@ -44,6 +57,7 @@
             margin-bottom: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             text-align: center;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .file-input-wrapper {
@@ -78,6 +92,7 @@
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .stat-card {
@@ -112,6 +127,7 @@
             grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 30px;
             margin-bottom: 30px;
+            flex-shrink: 0; /* Prevent shrinking */
         }
 
         .chart-container {
@@ -119,6 +135,7 @@
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
         .chart-title {
@@ -134,6 +151,15 @@
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            flex-grow: 1; /* Allow this to take available space */
+            overflow-y: auto; /* Enable vertical scroll if content overflows */
+            min-height: 150px; /* Ensure it's visible even if there's little other content */
+
+            /* Properties for multi-column layout REMOVED:
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            */
         }
 
         .property-card {
@@ -167,6 +193,13 @@
 
         .hidden {
             display: none;
+        }
+
+        #results { /* This is the main content area that should flex */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-height: 0; /* Important for flex children to not overflow parent */
         }
 
         .error {
@@ -207,6 +240,139 @@
                 min-width: 300px;
             }
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        #deletionList {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 25px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        #deletionList li {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 1rem;
+            color: #555;
+        }
+        #deletionList li:last-child {
+            border-bottom: none;
+        }
+
+        .modal-buttons button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+
+        #confirmDeleteBtn {
+            background-color: #ff4d4d;
+            color: white;
+        }
+        #confirmDeleteBtn:hover {
+            background-color: #e60000;
+        }
+
+        #keepItemsBtn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #keepItemsBtn:hover {
+            background-color: #5a6268;
+        }
+
+        .property-thumbnail {
+            width: 100%; /* Make it responsive within the card */
+            max-height: 200px; /* Limit height */
+            object-fit: cover; /* Crop to fit, maintain aspect ratio */
+            border-radius: 8px; /* Match card rounding */
+            margin-bottom: 15px; /* Space below image */
+        }
+
+        .property-refunded {
+            border-left-color: #868e96 !important;
+            background-color: #f1f3f5 !important;
+            opacity: 0.75;
+        }
+        .property-refunded:hover {
+            opacity: 0.9;
+            transform: translateY(-1px); /* More subtle hover for refunded items */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        }
+        /* Optional: Adjust text color if needed for readability on the new background */
+        .property-refunded .property-name, .property-refunded .property-details div {
+            color: #495057; /* Slightly darker text for better contrast on lighter bg */
+        }
+
+        .property-ongoing {
+            border-left-color: #007bff !important; /* Blue for ongoing */
+            background-color: #e7f3ff !important;
+        }
+        .property-upcoming {
+            border-left-color: #ffc107 !important; /* Yellow for upcoming */
+            background-color: #fff9e6 !important;
+        }
+        /* Optional: Adjust opacity or other styles if needed */
+        .property-ongoing:hover, .property-upcoming:hover {
+            opacity: 1; /* Ensure full opacity on hover if base has some transparency */
+        }
+
+        #scrollToTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            z-index: 99;
+            border: none;
+            outline: none;
+            background-color: #667eea;
+            color: white;
+            cursor: pointer;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: background-color 0.3s, opacity 0.3s;
+        }
+
+        #scrollToTopBtn:hover {
+            background-color: #5a6bcd;
+        }
     </style>
 </head>
 <body>
@@ -229,6 +395,22 @@
             
             <div id="fileName" style="margin-top: 10px; color: #666;"></div>
             <div id="error" class="error hidden"></div>
+
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
+                <h3 style="margin-bottom: 10px; font-size: 1.2rem; color: #555;">Alternative: Charger via API</h3>
+                <div>
+                    <input type="password" id="apiTokenInput" placeholder="Entrez votre Bearer Token API"
+                           style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 280px; margin-right: 10px; font-size: 14px;">
+                    <button id="fetchApiDataBtn"
+                            style="padding: 10px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                        Charger les données API
+                    </button>
+                </div>
+                <div id="apiLoadingMessage" style="display:none; color: #6c757d; margin-top:10px; font-size: 0.9em;">Chargement des données API...</div>
+                    <button id="resetCacheBtn" style="margin-left: 15px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                        Effacer les Données Locales
+                    </button>
+            </div>
         </div>
 
         <div id="results" class="hidden">
@@ -243,22 +425,56 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="monthlyRevenue">0€</div>
-                    <div class="stat-label">Revenus Mensuels Espérés</div>
+                    <div class="stat-label">Revenus Mensuels Nets Espérés</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalProperties">0</div>
                     <div class="stat-label">Propriétés</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalNetRevenueSinceBeginning">0€</div>
+                    <div class="stat-label">Total Net Cumulé (Réel)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTaxesSinceBeginning">0€</div>
+                    <div class="stat-label">Total Impôts Cumulés (Réel)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="refundedProjectsCountValue">0</div>
+                    <div class="stat-label">Projets Remboursés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="fundingProjectsCountValue">0</div>
+                    <div class="stat-label">Projets En Financement/À Venir</div>
+                </div>
+            </div>
+
+            <div class="projections-section" style="margin-top: 30px; background: white; border-radius: 15px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); flex-shrink: 0;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #333; font-size: 1.4rem; font-weight: 600;">🗓️ Projections Revenus Mensuels Nets</h3>
+                <div id="projectedRevenuesDisplay" style="display: flex; flex-wrap: wrap; justify-content: space-around; text-align: center; gap: 15px;">
+                    <!-- Projections will be dynamically inserted here by JavaScript -->
+                </div>
+                <p style="font-size: 0.85em; color: #666; text-align: center; margin-top: 20px;">
+                    Note: Les revenus sont généralement versés autour du 8 du mois.
+                </p>
             </div>
 
             <div class="charts-section">
                 <div class="chart-container">
                     <div class="chart-title">📈 Évolution de l'Investissement</div>
-                    <canvas id="investmentChart"></canvas>
+                    <canvas id="investmentChart" width="400" height="300"></canvas>
                 </div>
                 <div class="chart-container">
                     <div class="chart-title">🏠 Répartition par Propriété</div>
-                    <canvas id="distributionChart"></canvas>
+                    <canvas id="distributionChart" width="400" height="300"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">📈 Évolution des Revenus Mensuels Nets</div>
+                    <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">💸 Montant de l'Impôt Mensuel (est. 30%)</div>
+                    <canvas id="taxAmountChart" width="400" height="300"></canvas>
                 </div>
             </div>
 
@@ -269,10 +485,110 @@
         </div>
     </div>
 
+    <div id="deletionModalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Confirmer la suppression</h3>
+            <p style="margin-bottom: 15px; color: #666;">Les projets suivants ne sont pas présents dans le nouveau fichier. Voulez-vous les supprimer de vos données locales ?</p>
+            <ul id="deletionList"></ul>
+            <div class="modal-buttons">
+                <button id="confirmDeleteBtn">Supprimer les éléments listés</button>
+                <button id="keepItemsBtn">Garder tous les éléments</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let investmentChart = null;
         let distributionChart = null;
-        let allData = [];
+        let revenueEvolutionChart = null; // Will be for NET revenue
+        let grossRevenueEvolutionChart = null; // For GROSS revenue
+        let taxAmountEvolutionChart = null; // For TAX amounts
+        let allData = []; // This will hold the definitive data used by the app
+        window.projectIdsToRemoveLater = []; // Stores project IDs from storage not in the new file
+        const LOCAL_STORAGE_KEY = 'bricksInvestmentData';
+
+        const deletionModalOverlay = document.getElementById('deletionModalOverlay');
+        const deletionListUL = document.getElementById('deletionList');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const keepItemsBtn = document.getElementById('keepItemsBtn');
+        let currentDataContextForModal = null; // To store mergedData for modal operations
+
+        const apiTokenInput = document.getElementById('apiTokenInput');
+        const fetchApiDataBtn = document.getElementById('fetchApiDataBtn');
+        const apiLoadingMessage = document.getElementById('apiLoadingMessage');
+
+        function addMonthsToYYYYMM(yyyymm, monthsToAdd) {
+            if (!yyyymm || !yyyymm.includes('-')) return null;
+            let [year, month] = yyyymm.split('-').map(Number);
+            month += monthsToAdd;
+            while (month > 12) {
+                month -= 12;
+                year++;
+            }
+            while (month <= 0) { // Should handle cases where monthsToAdd is negative, though not used here
+                month += 12;
+                year--;
+            }
+            return `${year}-${String(month).padStart(2, '0')}`;
+        }
+
+        function generateMonthRange(startYYYYMM, endYYYYMM) {
+            const months = [];
+            let [currentYear, currentMonth] = startYYYYMM.split('-').map(Number);
+            const [endYear, endMonth] = endYYYYMM.split('-').map(Number);
+
+            while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+                months.push(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+                currentMonth++;
+                if (currentMonth > 12) {
+                    currentMonth = 1;
+                    currentYear++;
+                }
+            }
+            return months;
+        }
+
+        // Helper function to get unique project IDs from a dataset
+        function getUniqueProjectIds(dataset) {
+            const projectIds = new Set();
+            if (dataset && Array.isArray(dataset)) {
+                dataset.forEach(monthEntry => {
+                    if (monthEntry.projects && Array.isArray(monthEntry.projects)) {
+                        monthEntry.projects.forEach(project => {
+                            if (project.id) {
+                                projectIds.add(project.id);
+                            }
+                        });
+                    }
+                });
+            }
+            return projectIds;
+        }
+
+        function loadDataFromLocalStorage() {
+            const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (storedData) {
+                try {
+                    console.log("Loading data from Local Storage...");
+                    const parsedData = JSON.parse(storedData);
+                    if (parsedData && Array.isArray(parsedData)) { // Basic validation
+                        console.log("Data from Local Storage will be processed by finalizeProcessing.");
+                        finalizeProcessing(parsedData); // Use the centralized processing function
+                    } else {
+                        console.warn("Stored data is not in the expected format (array). Clearing.");
+                        // Ensure allData is empty if localStorage is cleared here, to prevent using stale data.
+                        allData = [];
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                    }
+                } catch (err) {
+                    console.error("Error parsing data from Local Storage:", err);
+                    showError("Erreur lors de la lecture des données locales. Les données pourraient être corrompues.");
+                    localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
+                }
+            } else {
+                console.log("No data found in Local Storage.");
+            }
+        }
 
         document.getElementById('fileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -313,43 +629,272 @@
             }
         });
 
+        fetchApiDataBtn.addEventListener('click', function() {
+            const token = apiTokenInput.value.trim();
+            if (!token) {
+                showError("Veuillez entrer un Bearer Token API.");
+                return;
+            }
+
+            apiLoadingMessage.style.display = 'block';
+            fetchApiDataBtn.disabled = true;
+            fetchApiDataBtn.style.opacity = '0.7';
+            document.getElementById('error').classList.add('hidden'); // Hide general file error
+
+            let financedProjectsData = []; // Declare here to make it accessible in catch block
+
+            fetch('https://api.bricks.co/projects/financed', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().catch(() => {
+                        // If response body is not JSON or other error, throw with status text
+                        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+                    }).then(errorData => {
+                        // If errorData is successfully parsed
+                        throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => { // data is financedProjectsData
+                financedProjectsData = data; // Store it
+                // Now fetch the second endpoint
+                return fetch('https://api.bricks.co/projects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+            })
+            .then(response => { // Response from /projects
+                if (!response.ok) {
+                    return response.json().catch(() => {
+                        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText} (en récupérant les projets en cours/à venir)`);
+                    }).then(errorData => {
+                        throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)} (en récupérant les projets en cours/à venir)`);
+                    });
+                }
+                return response.json();
+            })
+            .then(fundingStatusData => { // Data from /projects
+                let additionalProjects = [];
+                if (fundingStatusData.ongoing && fundingStatusData.ongoing.projects) {
+                    fundingStatusData.ongoing.projects.forEach(proj => {
+                        if (proj.ownedBricks > 0) {
+                            proj.projectStatus = 'ongoing';
+                            additionalProjects.push(proj);
+                        }
+                    });
+                }
+                if (fundingStatusData.upcoming && fundingStatusData.upcoming.projects) {
+                    fundingStatusData.upcoming.projects.forEach(proj => {
+                        if (proj.ownedBricks > 0) {
+                            proj.projectStatus = 'upcoming';
+                            additionalProjects.push(proj);
+                        }
+                    });
+                }
+
+                // Combine financed with ongoing/upcoming.
+                // Note: The structure of financed projects (array of month entries) is different from ongoing/upcoming (direct project objects).
+                // For now, this will create a mixed array. processData might need adjustment or this combination logic refined.
+                // For this task, we assume processData can handle this or will be adapted later.
+                // A simple approach for now: wrap additional projects into a structure similar to financed ones (e.g. a single "current month" entry)
+                // OR, if processData is robust, it might handle a flat list of projects directly.
+                // Given the current structure of processData (expects array of month entries), this simple concat might lead to issues.
+                // Let's try a slightly more compatible merge: add additional projects to the most recent month entry of financedProjectsData if available,
+                // or create a new month entry for them.
+                // For simplicity for THIS task, just concat and assume processData will be made robust or this is a temporary step.
+                const combinedData = [...financedProjectsData, ...additionalProjects.map(p => ({ yearMonthDate: "N/A", projects: [p] }))];
+
+
+                document.getElementById('error').classList.add('hidden');
+                processData(combinedData);
+                apiTokenInput.value = '';
+            })
+            .catch(err => {
+                console.error('Erreur lors de la récupération API:', err);
+                if (financedProjectsData && financedProjectsData.length > 0) {
+                    // First call succeeded, second failed
+                    showError(`Données des projets financés chargées, mais échec de la récupération des projets en cours/à venir: ${err.message}`);
+                    processData(financedProjectsData); // Process partial data
+                    apiTokenInput.value = ''; // Still clear token
+                } else {
+                    // First call failed or other error
+                    showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
+                }
+            })
+            .finally(() => {
+                apiLoadingMessage.style.display = 'none';
+                fetchApiDataBtn.disabled = false;
+                fetchApiDataBtn.style.opacity = '1';
+            });
+        });
+
         function showError(message) {
             const error = document.getElementById('error');
             error.textContent = message;
             error.classList.remove('hidden');
         }
 
-        function processData(data) {
+        function getProjectNameById(projectId, dataContext) {
+            for (const month of dataContext) {
+                if (month.projects && Array.isArray(month.projects)) {
+                    const project = month.projects.find(p => p.id === projectId);
+                    if (project) {
+                        return project.name?.fr || project.name?.en || project.name || `Projet ID: ${projectId}`;
+                    }
+                }
+            }
+            return `Projet ID: ${projectId} (Nom non trouvé)`;
+        }
+
+        function showDeletionModal(projectIds, dataContext) {
+            currentDataContextForModal = dataContext; // Store context
+            deletionListUL.innerHTML = ''; // Clear previous list
+            projectIds.forEach(id => {
+                const listItem = document.createElement('li');
+                listItem.textContent = getProjectNameById(id, dataContext);
+                deletionListUL.appendChild(listItem);
+            });
+            deletionModalOverlay.style.display = 'flex';
+
+            // Remove previous listeners to avoid multiple triggers if modal is shown multiple times
+            const newConfirmBtn = confirmDeleteBtn.cloneNode(true);
+            confirmDeleteBtn.parentNode.replaceChild(newConfirmBtn, confirmDeleteBtn);
+            // confirmDeleteBtn = newConfirmBtn; // Reassign if needed elsewhere, for now direct use
+
+            const newKeepBtn = keepItemsBtn.cloneNode(true);
+            keepItemsBtn.parentNode.replaceChild(newKeepBtn, keepItemsBtn);
+            // keepItemsBtn = newKeepBtn; // Reassign
+
+            newConfirmBtn.addEventListener('click', handleConfirmDelete);
+            newKeepBtn.addEventListener('click', handleKeepItems);
+        }
+
+        function closeDeletionModal() {
+            deletionModalOverlay.style.display = 'none';
+            deletionListUL.innerHTML = '';
+            currentDataContextForModal = null;
+             // Event listeners are implicitly removed by cloning and replacing buttons,
+            // or should be explicitly removed if not cloning.
+        }
+
+        function handleConfirmDelete() {
+            console.log("Deletion confirmed for IDs:", window.projectIdsToRemoveLater);
+            let dataAfterDeletions = JSON.parse(JSON.stringify(currentDataContextForModal)); // Deep copy
+
+            window.projectIdsToRemoveLater.forEach(idToRemove => {
+                dataAfterDeletions.forEach(monthEntry => {
+                    if (monthEntry.projects && Array.isArray(monthEntry.projects)) {
+                        monthEntry.projects = monthEntry.projects.filter(p => p.id !== idToRemove);
+                    }
+                });
+                // Remove month entries if they become empty of projects
+                // This might be too aggressive depending on data structure, adjust if needed
+                // dataAfterDeletions = dataAfterDeletions.filter(monthEntry => monthEntry.projects.length > 0);
+            });
+
+            finalizeProcessing(dataAfterDeletions);
+            closeDeletionModal();
+        }
+
+        function handleKeepItems() {
+            console.log("Keeping all items. No deletions.");
+            finalizeProcessing(currentDataContextForModal); // Use the data before any deletions
+            closeDeletionModal();
+        }
+
+        function finalizeProcessing(finalData) {
+            console.log("Finalizing processing with data:", finalData);
+            allData = finalData; // Set the global allData
+
+            const results = calculateInvestmentStats(allData);
+            updateUI(results);
+            createCharts(results);
+            document.getElementById('results').classList.remove('hidden');
+
             try {
-                console.log('Processing data:', data);
-                
-                // Validation de la structure des données
-                if (!Array.isArray(data)) {
-                    throw new Error('Les données doivent être un tableau JSON');
+                console.log("Saving final data to Local Storage...");
+                const jsonData = JSON.stringify(allData);
+                localStorage.setItem(LOCAL_STORAGE_KEY, jsonData);
+                console.log("Final data saved to Local Storage.");
+            } catch (lsErr) {
+                console.error("Error saving final data to Local Storage:", lsErr);
+                showError("Erreur lors de la sauvegarde des données finales localement.");
+            }
+            window.projectIdsToRemoveLater = []; // Clear the list
+        }
+
+        function processData(fileData) {
+            try {
+                console.log('[EVO_DEBUG_PROCESS_DATA] Data received by processData:', JSON.stringify(fileData, null, 2));
+
+                // Basic validation for fileData
+                if (!Array.isArray(fileData) || fileData.length === 0) {
+                    showError('Le fichier de données est vide ou invalide.');
+                    return;
                 }
-                
-                if (data.length === 0) {
-                    throw new Error('Le fichier ne contient aucune donnée');
-                }
-                
-                // Vérifier la structure de base
-                for (let i = 0; i < data.length; i++) {
-                    const monthData = data[i];
-                    if (!monthData.yearMonthDate) {
-                        throw new Error(`Élément ${i}: yearMonthDate manquant`);
+                for (let i = 0; i < fileData.length; i++) {
+                    const monthEntry = fileData[i];
+                    if (!monthEntry.yearMonthDate || !monthEntry.projects || !Array.isArray(monthEntry.projects)) {
+                        showError(`Format de données invalide dans le fichier pour l'entrée ${i}.`);
+                        return;
                     }
-                    if (!monthData.projects || !Array.isArray(monthData.projects)) {
-                        throw new Error(`Élément ${i}: projects manquant ou invalide`);
-                    }
                 }
+
+                // Deep copy current allData (from Local Storage or initial empty) to serve as base for merging
+                let mergedData = allData && allData.length > 0 ? JSON.parse(JSON.stringify(allData)) : [];
                 
-                allData = data;
-                const results = calculateInvestmentStats(data);
-                updateUI(results);
-                createCharts(results);
-                document.getElementById('results').classList.remove('hidden');
+                const storageProjectIds = getUniqueProjectIds(mergedData);
+                const fileProjectIds = getUniqueProjectIds(fileData);
+
+                console.log("Storage Project IDs:", storageProjectIds);
+                console.log("File Project IDs:", fileProjectIds);
+
+                // Merge fileData into mergedData
+                fileData.forEach(newMonthEntry => {
+                    let monthInMergedData = mergedData.find(m => m.yearMonthDate === newMonthEntry.yearMonthDate);
+                    if (monthInMergedData) {
+                        // Month exists, merge projects
+                        newMonthEntry.projects.forEach(newProject => {
+                            let existingProject = monthInMergedData.projects.find(p => p.id === newProject.id);
+                            if (existingProject) {
+                                Object.assign(existingProject, newProject); // Update existing project
+                            } else {
+                                monthInMergedData.projects.push(JSON.parse(JSON.stringify(newProject))); // Add new project (deep copy)
+                            }
+                        });
+                    } else {
+                        // Month does not exist, add new month entry (deep copy)
+                        mergedData.push(JSON.parse(JSON.stringify(newMonthEntry)));
+                    }
+                });
+
+                // Identify project IDs in storage that are NOT in the new file
+                window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
+                console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
+
+                // Identify project IDs in storage that are NOT in the new file
+                window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
+                console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
+
+                if (window.projectIdsToRemoveLater.length > 0) {
+                    console.log("Showing deletion modal for:", window.projectIdsToRemoveLater);
+                    showDeletionModal(window.projectIdsToRemoveLater, mergedData);
+                } else {
+                    console.log("No projects to delete, finalizing processing.");
+                    finalizeProcessing(mergedData);
+                }
             } catch (err) {
-                console.error('Erreur de traitement:', err);
+                console.error('Erreur de traitement du fichier:', err); // Changed error origin for clarity
                 showError('Erreur lors du traitement des données: ' + err.message);
             }
         }
@@ -357,16 +902,20 @@
         function calculateInvestmentStats(data) {
             let totalBricks = 0;
             let totalInvestment = 0;
-            let monthlyRevenue = 0;
+            let monthlyRevenue = 0; // This is NET monthly revenue
             let properties = [];
             let investmentEvolution = {};
-            let uniqueProjects = new Map(); // Pour éviter les doublons
+            let uniqueProjects = new Map();
+            let refundedProjectsCount = 0; // For refunded projects
+            let fundingOrUpcomingProjectsCount = 0; // For ongoing/upcoming projects
+            let projectNetRevenueEntries = []; // Renamed for NET revenue
+            let projectGrossRevenueEntries = []; // For GROSS revenue evolution
 
             console.log('Calculating stats for:', data);
 
             // Première passe : collecter toutes les propriétés uniques
             data.forEach((monthData, monthIndex) => {
-                console.log(`Processing month ${monthIndex}:`, monthData);
+                // console.log(`Processing month ${monthIndex}:`, monthData); // Verbose
                 
                 const monthKey = monthData.yearMonthDate;
 
@@ -380,19 +929,11 @@
                         const ownedBricks = project.ownedBricks || project.investorBricks?.owned || 0;
                         
                         if (ownedBricks > 0) {
-                            // Gestion flexible du prix des briques
-                            let brickPrice = 10; // Prix par défaut d'une brick (10€)
-                            
-                            if (project.brickPrice) {
-                                // Si le prix est en centimes, on divise par 100
-                                if (project.brickPrice >= 1000) {
-                                    brickPrice = project.brickPrice / 100;
-                                } else {
-                                    brickPrice = project.brickPrice;
-                                }
+                            let brickPrice = 10;
+                            if (typeof project.brickPrice === 'number') {
+                                brickPrice = project.brickPrice / 100;
                             }
 
-                            // Stocker ou mettre à jour les informations du projet
                             uniqueProjects.set(project.id, {
                                 id: project.id,
                                 name: (project.name?.fr || project.name?.en || project.name || 'Propriété sans nom'),
@@ -401,7 +942,9 @@
                                 brickPrice: brickPrice,
                                 yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
                                 thumbnailUrl: project.thumbnailUrl || '',
-                                firstSeenMonth: monthKey
+                                firstSeenMonth: monthKey,
+                                funding: project.funding,
+                                projectStatus: project.projectStatus || 'financed' // Propagate status
                             });
                         }
                     } catch (projectErr) {
@@ -410,112 +953,513 @@
                 });
             });
 
-            // Calculer les totaux à partir des projets uniques
             uniqueProjects.forEach((project) => {
                 const projectInvestment = project.ownedBricks * project.brickPrice;
-                
-                totalBricks += project.ownedBricks;
+                // INVEST_DEBUG: Log project contribution details
+                console.log(
+                    '[INVEST_DEBUG] Processing Project for Total Investment:',
+                    'ID:', project.id,
+                    'Name:', project.name,
+                    'OwnedBricks:', project.ownedBricks,
+                    'BrickPrice (calc):', project.brickPrice,
+                    'Contribution:', projectInvestment
+                );
+                // totalBricks += project.ownedBricks; // Original calculation - REMOVED
                 totalInvestment += projectInvestment;
+                console.log('[INVEST_DEBUG] Running totalInvestment:', totalInvestment); // INVEST_DEBUG: Log running total
+
+                // Check for refunded projects
+                if (project.ownedBricks > 0 && projectInvestment === 0) {
+                    refundedProjectsCount++;
+                }
+
+                // Count ongoing/upcoming projects
+                if (project.projectStatus === 'ongoing' || project.projectStatus === 'upcoming') {
+                    fundingOrUpcomingProjectsCount++;
+                }
                 
-                // Calcul des revenus mensuels espérés
-                const yearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
-                const monthlyReturn = yearlyReturn / 12;
-                monthlyRevenue += monthlyReturn;
+                const grossYearlyReturn = (projectInvestment * project.yearlyReturn) / 100;
+                const grossMonthlyReturn = grossYearlyReturn / 12;
+                const netMonthlyReturn = grossMonthlyReturn * 0.70;
+                monthlyRevenue += netMonthlyReturn;
+
+                const isRefunded = (projectInvestment === 0 && project.ownedBricks > 0);
 
                 properties.push({
                     id: project.id,
                     name: project.name,
+                    isRefunded: isRefunded, // Add isRefunded flag
                     address: project.address,
                     ownedBricks: project.ownedBricks,
                     investment: projectInvestment,
                     yearlyReturn: project.yearlyReturn,
-                    monthlyRevenue: monthlyReturn,
-                    thumbnailUrl: project.thumbnailUrl
+                    monthlyRevenue: netMonthlyReturn,
+                    thumbnailUrl: project.thumbnailUrl,
+                    projectStatus: project.projectStatus // Propagate status to properties array
                 });
-            });
 
-            // Calculer l'évolution mensuelle (investissements par mois d'apparition)
+                const revenueStartDate = project.funding?.revenueStartDate;
+                if (revenueStartDate && typeof revenueStartDate === 'string' && revenueStartDate.match(/^\d{4}-\d{2}$/)) {
+                    if (netMonthlyReturn > 0) {
+                        projectNetRevenueEntries.push({ startDate: revenueStartDate, revenue: netMonthlyReturn });
+                    }
+                    if (grossMonthlyReturn > 0) {
+                        projectGrossRevenueEntries.push({ startDate: revenueStartDate, revenue: grossMonthlyReturn });
+                    }
+                }
+            });
+            console.log('[EVO_DEBUG_CALC_STATS] projectNetRevenueEntries:', JSON.stringify(projectNetRevenueEntries, null, 2));
+            console.log('[EVO_DEBUG_CALC_STATS] projectGrossRevenueEntries:', JSON.stringify(projectGrossRevenueEntries, null, 2));
+
+            // Recalculate totalBricks based on non-refunded properties
+            totalBricks = 0; // Reset before summing from 'properties' array
+            for (const prop of properties) {
+                if (!prop.isRefunded) {
+                    totalBricks += prop.ownedBricks;
+                }
+            }
+
+            // Note: The determination of firstRevenueMonth, lastRevenueMonth, etc. for logging
+            // was already integrated in the previous step while adding other EVO_DEBUG logs.
+            // The existing log for "[EVO_DEBUG_CALC_STATS] Date components:" is sufficient.
+
             const monthlyInvestments = {};
             uniqueProjects.forEach((project) => {
                 const monthKey = project.firstSeenMonth;
                 const projectInvestment = project.ownedBricks * project.brickPrice;
-                
                 if (!monthlyInvestments[monthKey]) {
                     monthlyInvestments[monthKey] = 0;
                 }
                 monthlyInvestments[monthKey] += projectInvestment;
             });
 
-            // Créer l'évolution cumulative
             const sortedMonths = Object.keys(monthlyInvestments).sort();
             let cumulativeInvestment = 0;
-            
             sortedMonths.forEach(month => {
                 cumulativeInvestment += monthlyInvestments[month];
                 investmentEvolution[month] = cumulativeInvestment;
             });
 
             console.log('Projets uniques trouvés:', uniqueProjects.size);
-            console.log('Investissements mensuels:', monthlyInvestments);
-            console.log('Évolution cumulative:', investmentEvolution);
-            console.log('Résultats calculés:', {
-                totalBricks,
-                totalInvestment,
-                monthlyRevenue,
-                propertiesCount: properties.length
+            // Calculate active properties count
+            const activePropertiesCount = properties.filter(p => !p.isRefunded).length;
+            console.log('[INVEST_DEBUG] Final totalInvestment before returning results:', totalInvestment); // INVEST_DEBUG: Log final total
+            console.log('Résultats calculés (hors revenueEvolution):', {
+                totalBricks, totalInvestment, monthlyRevenue, totalPropertiesInList: properties.length, activePropertiesCount
             });
+
+            let netRevenueEvolutionData = {};
+            let grossRevenueEvolutionData = {};
+            let taxAmountEvolutionData = {};
+            let totalNetRevenueSinceBeginning = 0;
+            let totalTaxesSinceBeginning = 0;
+
+            const allPossibleStartDates = [];
+            projectNetRevenueEntries.forEach(e => allPossibleStartDates.push(e.startDate));
+            projectGrossRevenueEntries.forEach(e => allPossibleStartDates.push(e.startDate));
+            Object.keys(investmentEvolution || {}).forEach(m => allPossibleStartDates.push(m));
+
+            let firstRevenueMonth = null, lastRevenueMonth = null;
+            if (projectNetRevenueEntries.length > 0 || projectGrossRevenueEntries.length > 0) {
+                const revenueDates = [...projectNetRevenueEntries, ...projectGrossRevenueEntries].map(e => e.startDate).sort();
+                firstRevenueMonth = revenueDates[0];
+                lastRevenueMonth = revenueDates[revenueDates.length - 1];
+            }
+
+            let firstInvestmentMonth = null, lastInvestmentMonth = null;
+            const investmentMonths = Object.keys(investmentEvolution);
+            if (investmentMonths.length > 0) {
+                firstInvestmentMonth = investmentMonths[0]; // Already sorted
+                lastInvestmentMonth = investmentMonths[investmentMonths.length - 1];
+            }
+            console.log('[EVO_DEBUG_CALC_STATS] Date components: firstRevenueMonth:', firstRevenueMonth, 'lastRevenueMonth:', lastRevenueMonth, 'firstInvestmentMonth:', firstInvestmentMonth, 'lastInvestmentMonth:', lastInvestmentMonth);
+
+            let determinedFirstMonth = null;
+            let determinedLastMonth = null;
+
+            if (allPossibleStartDates.length > 0) {
+                const sortedAllDates = [...new Set(allPossibleStartDates)].filter(d => d && d !== "N/A").sort();
+                if (sortedAllDates.length > 0) {
+                    determinedFirstMonth = sortedAllDates[0];
+                    determinedLastMonth = sortedAllDates[sortedAllDates.length - 1];
+                }
+            }
+
+            const todayForProjection = new Date();
+            const currentSystemMonthKeyForProjection = `${todayForProjection.getFullYear()}-${String(todayForProjection.getMonth() + 1).padStart(2, '0')}`;
+            const projectionEndMonth = addMonthsToYYYYMM(currentSystemMonthKeyForProjection, 3);
+
+            let finalOverallFirstMonth = determinedFirstMonth;
+            let finalOverallLastMonth = determinedLastMonth;
+
+            if (projectionEndMonth) {
+                if (!finalOverallLastMonth || projectionEndMonth > finalOverallLastMonth) {
+                    finalOverallLastMonth = projectionEndMonth;
+                }
+                if (!finalOverallFirstMonth) {
+                    finalOverallFirstMonth = currentSystemMonthKeyForProjection;
+                }
+            }
+
+            overallFirstMonth = finalOverallFirstMonth; // Assign to the variables used by generateMonthRange
+            overallLastMonth = finalOverallLastMonth;
+
+            console.log('[EVO_DEBUG_CALC_STATS] Final overall date range: overallFirstMonth:', overallFirstMonth, 'overallLastMonth:', overallLastMonth);
+
+            if (overallFirstMonth && overallLastMonth) {
+                const allMonthsInRange = generateMonthRange(overallFirstMonth, overallLastMonth);
+                console.log('[EVO_DEBUG_CALC_STATS] allMonthsInRange:', JSON.stringify(allMonthsInRange, null, 2));
+
+                if (projectNetRevenueEntries.length > 0) {
+                    allMonthsInRange.forEach(currentMonth => {
+                        let totalNetRevenueInCurrentMonth = 0;
+                        projectNetRevenueEntries.forEach(entry => {
+                            if (entry.startDate <= currentMonth) {
+                                totalNetRevenueInCurrentMonth += entry.revenue;
+                            }
+                        });
+                        netRevenueEvolutionData[currentMonth] = totalNetRevenueInCurrentMonth;
+                    });
+                } else {
+                    // console.log("No project net revenue entries to process for net revenue evolution chart."); // Kept for clarity
+                }
+
+                if (projectGrossRevenueEntries.length > 0) {
+                    allMonthsInRange.forEach(currentMonth => {
+                        let totalGrossRevenueInCurrentMonth = 0;
+                        projectGrossRevenueEntries.forEach(entry => {
+                            if (entry.startDate <= currentMonth) {
+                                totalGrossRevenueInCurrentMonth += entry.revenue;
+                            }
+                        });
+                        grossRevenueEvolutionData[currentMonth] = totalGrossRevenueInCurrentMonth;
+                    });
+                } else {
+                    // console.log("No project gross revenue entries to process for gross revenue evolution chart."); // Kept for clarity
+                }
+
+                const todayForTotals = new Date();
+                const currentSystemMonthKey = `${todayForTotals.getFullYear()}-${String(todayForTotals.getMonth() + 1).padStart(2, '0')}`;
+
+                // Populate taxAmountEvolutionData first
+                allMonthsInRange.forEach(currentMonth => {
+                    const gross = grossRevenueEvolutionData[currentMonth] || 0;
+                    const net = netRevenueEvolutionData[currentMonth] || 0;
+                    taxAmountEvolutionData[currentMonth] = gross - net;
+                });
+
+                // Calculate totalNetRevenueSinceBeginning with logging
+                let calculatedTotalNetRevenueSinceBeginning = 0;
+                console.log('[CUMULATIVE_NET_DEBUG] Calculating totalNetRevenueSinceBeginning. Current System Month Key:', currentSystemMonthKey);
+                console.log('[CUMULATIVE_NET_DEBUG] Iterating local netRevenueEvolutionData for sum:', JSON.stringify(netRevenueEvolutionData, null, 2)); // Ensure this uses local
+                for (const month in netRevenueEvolutionData) {
+                    const isMonthIncluded = month <= currentSystemMonthKey;
+                    console.log(`[CUMULATIVE_NET_DEBUG] Net Month: ${month}, Value: ${netRevenueEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isMonthIncluded}`);
+                    if (isMonthIncluded) {
+                        calculatedTotalNetRevenueSinceBeginning += netRevenueEvolutionData[month]; // Use local
+                        console.log('[CUMULATIVE_NET_DEBUG] Added to totalNet. New Sum:', calculatedTotalNetRevenueSinceBeginning);
+                    }
+                }
+                console.log('[CUMULATIVE_NET_DEBUG] Final calculatedTotalNetRevenueSinceBeginning:', calculatedTotalNetRevenueSinceBeginning);
+                totalNetRevenueSinceBeginning = calculatedTotalNetRevenueSinceBeginning;
+
+                // Calculate totalTaxesSinceBeginning with logging
+                let calculatedTotalTaxesSinceBeginning = 0;
+                console.log('[CUMULATIVE_TAX_DEBUG] Calculating totalTaxesSinceBeginning. Current System Month Key:', currentSystemMonthKey);
+                console.log('[CUMULATIVE_TAX_DEBUG] Iterating local taxAmountEvolutionData for sum:', JSON.stringify(taxAmountEvolutionData, null, 2)); // Ensure this uses local
+                for (const month in taxAmountEvolutionData) {
+                    const isTaxMonthIncluded = month <= currentSystemMonthKey;
+                    console.log(`[CUMULATIVE_TAX_DEBUG] Tax Month: ${month}, Value: ${taxAmountEvolutionData[month]}, Included (<= ${currentSystemMonthKey}): ${isTaxMonthIncluded}`);
+                    if (isTaxMonthIncluded) {
+                        calculatedTotalTaxesSinceBeginning += taxAmountEvolutionData[month]; // Use local
+                        console.log('[CUMULATIVE_TAX_DEBUG] Added to totalTaxes. New Sum:', calculatedTotalTaxesSinceBeginning);
+                    }
+                }
+                console.log('[CUMULATIVE_TAX_DEBUG] Final calculatedTotalTaxesSinceBeginning:', calculatedTotalTaxesSinceBeginning);
+                totalTaxesSinceBeginning = calculatedTotalTaxesSinceBeginning;
+
+                console.log('[EVO_DEBUG_CALC_STATS] Generated netRevenueEvolutionData:', JSON.stringify(netRevenueEvolutionData, null, 2));
+                console.log('[EVO_DEBUG_CALC_STATS] Generated grossRevenueEvolutionData:', JSON.stringify(grossRevenueEvolutionData, null, 2));
+                console.log('[EVO_DEBUG_CALC_STATS] Generated taxAmountEvolutionData:', JSON.stringify(taxAmountEvolutionData, null, 2));
+
+            } else {
+                console.warn("Could not determine a valid overall date range for any evolution chart.");
+            }
 
             return {
                 totalBricks,
                 totalInvestment,
                 monthlyRevenue,
                 properties,
-                investmentEvolution
+                investmentEvolution,
+                netRevenueEvolutionData,
+                grossRevenueEvolutionData,
+                taxAmountEvolutionData,
+                totalNetRevenueSinceBeginning,
+                totalTaxesSinceBeginning,
+                refundedProjectsCount,
+                activePropertiesCount,
+                fundingOrUpcomingProjectsCount
             };
         }
 
         function updateUI(results) {
+            console.log('Final netRevenueEvolutionData for chart:', JSON.stringify(results.netRevenueEvolutionData, null, 2));
+            console.log('Final grossRevenueEvolutionData for chart:', JSON.stringify(results.grossRevenueEvolutionData, null, 2));
+            console.log('Final taxAmountEvolutionData for chart:', JSON.stringify(results.taxAmountEvolutionData, null, 2));
             document.getElementById('totalBricks').textContent = results.totalBricks.toLocaleString();
             document.getElementById('totalInvestment').textContent = results.totalInvestment.toLocaleString() + '€';
             document.getElementById('monthlyRevenue').textContent = results.monthlyRevenue.toFixed(2) + '€';
-            document.getElementById('totalProperties').textContent = results.properties.length;
+            document.getElementById('totalProperties').textContent = results.activePropertiesCount || 0;
+            document.getElementById('totalNetRevenueSinceBeginning').textContent = results.totalNetRevenueSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+            document.getElementById('totalTaxesSinceBeginning').textContent = results.totalTaxesSinceBeginning.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+            if (document.getElementById('refundedProjectsCountValue')) { document.getElementById('refundedProjectsCountValue').textContent = results.refundedProjectsCount || 0; }
+            if (document.getElementById('fundingProjectsCountValue')) { document.getElementById('fundingProjectsCountValue').textContent = results.fundingOrUpcomingProjectsCount || 0; }
+
 
             // Mise à jour de la liste des propriétés
             const propertiesList = document.getElementById('propertiesList');
-            propertiesList.innerHTML = results.properties.map(property => `
-                <div class="property-card">
-                    <div class="property-name">${property.name}</div>
+            propertiesList.innerHTML = results.properties.map(property => {
+                const imageUrl = property.thumbnailUrl;
+                const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">` : '';
+
+                let cardClasses = "property-card";
+                if (property.isRefunded) cardClasses += " property-refunded";
+                if (property.projectStatus === 'ongoing') cardClasses += " property-ongoing";
+                if (property.projectStatus === 'upcoming') cardClasses += " property-upcoming";
+
+                let statusBadge = "";
+                if (property.isRefunded) {
+                    statusBadge = '<span style="font-weight:normal; color:#5a6268; font-size: 0.9em;">(Remboursé)</span>';
+                } else if (property.projectStatus === 'ongoing') {
+                    statusBadge = '<span style="font-weight:normal; color:#007bff; font-size: 0.9em;">(En Financement)</span>';
+                } else if (property.projectStatus === 'upcoming') {
+                    statusBadge = '<span style="font-weight:normal; color:#ffc107; font-size: 0.9em;">(À Venir)</span>';
+                }
+
+                return `
+                <div class="${cardClasses}">
+                    ${imageHtml}
+                    <div class="property-name">${property.name} ${statusBadge}</div>
                     <div class="property-details">
                         <div><strong>Adresse:</strong> ${property.address}</div>
                         <div><strong>Briques:</strong> ${property.ownedBricks}</div>
                         <div><strong>Investissement:</strong> ${property.investment.toFixed(2)}€</div>
                         <div><strong>Rendement annuel:</strong> ${property.yearlyReturn}%</div>
-                        <div><strong>Revenus mensuels:</strong> ${property.monthlyRevenue.toFixed(2)}€</div>
+                        <div><strong>Revenus mensuels nets:</strong> ${property.monthlyRevenue.toFixed(2)}€</div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
+
+            // Populate Projected Revenues
+            const projectedDisplay = document.getElementById('projectedRevenuesDisplay');
+            if (projectedDisplay) { // Check if the element exists
+                projectedDisplay.innerHTML = ''; // Clear previous entries
+                console.log('[PROJECTION_DEBUG] results.netRevenueEvolutionData received by updateUI for projections:', JSON.stringify(results.netRevenueEvolutionData, null, 2));
+                const netRevenueData = results.netRevenueEvolutionData || {};
+                const today = new Date();
+                let currentYear = today.getFullYear();
+                let currentMonth = today.getMonth() + 1; // JS months are 0-11
+
+                const monthsToDisplay = [];
+                const monthLabels = ["Ce Mois-ci (est.)", "Mois M+1", "Mois M+2", "Mois M+3"];
+
+                for (let i = 0; i < 4; i++) {
+                    const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+                    console.log(`[PROJECTION_DEBUG] For Label: "${monthLabels[i]}",  Month Key: "${monthStr}"`);
+                    const currentMonthValue = netRevenueData[monthStr];
+                    console.log(`[PROJECTION_DEBUG] Looked up value for "${monthStr}":`, currentMonthValue);
+                    monthsToDisplay.push({
+                        label: monthLabels[i],
+                        key: monthStr,
+                        value: currentMonthValue
+                    });
+
+                    currentMonth++;
+                    if (currentMonth > 12) {
+                        currentMonth = 1;
+                        currentYear++;
+                    }
+                }
+                console.log('[PROJECTION_DEBUG] monthsToDisplay array for projections:', JSON.stringify(monthsToDisplay, null, 2));
+                monthsToDisplay.forEach(item => {
+                    const revenueValue = typeof item.value === 'number' ? item.value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : 'N/D';
+                    const cardHtml = `
+                        <div class="stat-card" style="flex-basis: 200px; padding: 15px;">
+                            <div class="stat-value" style="font-size: 1.8rem; margin-bottom: 8px;">${revenueValue}</div>
+                            <div class="stat-label" style="font-size: 0.9rem;">${item.label}</div>
+                        </div>
+                    `;
+                    projectedDisplay.innerHTML += cardHtml;
+                });
+            } else {
+                console.warn("#projectedRevenuesDisplay element not found. Skipping projections update.");
+            }
         }
 
         function createCharts(results) {
             createInvestmentChart(results.investmentEvolution);
             createDistributionChart(results.properties);
+            createRevenueEvolutionChart(results.netRevenueEvolutionData);
+            createTaxAmountChart(results.taxAmountEvolutionData);
+        }
+
+        function createTaxAmountChart(taxData) {
+            const ctx = document.getElementById('taxAmountChart').getContext('2d');
+            if (!ctx) return; // Ensure canvas context is found
+
+            if (taxAmountEvolutionChart) {
+                taxAmountEvolutionChart.destroy();
+            }
+
+            const chartContainer = document.getElementById('taxAmountChart')?.closest('.chart-container');
+            if (!taxData || Object.keys(taxData).length === 0) {
+                console.log("No data for tax amount evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
+            const labels = Object.keys(taxData).sort();
+            const data = labels.map(label => taxData[label]);
+
+            taxAmountEvolutionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Montant de l'Impôt (est. 30%)",
+                        data: data,
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Impôt: ${context.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createRevenueEvolutionChart(netRevenueData) { // Parameter renamed
+            const ctx = document.getElementById('revenueEvolutionChart').getContext('2d');
+            if (!ctx) return;
+
+            if (revenueEvolutionChart) {
+                revenueEvolutionChart.destroy();
+            }
+
+            const chartContainer = document.getElementById('revenueEvolutionChart')?.closest('.chart-container');
+            if (!netRevenueData || Object.keys(netRevenueData).length === 0) {
+                console.log("No data for revenue evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+             if (chartContainer) { chartContainer.style.display = 'block'; }
+
+
+            const labels = Object.keys(netRevenueData).sort();
+            const data = labels.map(label => netRevenueData[label]);
+
+            revenueEvolutionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Revenus Mensuels Nets Cumulés (€)',
+                        data: data,
+                        borderColor: '#4bc0c0',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.1,
+                        pointBackgroundColor: '#4bc0c0',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Revenus: ${context.parsed.y.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                                }
+                            }
+                        },
+                        x: {
+                             // Optional: ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 0, minRotation: 0 }
+                        }
+                    }
+                }
+            });
         }
 
         function createInvestmentChart(investmentEvolution) {
             const ctx = document.getElementById('investmentChart').getContext('2d');
+            if (!ctx) return;
             
             if (investmentChart) {
                 investmentChart.destroy();
             }
 
+            const chartContainer = document.getElementById('investmentChart')?.closest('.chart-container');
+            if (!investmentEvolution || Object.keys(investmentEvolution).length === 0) {
+                 console.log("No data for investment evolution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
+
             const labels = Object.keys(investmentEvolution).sort();
             const data = labels.map(label => investmentEvolution[label]);
             
-            console.log('Données pour le graphique:', { labels, data });
+            console.log('Données pour le graphique d\'investissement:', { labels, data });
 
-            investmentChart = new Chart(ctx, {
-                type: 'line',
-                data: {
+            try {
+                investmentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
                     labels: labels,
                     datasets: [{
                         label: 'Investissement Cumulé (€)',
@@ -533,7 +1477,7 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: true,
                     plugins: {
                         legend: {
                             display: true,
@@ -559,17 +1503,55 @@
                     }
                 }
             });
+            } catch (err) {
+                console.error("Error creating investment chart:", err);
+                showError("Erreur lors de la création du graphique d'évolution des investissements.");
+            }
         }
 
         function createDistributionChart(properties) {
             const ctx = document.getElementById('distributionChart').getContext('2d');
+            if (!ctx) return;
             
             if (distributionChart) {
                 distributionChart.destroy();
             }
 
-            const labels = properties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
-            const data = properties.map(p => p.investment);
+            const chartContainer = document.getElementById('distributionChart')?.closest('.chart-container');
+            if (!properties || properties.length === 0) {
+                console.log("No data for distribution chart.");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                if (chartContainer) { chartContainer.style.display = 'none'; }
+                return;
+            }
+            if (chartContainer) { chartContainer.style.display = 'block'; }
+
+
+            const MAX_SEGMENTS = 10;
+            let chartLabels = [];
+            let chartData = [];
+
+            if (properties.length > MAX_SEGMENTS) {
+                // Trier les propriétés par investissement décroissant
+                const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
+
+                // Prendre les MAX_SEGMENTS - 1 premières propriétés
+                const topProperties = sortedProperties.slice(0, MAX_SEGMENTS - 1);
+                chartLabels = topProperties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+                chartData = topProperties.map(p => p.investment);
+
+                // Calculer la somme des investissements pour les autres propriétés
+                const otherPropertiesInvestment = sortedProperties.slice(MAX_SEGMENTS - 1)
+                                                                .reduce((sum, p) => sum + p.investment, 0);
+
+                if (otherPropertiesInvestment > 0) {
+                    chartLabels.push('Autres');
+                    chartData.push(otherPropertiesInvestment);
+                }
+            } else {
+                chartLabels = properties.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+                chartData = properties.map(p => p.investment);
+            }
             
             const colors = [
                 '#667eea', '#764ba2', '#f093fb', '#f5576c',
@@ -577,20 +1559,21 @@
                 '#ffecd2', '#fcb69f', '#a8edea', '#fed6e3'
             ];
 
-            distributionChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
+            try {
+                distributionChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                    labels: chartLabels,
                     datasets: [{
-                        data: data,
-                        backgroundColor: colors.slice(0, properties.length),
+                        data: chartData,
+                        backgroundColor: colors.slice(0, chartData.length),
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                            maintainAspectRatio: true,
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -604,7 +1587,8 @@
                                 label: function(context) {
                                     const label = context.label || '';
                                     const value = context.parsed;
-                                    const percentage = ((value / data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    const total = chartData.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                     return `${label}: ${value.toFixed(2)}€ (${percentage}%)`;
                                 }
                             }
@@ -612,13 +1596,52 @@
                     }
                 }
             });
+            } catch (err) {
+                console.error("Error creating distribution chart:", err);
+                showError("Erreur lors de la création du graphique de répartition des propriétés.");
+            }
         }
 
         // Ajustement de la taille des graphiques
         window.addEventListener('resize', function() {
             if (investmentChart) investmentChart.resize();
             if (distributionChart) distributionChart.resize();
+            if (revenueEvolutionChart) revenueEvolutionChart.resize();
+            if (grossRevenueEvolutionChart) grossRevenueEvolutionChart.resize();
+            if (taxAmountEvolutionChart) taxAmountEvolutionChart.resize();
+        });
+
+        // Load data from local storage on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDataFromLocalStorage();
+
+            // Scroll to Top Button Logic
+            const scrollToTopBtn = document.getElementById("scrollToTopBtn");
+            if (scrollToTopBtn) {
+                window.onscroll = function() {
+                    if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                        scrollToTopBtn.style.display = "block";
+                    } else {
+                        scrollToTopBtn.style.display = "none";
+                    }
+                };
+                scrollToTopBtn.addEventListener('click', function() {
+                    window.scrollTo({top: 0, behavior: 'smooth'});
+                });
+            }
+
+            // Reset Cache Button Logic
+            const localResetCacheBtn = document.getElementById('resetCacheBtn');
+            if(localResetCacheBtn) {
+                 localResetCacheBtn.addEventListener('click', function() {
+                    if (confirm("Êtes-vous sûr de vouloir effacer toutes les données stockées localement ? Cette action est irréversible.")) {
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                        location.reload();
+                    }
+                });
+            }
         });
     </script>
+    <button id="scrollToTopBtn" title="Retour en haut">↑</button>
 </body>
 </html>
