@@ -881,7 +881,7 @@
                 // Identify project IDs in storage that are NOT in the new file
                 window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
                 console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
-                
+
                 // Identify project IDs in storage that are NOT in the new file
                 window.projectIdsToRemoveLater = Array.from(storageProjectIds).filter(id => !fileProjectIds.has(id));
                 console.log("Project IDs to potentially remove (from storage, not in new file):", window.projectIdsToRemoveLater);
@@ -964,7 +964,7 @@
                     'BrickPrice (calc):', project.brickPrice,
                     'Contribution:', projectInvestment
                 );
-                totalBricks += project.ownedBricks;
+                // totalBricks += project.ownedBricks; // Original calculation - REMOVED
                 totalInvestment += projectInvestment;
                 console.log('[INVEST_DEBUG] Running totalInvestment:', totalInvestment); // INVEST_DEBUG: Log running total
 
@@ -1010,6 +1010,14 @@
             });
             console.log('[EVO_DEBUG_CALC_STATS] projectNetRevenueEntries:', JSON.stringify(projectNetRevenueEntries, null, 2));
             console.log('[EVO_DEBUG_CALC_STATS] projectGrossRevenueEntries:', JSON.stringify(projectGrossRevenueEntries, null, 2));
+
+            // Recalculate totalBricks based on non-refunded properties
+            totalBricks = 0; // Reset before summing from 'properties' array
+            for (const prop of properties) {
+                if (!prop.isRefunded) {
+                    totalBricks += prop.ownedBricks;
+                }
+            }
 
             // Note: The determination of firstRevenueMonth, lastRevenueMonth, etc. for logging
             // was already integrated in the previous step while adding other EVO_DEBUG logs.
