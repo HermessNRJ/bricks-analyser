@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   bricks-analyzer:
     build: .
@@ -8,6 +6,7 @@ services:
       - "8080:80"
     volumes:
       - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./src:/usr/share/nginx/html/src:ro
     restart: unless-stopped
     networks:
       - bricks-network
