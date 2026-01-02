@@ -2,7 +2,7 @@
  * Gestionnaire de récupération des données via API
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects } from '../data/apiClient.js';
+import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings } from '../data/apiClient.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
@@ -56,8 +56,22 @@ export function setupAPIHandler() {
             // Fusionner les données
             const combinedData = mergeAPIProjects(financedData, allProjectsData);
 
-            // Traiter les données
-            await processData(combinedData);
+            // Récupérer les warnings
+            let warningsData = [];
+            try {
+                warningsData = await fetchWarnings(token);
+                logger.info(LOG_CATEGORIES.EVENT, 'Warnings fetched successfully', {
+                    count: warningsData.length,
+                    propertyIds: warningsData.map(w => w.propertyId),
+                    sampleWarning: warningsData.length > 0 ? warningsData[0] : null
+                });
+            } catch (warningsErr) {
+                logger.warn(LOG_CATEGORIES.EVENT, 'Failed to fetch warnings', warningsErr);
+                // Continuer sans les warnings
+            }
+
+            // Traiter les données avec les warnings
+            await processData(combinedData, warningsData);
 
             // Nettoyer le token input
             tokenInput.value = '';

@@ -10,7 +10,8 @@ export const CONFIG = {
     API_BASE_URL: 'https://api.bricks.co',
     API_ENDPOINTS: {
         FINANCED: '/projects/financed',
-        ALL_PROJECTS: '/projects'
+        ALL_PROJECTS: '/projects',
+        WARNINGS: '/investor/portfolio/properties/highlighted-updates'
     },
 
     // Calculs financiers

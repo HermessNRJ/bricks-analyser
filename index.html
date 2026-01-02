@@ -25,21 +25,12 @@
         </div>
 
         <div class="upload-section">
-            <h2>📁 Importez votre fichier de données</h2>
-            <p style="margin: 15px 0; color: #666;">Sélectionnez le fichier JSON contenant vos données d'investissement Bricks</p>
+            <h2>🔐 Charger vos données d'investissement</h2>
+            <p style="margin: 15px 0; color: #666;">Entrez votre token API Bricks pour charger vos données</p>
 
-            <div class="file-input-wrapper">
-                <input type="file" id="fileInput" class="file-input" accept=".json" />
-                <label for="fileInput" class="file-input-label">
-                    📂 Choisir un fichier
-                </label>
-            </div>
-
-            <div id="fileName" style="margin-top: 10px; color: #666;"></div>
             <div id="error" class="error hidden"></div>
 
-            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
-                <h3 style="margin-bottom: 10px; font-size: 1.2rem; color: #555;">Alternative: Charger via API</h3>
+            <div style="margin-top: 20px;">
                 <div>
                     <input type="password" id="apiTokenInput" placeholder="Entrez votre Bearer Token API"
                            style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 280px; margin-right: 10px; font-size: 14px;">
@@ -49,7 +40,7 @@
                     </button>
                 </div>
                 <div id="apiLoadingMessage" style="display:none; color: #6c757d; margin-top:10px; font-size: 0.9em;">Chargement des données API...</div>
-                <button id="resetCacheBtn" style="margin-left: 15px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                <button id="resetCacheBtn" style="margin-top: 15px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
                     Effacer les Données Locales
                 </button>
             </div>
@@ -156,19 +147,43 @@
                             <option value="return-asc">Rendement (croissant)</option>
                             <option value="revenue-desc">Revenus mensuels (décroissant)</option>
                             <option value="revenue-asc">Revenus mensuels (croissant)</option>
+                            <option value="revenuestart-desc">Premier versement (récent → ancien)</option>
+                            <option value="revenuestart-asc">Premier versement (ancien → récent)</option>
                             <option value="name-asc">Nom (A → Z)</option>
                             <option value="name-desc">Nom (Z → A)</option>
                         </select>
                     </label>
 
                     <label>
-                        🔍 Filtrer :
+                        🔍 Filtrer par statut :
                         <select id="propertyFilter">
                             <option value="all">Toutes les propriétés</option>
                             <option value="active">Actives uniquement</option>
                             <option value="refunded">Remboursées uniquement</option>
                             <option value="ongoing">En financement</option>
                             <option value="upcoming">À venir</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        📅 Filtrer par date :
+                        <select id="propertyDateFilter">
+                            <option value="all">Toutes les dates</option>
+                            <option value="has-revenue-date">Avec date de 1er versement</option>
+                            <option value="no-revenue-date">Sans date de 1er versement</option>
+                            <option value="has-refund-date">Avec date de remboursement</option>
+                            <option value="no-refund-date">Sans date de remboursement</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        ⚠️ Filtrer par warning :
+                        <select id="propertyWarningFilter">
+                            <option value="all">Tous les warnings</option>
+                            <option value="has-warning">Avec warning(s)</option>
+                            <option value="no-warning">Sans warning</option>
+                            <option value="warning-last-month">Warning mois dernier</option>
+                            <option value="warning-month-before">Warning mois d'avant</option>
                         </select>
                     </label>
 

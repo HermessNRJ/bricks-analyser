@@ -4,7 +4,7 @@
 
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
+import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate } from '../utils/dateHelpers.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -28,9 +28,10 @@ export function calculateMonthlyRevenue(investment, yearlyReturn) {
 /**
  * Fonction principale : calcule toutes les statistiques d'investissement
  * @param {Array} data - Données mensuelles des projets
+ * @param {Array} warnings - Liste des warnings (optionnel)
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data) {
+export function calculateInvestmentStats(data, warnings = []) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -79,7 +80,8 @@ export function calculateInvestmentStats(data) {
                         thumbnailUrl: project.thumbnailUrl || '',
                         firstSeenMonth: monthKey,
                         funding: project.funding,
-                        projectStatus: project.projectStatus || 'financed'
+                        projectStatus: project.projectStatus || 'financed',
+                        investmentHorizonInMonths: project.investmentHorizonInMonths || 0
                     });
                 }
             } catch (projectErr) {
@@ -89,8 +91,31 @@ export function calculateInvestmentStats(data) {
     });
 
     logger.debug(LOG_CATEGORIES.CALC_STATS, 'Unique projects collected', {
-        count: uniqueProjects.size
+        count: uniqueProjects.size,
+        projectIds: Array.from(uniqueProjects.keys())
     });
+
+    // Associer les warnings aux projets par propertyId
+    const warningsByPropertyId = new Map();
+    if (Array.isArray(warnings) && warnings.length > 0) {
+        warnings.forEach(warning => {
+            const propertyId = warning.propertyId;
+            if (!warningsByPropertyId.has(propertyId)) {
+                warningsByPropertyId.set(propertyId, []);
+            }
+            warningsByPropertyId.get(propertyId).push(warning);
+        });
+
+        logger.debug(LOG_CATEGORIES.CALC_STATS, 'Warnings grouped by property', {
+            warningsCount: warnings.length,
+            propertiesWithWarnings: warningsByPropertyId.size,
+            warningPropertyIds: Array.from(warningsByPropertyId.keys())
+        });
+    } else {
+        logger.warn(LOG_CATEGORIES.CALC_STATS, 'No warnings received or invalid warnings array', {
+            warningsReceived: warnings
+        });
+    }
 
     // ========================================================================
     // DEUXIÈME PASSE : Calculer les statistiques par projet
@@ -123,6 +148,24 @@ export function calculateInvestmentStats(data) {
         const revenue = calculateMonthlyRevenue(projectInvestment, project.yearlyReturn);
         monthlyRevenue += revenue.net;
 
+        // Calculer la date de remboursement estimée
+        const estimatedRefundDate = calculateRefundDate(
+            project.funding?.revenueStartDate,
+            project.investmentHorizonInMonths
+        );
+
+        // Récupérer les warnings pour cette propriété
+        const propertyWarnings = warningsByPropertyId.get(project.id) || [];
+
+        // Log pour déboguer les warnings
+        if (propertyWarnings.length > 0) {
+            logger.debug(LOG_CATEGORIES.CALC_STATS, 'Warnings found for property', {
+                projectId: project.id,
+                projectName: project.name,
+                warningsCount: propertyWarnings.length
+            });
+        }
+
         // Ajouter à la liste des propriétés
         properties.push({
             id: project.id,
@@ -134,7 +177,12 @@ export function calculateInvestmentStats(data) {
             yearlyReturn: project.yearlyReturn,
             monthlyRevenue: revenue.net,
             thumbnailUrl: project.thumbnailUrl,
-            projectStatus: project.projectStatus
+            projectStatus: project.projectStatus,
+            revenueStartDate: project.funding?.revenueStartDate || null,
+            refundDate: estimatedRefundDate,
+            investmentHorizonInMonths: project.investmentHorizonInMonths,
+            warnings: propertyWarnings,
+            warningsCount: propertyWarnings.length
         });
 
         // Collecter les entrées de revenus pour l'évolution temporelle

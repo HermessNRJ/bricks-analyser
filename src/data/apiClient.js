@@ -146,3 +146,49 @@ export function mergeAPIProjects(financedData, allProjectsData) {
 
     return combined;
 }
+
+/**
+ * Récupère les warnings (highlighted updates) depuis l'API Bricks.co
+ * @param {string} token - Bearer token d'authentification
+ * @returns {Promise<Array>} Liste des warnings
+ * @throws {Error} Si la requête échoue
+ */
+export async function fetchWarnings(token) {
+    const url = `${CONFIG.API_BASE_URL}${CONFIG.API_ENDPOINTS.WARNINGS}`;
+
+    logger.debug(LOG_CATEGORIES.API, 'Fetching property warnings', { url });
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch {
+                throw new Error(`Erreur HTTP ${response.status}: ${response.statusText} (récupération warnings)`);
+            }
+
+            throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)} (récupération warnings)`);
+        }
+
+        const data = await response.json();
+
+        logger.info(LOG_CATEGORIES.API, 'Warnings fetched successfully', {
+            count: Array.isArray(data) ? data.length : 0
+        });
+
+        return data || [];
+
+    } catch (err) {
+        logger.error(LOG_CATEGORIES.API, 'Failed to fetch warnings', err);
+        // Ne pas bloquer l'application si les warnings échouent
+        return [];
+    }
+}

@@ -161,16 +161,6 @@ export function createTreemapChart(properties) {
                         const data = ctx.dataset.tree[dataIndex];
                         return data ? getDarkerColor(data.color) : 'rgba(102, 126, 234, 1)';
                     },
-                    captions: {
-                        align: 'center',
-                        display: true,
-                        color: 'white',
-                        font: {
-                            size: 11,
-                            weight: 'bold'
-                        },
-                        padding: 4
-                    },
                     labels: {
                         display: true,
                         align: 'center',
@@ -186,26 +176,35 @@ export function createTreemapChart(properties) {
                             const data = ctx.dataset.tree[ctx.dataIndex];
                             if (!data) return '';
 
-                            // Calculer la surface du rectangle
-                            const element = ctx.chart.getDatasetMeta(0).data[ctx.dataIndex];
-                            if (!element || !element.width || !element.height) return '';
+                            // Accéder à l'élément rendu pour obtenir les dimensions
+                            try {
+                                const meta = ctx.chart.getDatasetMeta(ctx.datasetIndex);
+                                const element = meta.data[ctx.dataIndex];
 
-                            const area = element.width * element.height;
+                                if (element && element.width && element.height) {
+                                    const area = element.width * element.height;
 
-                            // Si très grand rectangle (>5000px²), afficher nom + montant
-                            if (area > 5000) {
-                                return [truncate(data.name, 25), formatCurrency(data.value, 0)];
+                                    // Si très grand rectangle (>3000px²), afficher nom + montant
+                                    if (area > 3000) {
+                                        return [truncate(data.name, 30), formatCurrency(data.value, 0)];
+                                    }
+                                    // Si grand rectangle (>1500px²), afficher nom + montant court
+                                    else if (area > 1500) {
+                                        return [truncate(data.name, 20), formatCurrency(data.value, 0)];
+                                    }
+                                    // Si moyen rectangle (>600px²), afficher nom seulement
+                                    else if (area > 600) {
+                                        return truncate(data.name, 15);
+                                    }
+                                    // Sinon, ne rien afficher (trop petit)
+                                    return '';
+                                }
+                            } catch (e) {
+                                // En cas d'erreur, ne rien faire
                             }
-                            // Si grand rectangle (>2000px²), afficher nom
-                            else if (area > 2000) {
-                                return truncate(data.name, 20);
-                            }
-                            // Si moyen rectangle (>800px²), afficher nom court
-                            else if (area > 800) {
-                                return truncate(data.name, 12);
-                            }
-                            // Sinon, ne rien afficher (trop petit)
-                            return '';
+
+                            // Par défaut lors du premier rendu, essayer d'afficher nom + montant
+                            return [truncate(data.name, 25), formatCurrency(data.value, 0)];
                         }
                     }
                 }]
@@ -256,6 +255,28 @@ export function createTreemapChart(properties) {
         // Sauvegarder dans l'état
         charts.treemap = chart;
         state.set('charts', charts);
+
+        // Forcer plusieurs updates pour que les labels s'affichent correctement
+        // Le premier update rapide
+        setTimeout(() => {
+            if (chart) {
+                chart.update('none');
+            }
+        }, 50);
+
+        // Un deuxième update pour s'assurer que les dimensions sont correctes
+        setTimeout(() => {
+            if (chart) {
+                chart.update('none');
+            }
+        }, 200);
+
+        // Un troisième update pour être sûr
+        setTimeout(() => {
+            if (chart) {
+                chart.update('none');
+            }
+        }, 500);
 
         logger.info(LOG_CATEGORIES.CHART, 'Treemap chart created', {
             properties: activeProperties.length,

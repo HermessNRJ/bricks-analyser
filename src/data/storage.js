@@ -7,7 +7,7 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
  * Charge les données depuis le Local Storage
- * @returns {Array|null} Données parsées ou null si absentes/invalides
+ * @returns {Object|null} Objet contenant {data, warnings} ou null si absent/invalide
  */
 export function loadFromLocalStorage() {
     try {
@@ -20,18 +20,30 @@ export function loadFromLocalStorage() {
 
         const parsed = JSON.parse(stored);
 
-        // Validation basique
-        if (!Array.isArray(parsed)) {
-            logger.warn(LOG_CATEGORIES.STORAGE, 'Stored data is not an array, clearing');
-            localStorage.removeItem(CONFIG.LOCAL_STORAGE_KEY);
-            return null;
+        // Compatibilité avec l'ancien format (array direct)
+        if (Array.isArray(parsed)) {
+            logger.info(LOG_CATEGORIES.STORAGE, 'Legacy format detected, converting', {
+                entries: parsed.length
+            });
+            return { data: parsed, warnings: [] };
         }
 
-        logger.info(LOG_CATEGORIES.STORAGE, 'Data loaded from localStorage', {
-            entries: parsed.length
-        });
+        // Nouveau format (objet avec data et warnings)
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
+            logger.info(LOG_CATEGORIES.STORAGE, 'Data loaded from localStorage', {
+                entries: parsed.data.length,
+                warnings: (parsed.warnings || []).length
+            });
+            return {
+                data: parsed.data,
+                warnings: parsed.warnings || []
+            };
+        }
 
-        return parsed;
+        // Format invalide
+        logger.warn(LOG_CATEGORIES.STORAGE, 'Invalid stored data format, clearing');
+        localStorage.removeItem(CONFIG.LOCAL_STORAGE_KEY);
+        return null;
 
     } catch (err) {
         logger.error(LOG_CATEGORIES.STORAGE, 'Failed to load from localStorage', err);
@@ -44,20 +56,26 @@ export function loadFromLocalStorage() {
 /**
  * Sauvegarde les données dans le Local Storage
  * @param {Array} data - Données à sauvegarder
+ * @param {Array} warnings - Warnings à sauvegarder (optionnel)
  * @returns {boolean} true si succès, false sinon
  */
-export function saveToLocalStorage(data) {
+export function saveToLocalStorage(data, warnings = []) {
     if (!Array.isArray(data)) {
         logger.error(LOG_CATEGORIES.STORAGE, 'Cannot save non-array data to localStorage');
         return false;
     }
 
     try {
-        const jsonData = JSON.stringify(data);
+        const storageObject = {
+            data: data,
+            warnings: warnings || []
+        };
+        const jsonData = JSON.stringify(storageObject);
         localStorage.setItem(CONFIG.LOCAL_STORAGE_KEY, jsonData);
 
         logger.info(LOG_CATEGORIES.STORAGE, 'Data saved to localStorage', {
             entries: data.length,
+            warnings: warnings.length,
             size: `${(jsonData.length / 1024).toFixed(2)} KB`
         });
 

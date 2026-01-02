@@ -7,11 +7,8 @@ import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { loadFromLocalStorage } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
-import { createCharts } from '../charts/chartManager.js';
-import { updateUI, showResults } from '../ui/uiUpdater.js';
 import { showDeletionModal } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
-import { setupFileUploadHandler } from './fileUploadHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
@@ -24,7 +21,6 @@ function initializeApp() {
     logger.info(LOG_CATEGORIES.EVENT, 'Initializing Bricks Analyser application');
 
     // Configurer tous les gestionnaires d'événements
-    setupFileUploadHandler();
     setupAPIHandler();
     setupScrollToTop();
     setupResetCache();
@@ -71,6 +67,8 @@ function subscribeToStateChanges() {
 function setupPropertyControls() {
     const sortBySelect = document.getElementById('propertySortBy');
     const filterSelect = document.getElementById('propertyFilter');
+    const dateFilterSelect = document.getElementById('propertyDateFilter');
+    const warningFilterSelect = document.getElementById('propertyWarningFilter');
 
     if (sortBySelect) {
         // Charger l'état depuis localStorage
@@ -80,7 +78,7 @@ function setupPropertyControls() {
         // Écouter les changements
         sortBySelect.addEventListener('change', (e) => {
             const sortBy = e.target.value;
-            updatePropertySortAndFilter(sortBy, undefined);
+            updatePropertySortAndFilter(sortBy, undefined, undefined, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property sort control configured', { sortBy: savedSortBy });
@@ -94,10 +92,38 @@ function setupPropertyControls() {
         // Écouter les changements
         filterSelect.addEventListener('change', (e) => {
             const filter = e.target.value;
-            updatePropertySortAndFilter(undefined, filter);
+            updatePropertySortAndFilter(undefined, filter, undefined, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property filter control configured', { filter: savedFilter });
+    }
+
+    if (dateFilterSelect) {
+        // Charger l'état depuis localStorage
+        const savedDateFilter = localStorage.getItem('propertyDateFilter') || 'all';
+        dateFilterSelect.value = savedDateFilter;
+
+        // Écouter les changements
+        dateFilterSelect.addEventListener('change', (e) => {
+            const dateFilter = e.target.value;
+            updatePropertySortAndFilter(undefined, undefined, dateFilter, undefined);
+        });
+
+        logger.debug(LOG_CATEGORIES.EVENT, 'Property date filter control configured', { dateFilter: savedDateFilter });
+    }
+
+    if (warningFilterSelect) {
+        // Charger l'état depuis localStorage
+        const savedWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
+        warningFilterSelect.value = savedWarningFilter;
+
+        // Écouter les changements
+        warningFilterSelect.addEventListener('change', (e) => {
+            const warningFilter = e.target.value;
+            updatePropertySortAndFilter(undefined, undefined, undefined, warningFilter);
+        });
+
+        logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
     }
 }
 
@@ -105,21 +131,18 @@ function setupPropertyControls() {
  * Charge les données initiales depuis localStorage
  */
 async function loadInitialData() {
-    const cachedData = loadFromLocalStorage();
+    const cachedStorage = loadFromLocalStorage();
 
-    if (cachedData && cachedData.length > 0) {
+    if (cachedStorage && cachedStorage.data && cachedStorage.data.length > 0) {
         logger.info(LOG_CATEGORIES.EVENT, 'Loading cached data from localStorage', {
-            entries: cachedData.length
+            entries: cachedStorage.data.length,
+            warnings: cachedStorage.warnings.length
         });
 
         try {
-            // Utiliser finalizeProcessing pour traiter les données
-            const results = await finalizeProcessing(cachedData);
-
-            // Mettre à jour l'UI et créer les charts
-            updateUI(results);
-            createCharts(results);
-            showResults();
+            // Utiliser finalizeProcessing pour traiter les données (avec warnings)
+            // finalizeProcessing s'occupe maintenant de mettre à jour l'UI et créer les charts
+            await finalizeProcessing(cachedStorage.data, cachedStorage.warnings);
 
             logger.info(LOG_CATEGORIES.EVENT, 'Cached data loaded and displayed');
         } catch (err) {

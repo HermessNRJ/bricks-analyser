@@ -85,6 +85,25 @@ export function getCurrentMonthYYYYMM() {
 }
 
 /**
+ * Calcule la date de remboursement estimée
+ * @param {string} revenueStartDate - Date de début des revenus (format YYYY-MM)
+ * @param {number} investmentHorizonInMonths - Durée de l'investissement en mois
+ * @returns {string|null} Date estimée de remboursement (format YYYY-MM) ou null
+ */
+export function calculateRefundDate(revenueStartDate, investmentHorizonInMonths) {
+    if (!revenueStartDate || !investmentHorizonInMonths) {
+        return null;
+    }
+
+    // Vérifier le format YYYY-MM
+    if (!revenueStartDate.match(/^\d{4}-\d{2}$/)) {
+        return null;
+    }
+
+    return addMonthsToYYYYMM(revenueStartDate, investmentHorizonInMonths);
+}
+
+/**
  * Compare deux dates au format YYYY-MM
  * @param {string} date1 - Première date
  * @param {string} date2 - Deuxième date

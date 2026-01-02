@@ -2,7 +2,7 @@
  * Mise à jour de l'interface utilisateur
  */
 
-import { formatCurrency, formatNumber, truncate } from '../utils/formatters.js';
+import { formatCurrency, formatNumber, truncate, formatMonthName } from '../utils/formatters.js';
 import { getCurrentMonthYYYYMM, addMonthsToYYYYMM } from '../utils/dateHelpers.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
@@ -10,6 +10,8 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 let allProperties = [];
 let currentSortBy = 'investment-desc';
 let currentFilter = 'all';
+let currentDateFilter = 'all';
+let currentWarningFilter = 'all';
 
 /**
  * Met à jour toute l'interface avec les résultats calculés
@@ -26,6 +28,8 @@ export function updateUI(results) {
     // Charger les préférences de tri/filtrage
     currentSortBy = localStorage.getItem('propertySortBy') || 'investment-desc';
     currentFilter = localStorage.getItem('propertyFilter') || 'all';
+    currentDateFilter = localStorage.getItem('propertyDateFilter') || 'all';
+    currentWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
 
     updatePropertyList(allProperties);
     updateProjections(results.netRevenueEvolutionData);
@@ -63,8 +67,8 @@ function updatePropertyList(properties) {
         return;
     }
 
-    // Appliquer le filtre
-    let filteredProperties = filterProperties(properties, currentFilter);
+    // Appliquer les filtres
+    let filteredProperties = filterProperties(properties, currentFilter, currentDateFilter, currentWarningFilter);
 
     // Appliquer le tri
     let sortedProperties = sortProperties(filteredProperties, currentSortBy);
@@ -90,22 +94,97 @@ function updatePropertyList(properties) {
  * Filtre les propriétés selon le critère
  * @param {Array} properties - Propriétés à filtrer
  * @param {string} filterType - Type de filtre
+ * @param {string} dateFilterType - Type de filtre de date
+ * @param {string} warningFilterType - Type de filtre de warning
  * @returns {Array} Propriétés filtrées
  */
-function filterProperties(properties, filterType) {
+function filterProperties(properties, filterType, dateFilterType = 'all', warningFilterType = 'all') {
+    let filtered = properties;
+
+    // Filtre par statut
     switch (filterType) {
         case 'active':
-            return properties.filter(p => !p.isRefunded && p.projectStatus === 'financed');
+            filtered = filtered.filter(p => !p.isRefunded && p.projectStatus === 'financed');
+            break;
         case 'refunded':
-            return properties.filter(p => p.isRefunded);
+            filtered = filtered.filter(p => p.isRefunded);
+            break;
         case 'ongoing':
-            return properties.filter(p => p.projectStatus === 'ongoing');
+            filtered = filtered.filter(p => p.projectStatus === 'ongoing');
+            break;
         case 'upcoming':
-            return properties.filter(p => p.projectStatus === 'upcoming');
-        case 'all':
-        default:
-            return properties;
+            filtered = filtered.filter(p => p.projectStatus === 'upcoming');
+            break;
     }
+
+    // Filtre par date
+    switch (dateFilterType) {
+        case 'has-revenue-date':
+            filtered = filtered.filter(p => p.revenueStartDate);
+            break;
+        case 'no-revenue-date':
+            filtered = filtered.filter(p => !p.revenueStartDate);
+            break;
+        case 'has-refund-date':
+            filtered = filtered.filter(p => p.refundDate);
+            break;
+        case 'no-refund-date':
+            filtered = filtered.filter(p => !p.refundDate);
+            break;
+    }
+
+    // Filtre par warning
+    switch (warningFilterType) {
+        case 'has-warning':
+            filtered = filtered.filter(p => p.warningsCount > 0);
+            break;
+        case 'no-warning':
+            filtered = filtered.filter(p => p.warningsCount === 0);
+            break;
+        case 'warning-last-month':
+            filtered = filtered.filter(p => hasWarningInLastMonth(p));
+            break;
+        case 'warning-month-before':
+            filtered = filtered.filter(p => hasWarningInMonthBefore(p));
+            break;
+    }
+
+    return filtered;
+}
+
+/**
+ * Vérifie si une propriété a un warning dans le dernier mois
+ * @param {Object} property - Propriété
+ * @returns {boolean}
+ */
+function hasWarningInLastMonth(property) {
+    if (!property.warnings || property.warnings.length === 0) return false;
+
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+    return property.warnings.some(w => {
+        const warningDate = new Date(w.date);
+        return warningDate >= lastMonth;
+    });
+}
+
+/**
+ * Vérifie si une propriété a un warning entre -2 mois et -1 mois
+ * @param {Object} property - Propriété
+ * @returns {boolean}
+ */
+function hasWarningInMonthBefore(property) {
+    if (!property.warnings || property.warnings.length === 0) return false;
+
+    const now = new Date();
+    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+    return property.warnings.some(w => {
+        const warningDate = new Date(w.date);
+        return warningDate >= twoMonthsAgo && warningDate < oneMonthAgo;
+    });
 }
 
 /**
@@ -143,6 +222,19 @@ function sortProperties(properties, sortBy) {
         case 'name-desc':
             return sorted.sort((a, b) => b.name.localeCompare(a.name));
 
+        case 'revenuestart-desc':
+            return sorted.sort((a, b) => {
+                if (!a.revenueStartDate) return 1;
+                if (!b.revenueStartDate) return -1;
+                return b.revenueStartDate.localeCompare(a.revenueStartDate);
+            });
+        case 'revenuestart-asc':
+            return sorted.sort((a, b) => {
+                if (!a.revenueStartDate) return 1;
+                if (!b.revenueStartDate) return -1;
+                return a.revenueStartDate.localeCompare(b.revenueStartDate);
+            });
+
         default:
             return sorted;
     }
@@ -152,8 +244,10 @@ function sortProperties(properties, sortBy) {
  * Exporte les fonctions pour mettre à jour le tri/filtrage
  * @param {string} sortBy - Nouveau critère de tri
  * @param {string} filter - Nouveau filtre
+ * @param {string} dateFilter - Nouveau filtre de date
+ * @param {string} warningFilter - Nouveau filtre de warning
  */
-export function updatePropertySortAndFilter(sortBy, filter) {
+export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningFilter) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
         localStorage.setItem('propertySortBy', sortBy);
@@ -162,6 +256,16 @@ export function updatePropertySortAndFilter(sortBy, filter) {
     if (filter !== undefined) {
         currentFilter = filter;
         localStorage.setItem('propertyFilter', filter);
+    }
+
+    if (dateFilter !== undefined) {
+        currentDateFilter = dateFilter;
+        localStorage.setItem('propertyDateFilter', dateFilter);
+    }
+
+    if (warningFilter !== undefined) {
+        currentWarningFilter = warningFilter;
+        localStorage.setItem('propertyWarningFilter', warningFilter);
     }
 
     // Recréer la liste avec les nouveaux critères
@@ -197,8 +301,64 @@ function createPropertyCard(property) {
         statusBadge = '<span style="font-weight:normal; color:#ffc107; font-size: 0.9em;">(À Venir)</span>';
     }
 
+    // Formatage des dates
+    const revenueStartDisplay = property.revenueStartDate
+        ? formatMonthName(property.revenueStartDate)
+        : 'N/D';
+    const refundDateDisplay = property.refundDate
+        ? `${formatMonthName(property.refundDate)} (est.)`
+        : (property.isRefunded ? 'Remboursé' : 'N/D');
+
+    // URL du projet sur Bricks.co
+    const projectUrl = `https://app.bricks.co/project/${property.id}`;
+
+    // Générer le badge de warning si nécessaire
+    let warningSection = '';
+    if (property.warningsCount > 0) {
+        const hasRecent = hasWarningInLastMonth(property);
+        const badgeColor = hasRecent ? '#ff6b6b' : '#ffa726';
+        const badgeText = hasRecent ? 'Récent' : 'Ancien';
+
+        // Créer la liste des warnings
+        const warningsList = property.warnings
+            .map(w => {
+                const warningDate = new Date(w.date);
+                const formattedDate = warningDate.toLocaleDateString('fr-FR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                // Nettoyer le HTML de la description pour l'affichage
+                const cleanDescription = w.description
+                    .replace(/<[^>]*>/g, '') // Retirer les tags HTML
+                    .replace(/&nbsp;/g, ' ')
+                    .trim()
+                    .substring(0, 150); // Limiter à 150 caractères
+
+                return `
+                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 0.85em;">
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${formattedDate}</div>
+                        <div style="color: #6c757d;">${cleanDescription}${cleanDescription.length >= 150 ? '...' : ''}</div>
+                    </div>
+                `;
+            })
+            .join('');
+
+        warningSection = `
+            <div style="margin-top: 12px; padding: 10px; background: ${badgeColor}15; border-left: 4px solid ${badgeColor}; border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 1.2em;">⚠️</span>
+                    <strong style="color: ${badgeColor};">${property.warningsCount} Warning(s) ${badgeText}</strong>
+                </div>
+                <div style="max-height: 200px; overflow-y: auto;">
+                    ${warningsList}
+                </div>
+            </div>
+        `;
+    }
+
     return `
-        <div class="${cardClasses}">
+        <div class="${cardClasses}" onclick="window.open('${projectUrl}', '_blank')" style="cursor: pointer;">
             ${imageHtml}
             <div class="property-name">${property.name} ${statusBadge}</div>
             <div class="property-details">
@@ -207,7 +367,10 @@ function createPropertyCard(property) {
                 <div><strong>Investissement:</strong> ${formatCurrency(property.investment)}</div>
                 <div><strong>Rendement annuel:</strong> ${property.yearlyReturn}%</div>
                 <div><strong>Revenus mensuels nets:</strong> ${formatCurrency(property.monthlyRevenue)}</div>
+                <div><strong>Premier versement:</strong> ${revenueStartDisplay}</div>
+                <div><strong>Date de remboursement:</strong> ${refundDateDisplay}</div>
             </div>
+            ${warningSection}
         </div>
     `;
 }
