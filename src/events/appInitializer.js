@@ -78,7 +78,7 @@ function setupPropertyControls() {
         // Écouter les changements
         sortBySelect.addEventListener('change', (e) => {
             const sortBy = e.target.value;
-            updatePropertySortAndFilter(sortBy, undefined, undefined, undefined);
+            updatePropertySortAndFilter(sortBy, undefined, undefined, undefined, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property sort control configured', { sortBy: savedSortBy });
@@ -92,7 +92,7 @@ function setupPropertyControls() {
         // Écouter les changements
         filterSelect.addEventListener('change', (e) => {
             const filter = e.target.value;
-            updatePropertySortAndFilter(undefined, filter, undefined, undefined);
+            updatePropertySortAndFilter(undefined, filter, undefined, undefined, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property filter control configured', { filter: savedFilter });
@@ -106,7 +106,7 @@ function setupPropertyControls() {
         // Écouter les changements
         dateFilterSelect.addEventListener('change', (e) => {
             const dateFilter = e.target.value;
-            updatePropertySortAndFilter(undefined, undefined, dateFilter, undefined);
+            updatePropertySortAndFilter(undefined, undefined, dateFilter, undefined, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property date filter control configured', { dateFilter: savedDateFilter });
@@ -120,10 +120,25 @@ function setupPropertyControls() {
         // Écouter les changements
         warningFilterSelect.addEventListener('change', (e) => {
             const warningFilter = e.target.value;
-            updatePropertySortAndFilter(undefined, undefined, undefined, warningFilter);
+            updatePropertySortAndFilter(undefined, undefined, undefined, warningFilter, undefined);
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
+    }
+
+    const countryFilterSelect = document.getElementById('propertyCountryFilter');
+    if (countryFilterSelect) {
+        // Charger l'état depuis localStorage
+        const savedCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
+        countryFilterSelect.value = savedCountryFilter;
+
+        // Écouter les changements
+        countryFilterSelect.addEventListener('change', (e) => {
+            const countryFilter = e.target.value;
+            updatePropertySortAndFilter(undefined, undefined, undefined, undefined, countryFilter);
+        });
+
+        logger.debug(LOG_CATEGORIES.EVENT, 'Property country filter control configured', { countryFilter: savedCountryFilter });
     }
 }
 

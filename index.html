@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analyseur d'Investissements Bricks</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.png">
+
     <!-- External CSS -->
     <link rel="stylesheet" href="./src/styles/main.css">
 
@@ -184,6 +187,14 @@
                             <option value="no-warning">Sans warning</option>
                             <option value="warning-last-month">Warning mois dernier</option>
                             <option value="warning-month-before">Warning mois d'avant</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        🌍 Filtrer par pays :
+                        <select id="propertyCountryFilter">
+                            <option value="all">Tous les pays</option>
+                            <!-- Les options seront ajoutées dynamiquement -->
                         </select>
                     </label>
 

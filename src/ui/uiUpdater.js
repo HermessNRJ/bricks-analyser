@@ -12,6 +12,7 @@ let currentSortBy = 'investment-desc';
 let currentFilter = 'all';
 let currentDateFilter = 'all';
 let currentWarningFilter = 'all';
+let currentCountryFilter = 'all';
 
 /**
  * Met à jour toute l'interface avec les résultats calculés
@@ -30,11 +31,42 @@ export function updateUI(results) {
     currentFilter = localStorage.getItem('propertyFilter') || 'all';
     currentDateFilter = localStorage.getItem('propertyDateFilter') || 'all';
     currentWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
+    currentCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
+
+    // Remplir le dropdown des pays disponibles
+    populateCountryFilter(allProperties);
 
     updatePropertyList(allProperties);
     updateProjections(results.netRevenueEvolutionData);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');
+}
+
+/**
+ * Remplit le dropdown des pays avec les pays disponibles
+ * @param {Array} properties - Liste des propriétés
+ */
+function populateCountryFilter(properties) {
+    const countryFilterSelect = document.getElementById('propertyCountryFilter');
+    if (!countryFilterSelect) return;
+
+    // Extraire les pays uniques
+    const countries = [...new Set(properties.map(p => p.country))].sort();
+
+    // Garder l'option "Tous les pays" et ajouter les pays
+    countryFilterSelect.innerHTML = '<option value="all">Tous les pays</option>';
+
+    countries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        countryFilterSelect.appendChild(option);
+    });
+
+    // Restaurer la sélection sauvegardée
+    countryFilterSelect.value = currentCountryFilter;
+
+    logger.debug(LOG_CATEGORIES.UI, 'Country filter populated', { countries: countries.length });
 }
 
 /**
@@ -68,7 +100,7 @@ function updatePropertyList(properties) {
     }
 
     // Appliquer les filtres
-    let filteredProperties = filterProperties(properties, currentFilter, currentDateFilter, currentWarningFilter);
+    let filteredProperties = filterProperties(properties, currentFilter, currentDateFilter, currentWarningFilter, currentCountryFilter);
 
     // Appliquer le tri
     let sortedProperties = sortProperties(filteredProperties, currentSortBy);
@@ -86,7 +118,8 @@ function updatePropertyList(properties) {
         filtered: filteredProperties.length,
         displayed: sortedProperties.length,
         sortBy: currentSortBy,
-        filter: currentFilter
+        filter: currentFilter,
+        countryFilter: currentCountryFilter
     });
 }
 
@@ -96,9 +129,10 @@ function updatePropertyList(properties) {
  * @param {string} filterType - Type de filtre
  * @param {string} dateFilterType - Type de filtre de date
  * @param {string} warningFilterType - Type de filtre de warning
+ * @param {string} countryFilterType - Type de filtre de pays
  * @returns {Array} Propriétés filtrées
  */
-function filterProperties(properties, filterType, dateFilterType = 'all', warningFilterType = 'all') {
+function filterProperties(properties, filterType, dateFilterType = 'all', warningFilterType = 'all', countryFilterType = 'all') {
     let filtered = properties;
 
     // Filtre par statut
@@ -147,6 +181,11 @@ function filterProperties(properties, filterType, dateFilterType = 'all', warnin
         case 'warning-month-before':
             filtered = filtered.filter(p => hasWarningInMonthBefore(p));
             break;
+    }
+
+    // Filtre par pays
+    if (countryFilterType !== 'all') {
+        filtered = filtered.filter(p => p.country === countryFilterType);
     }
 
     return filtered;
@@ -246,8 +285,9 @@ function sortProperties(properties, sortBy) {
  * @param {string} filter - Nouveau filtre
  * @param {string} dateFilter - Nouveau filtre de date
  * @param {string} warningFilter - Nouveau filtre de warning
+ * @param {string} countryFilter - Nouveau filtre de pays
  */
-export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningFilter) {
+export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningFilter, countryFilter) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
         localStorage.setItem('propertySortBy', sortBy);
@@ -268,12 +308,18 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
         localStorage.setItem('propertyWarningFilter', warningFilter);
     }
 
+    if (countryFilter !== undefined) {
+        currentCountryFilter = countryFilter;
+        localStorage.setItem('propertyCountryFilter', countryFilter);
+    }
+
     // Recréer la liste avec les nouveaux critères
     updatePropertyList(allProperties);
 
     logger.info(LOG_CATEGORIES.UI, 'Property sort/filter updated', {
         sortBy: currentSortBy,
-        filter: currentFilter
+        filter: currentFilter,
+        countryFilter: currentCountryFilter
     });
 }
 

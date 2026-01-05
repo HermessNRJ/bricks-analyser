@@ -7,6 +7,9 @@ COPY index.html /usr/share/nginx/html/
 # Copier le dossier src (modules JavaScript et CSS)
 COPY src /usr/share/nginx/html/src/
 
+# Copier la favicon
+COPY favicon.png /usr/share/nginx/html/
+
 # Copier la configuration nginx personnalisée
 COPY nginx.conf /etc/nginx/nginx.conf
 

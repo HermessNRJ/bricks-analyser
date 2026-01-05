@@ -5,6 +5,7 @@
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate } from '../utils/dateHelpers.js';
+import { detectCountryFromProject } from '../utils/countryHelpers.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -69,11 +70,15 @@ export function calculateInvestmentStats(data, warnings = []) {
                         brickPrice = project.brickPrice / 100;
                     }
 
+                    // Détecter le pays depuis le nom du projet (emoji de drapeau)
+                    const detectedCountry = detectCountryFromProject(project);
+
                     // Stocker le projet unique (Map = pas de doublons)
                     uniqueProjects.set(project.id, {
                         id: project.id,
                         name: project.name?.fr || project.name?.en || project.name || 'Propriété sans nom',
                         address: project.address?.fr || project.address?.en || project.address || 'Adresse non disponible',
+                        country: detectedCountry,
                         ownedBricks: ownedBricks,
                         brickPrice: brickPrice,
                         yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
@@ -172,6 +177,7 @@ export function calculateInvestmentStats(data, warnings = []) {
             name: project.name,
             isRefunded: isRefunded,
             address: project.address,
+            country: project.country,
             ownedBricks: project.ownedBricks,
             investment: projectInvestment,
             yearlyReturn: project.yearlyReturn,
