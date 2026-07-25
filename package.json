@@ -1,0 +1,20 @@
+{
+  "name": "bricks-analyser",
+  "version": "1.0.0",
+  "description": "Tableau de bord d'analyse des investissements Bricks.co",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "node tests/e2e/smoke.mjs",
+    "serve": "python3 -m http.server 8099"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^25.0.1",
+    "playwright": "^1.62.0",
+    "vitest": "^2.1.8"
+  }
+}

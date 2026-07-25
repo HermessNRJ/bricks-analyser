@@ -4,7 +4,7 @@
 
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate } from '../utils/dateHelpers.js';
+import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
 
 /**
@@ -24,6 +24,26 @@ export function calculateMonthlyRevenue(investment, yearlyReturn) {
         net: netMonthly,
         tax: tax
     };
+}
+
+/**
+ * Détermine le premier mois d'apparition d'un projet
+ * Les mois non datés ('N/A' pour les projets en financement) ne sont retenus qu'à
+ * défaut de mieux, et un vrai mois l'emporte toujours sur eux.
+ * @param {string|undefined} knownMonth - Mois déjà retenu pour ce projet
+ * @param {string} candidateMonth - Mois de l'entrée en cours de traitement
+ * @returns {string} Mois à conserver
+ */
+function resolveFirstSeenMonth(knownMonth, candidateMonth) {
+    if (!isValidYYYYMM(candidateMonth)) {
+        return knownMonth ?? candidateMonth;
+    }
+
+    if (!isValidYYYYMM(knownMonth)) {
+        return candidateMonth;
+    }
+
+    return candidateMonth < knownMonth ? candidateMonth : knownMonth;
 }
 
 /**
@@ -73,6 +93,12 @@ export function calculateInvestmentStats(data, warnings = []) {
                     // Détecter le pays depuis le nom du projet (emoji de drapeau)
                     const detectedCountry = detectCountryFromProject(project);
 
+                    // Un projet apparaît sur plusieurs mois : on garde les données les
+                    // plus récentes mais le PREMIER mois où il a été vu, car c'est lui qui
+                    // datera l'investissement dans la courbe d'évolution.
+                    const knownProject = uniqueProjects.get(project.id);
+                    const firstSeenMonth = resolveFirstSeenMonth(knownProject?.firstSeenMonth, monthKey);
+
                     // Stocker le projet unique (Map = pas de doublons)
                     uniqueProjects.set(project.id, {
                         id: project.id,
@@ -83,7 +109,7 @@ export function calculateInvestmentStats(data, warnings = []) {
                         brickPrice: brickPrice,
                         yearlyReturn: project.yearlyTotalRentabilityPercentage || 0,
                         thumbnailUrl: project.thumbnailUrl || '',
-                        firstSeenMonth: monthKey,
+                        firstSeenMonth: firstSeenMonth,
                         funding: project.funding,
                         projectStatus: project.projectStatus || 'financed',
                         investmentHorizonInMonths: project.investmentHorizonInMonths || 0
@@ -239,6 +265,18 @@ export function calculateInvestmentStats(data, warnings = []) {
     const monthlyInvestments = {};
     uniqueProjects.forEach((project) => {
         const monthKey = project.firstSeenMonth;
+
+        // Les projets en financement/à venir arrivent avec yearMonthDate = 'N/A' :
+        // impossible de les placer sur un axe temporel, on les laisse hors de la courbe
+        // (ils restent comptés dans totalInvestment).
+        if (!isValidYYYYMM(monthKey)) {
+            logger.debug(LOG_CATEGORIES.CALC_STATS, 'Project excluded from investment evolution (no valid month)', {
+                id: project.id,
+                monthKey
+            });
+            return;
+        }
+
         const projectInvestment = project.ownedBricks * project.brickPrice;
 
         if (!monthlyInvestments[monthKey]) {

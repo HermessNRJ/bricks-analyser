@@ -104,6 +104,25 @@ export function calculateRefundDate(revenueStartDate, investmentHorizonInMonths)
 }
 
 /**
+ * Recule une date d'un nombre de mois, sans débordement de jour
+ * new Date(2024, 2, 31) reculé d'un mois donnerait le 2 mars (février n'a pas 31 jours) :
+ * on borne le jour au dernier jour du mois cible.
+ * @param {Date} reference - Date de référence
+ * @param {number} months - Nombre de mois à retirer
+ * @returns {Date} Nouvelle date
+ */
+export function subtractMonths(reference, months) {
+    const year = reference.getFullYear();
+    const month = reference.getMonth() - months;
+
+    // Jour 0 du mois suivant = dernier jour du mois cible
+    const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(reference.getDate(), lastDayOfTargetMonth);
+
+    return new Date(year, month, day);
+}
+
+/**
  * Compare deux dates au format YYYY-MM
  * @param {string} date1 - Première date
  * @param {string} date2 - Deuxième date

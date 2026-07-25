@@ -58,7 +58,7 @@ L'application est configurée pour être servie par `nginx` via Docker, ce qui p
     ```bash
     docker-compose up -d
     ```
-*   L'application sera accessible à l'adresse `http://localhost:8088` (ou le port que vous avez configuré dans `docker-compose.yml`).
+*   L'application sera accessible à l'adresse `http://localhost:8080` (port défini dans `docker-compose.yml`).
 
 **Chargement des Données:**
 
@@ -81,6 +81,35 @@ L'application utilise les endpoints suivants de l'API Bricks.co :
 
 Tous les appels nécessitent un Bearer Token valide dans le header `Authorization`.
 
+## Tests
+
+Les tests couvrent la logique métier (calculs financiers, fusion des données, filtres, tri,
+persistance, client API) sans nécessiter de token ni de données personnelles.
+
+```bash
+npm install          # une seule fois
+npm test             # ~200 tests unitaires (Vitest + jsdom)
+npm run test:watch   # mode watch pendant le développement
+npm run test:coverage
+```
+
+**Smoke test de bout en bout** (optionnel) : ouvre `index.html` dans un vrai Chromium avec un
+jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri et le
+non-exécution du HTML venant de l'API.
+
+```bash
+npx playwright install chromium   # une seule fois
+npm run serve                     # dans un autre terminal (port 8099)
+npm run test:e2e
+```
+
+Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:8099`),
+`CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
+
+Ce qui n'est pas couvert par les tests automatisés : les gestionnaires d'événements du DOM
+(`src/events/`), les modales et la configuration Chart.js (`src/charts/`), qui restent
+vérifiés par le smoke test et à la main.
+
 ## Technologies Utilisées
 
 * **Frontend :** HTML5, CSS3, JavaScript ES6 (Modules)
@@ -88,6 +117,21 @@ Tous les appels nécessitent un Bearer Token valide dans le header `Authorizatio
 * **Architecture :** Modulaire avec séparation des responsabilités (API, Business Logic, UI, Events)
 * **Stockage :** LocalStorage pour la persistance des données
 * **Serveur :** Nginx (via Docker)
+* **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
+
+### Sécurité
+
+* Toutes les données provenant de l'API sont échappées avant injection dans le DOM
+  (`src/utils/html.js`), et les URLs de miniatures sont restreintes à `http(s)`.
+* `nginx.conf` envoie une `Content-Security-Policy` qui limite les scripts au domaine
+  de l'application et aux deux CDN de Chart.js.
+* Les scripts Chart.js sont chargés depuis un CDN sans `integrity`. Pour ajouter les
+  hachages SRI :
+  ```bash
+  curl -s <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
+  ```
+  puis reporter le résultat dans `index.html` via `integrity="sha384-..." crossorigin="anonymous"`.
+* Le token API n'est jamais persisté : il est effacé du champ de saisie après usage.
 
 ## Architecture du Code
 
@@ -121,9 +165,14 @@ src/
 │   ├── modals.js            # Modales et erreurs
 │   └── uiUpdater.js         # Mise à jour de l'interface
 ├── utils/            # Utilitaires
+│   ├── countryHelpers.js    # Détection du pays (drapeaux)
 │   ├── dateHelpers.js       # Manipulation de dates
 │   ├── formatters.js        # Formatage des valeurs
+│   ├── html.js              # Échappement HTML / validation d'URL
 │   └── logger.js            # Logging catégorisé
 └── styles/
     └── main.css             # Styles globaux
+
+tests/                # Tests unitaires (Vitest)
+└── e2e/smoke.mjs     # Smoke test navigateur (Playwright)
 ```

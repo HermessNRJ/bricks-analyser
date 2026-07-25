@@ -36,11 +36,9 @@ export function setupAPIHandler() {
         fetchBtn.style.opacity = '0.7';
         hideError();
 
-        let financedData = [];
-
         try {
-            // Récupérer les projets financés
-            financedData = await fetchFinancedProjects(token);
+            // Récupérer les projets financés : sans eux, rien à afficher
+            const financedData = await fetchFinancedProjects(token);
 
             // Récupérer les projets en cours/à venir
             let allProjectsData;
@@ -79,17 +77,10 @@ export function setupAPIHandler() {
             logger.info(LOG_CATEGORIES.EVENT, 'API data processed successfully');
 
         } catch (err) {
+            // Couvre l'échec de /projects/financed comme celui du traitement des données :
+            // dans les deux cas il n'y a rien à afficher, on remonte l'erreur telle quelle.
             logger.error(LOG_CATEGORIES.EVENT, 'API fetch failed', err);
-
-            if (financedData.length > 0) {
-                // Première requête réussie, deuxième échouée
-                showError(`Données des projets financés chargées, mais échec de la récupération des projets en cours/à venir: ${err.message}`);
-                await processData(financedData);
-                tokenInput.value = '';
-            } else {
-                // Première requête a échoué
-                showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
-            }
+            showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
         } finally {
             loadingMsg.style.display = 'none';
             fetchBtn.disabled = false;
