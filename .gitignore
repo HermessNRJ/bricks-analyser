@@ -1,2 +1,12 @@
-test.json
+# Données personnelles (exports Bricks) — ne jamais committer
 *.json
+!package.json
+!package-lock.json
+!tests/fixtures/*.json
+
+# Dépendances / outils
+node_modules/
+coverage/
+
+# OS
+.DS_Store

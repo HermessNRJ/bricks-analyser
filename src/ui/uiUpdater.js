@@ -3,7 +3,9 @@
  */
 
 import { formatCurrency, formatNumber, truncate, formatMonthName } from '../utils/formatters.js';
-import { getCurrentMonthYYYYMM, addMonthsToYYYYMM } from '../utils/dateHelpers.js';
+import { getCurrentMonthYYYYMM, addMonthsToYYYYMM, subtractMonths } from '../utils/dateHelpers.js';
+import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
+import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 // Stocker les propriétés pour le tri/filtrage
@@ -113,6 +115,9 @@ function updatePropertyList(properties) {
     // Générer le HTML
     container.innerHTML = sortedProperties.map(property => createPropertyCard(property)).join('');
 
+    // Les cartes sont recréées à chaque tri/filtre : un seul listener délégué suffit
+    attachPropertyCardListener(container);
+
     logger.debug(LOG_CATEGORIES.UI, 'Property list updated', {
         total: properties.length,
         filtered: filteredProperties.length,
@@ -121,6 +126,25 @@ function updatePropertyList(properties) {
         filter: currentFilter,
         countryFilter: currentCountryFilter
     });
+}
+
+/**
+ * Installe (une seule fois) le listener délégué d'ouverture des fiches propriété
+ * @param {HTMLElement} container - Conteneur de la liste des propriétés
+ */
+function attachPropertyCardListener(container) {
+    if (container.dataset.cardListenerAttached === 'true') {
+        return;
+    }
+
+    container.addEventListener('click', (event) => {
+        const card = event.target.closest('[data-project-url]');
+        if (card) {
+            window.open(card.dataset.projectUrl, '_blank', 'noopener');
+        }
+    });
+
+    container.dataset.cardListenerAttached = 'true';
 }
 
 /**
@@ -199,12 +223,11 @@ function filterProperties(properties, filterType, dateFilterType = 'all', warnin
 function hasWarningInLastMonth(property) {
     if (!property.warnings || property.warnings.length === 0) return false;
 
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const oneMonthAgo = subtractMonths(new Date(), 1);
 
     return property.warnings.some(w => {
         const warningDate = new Date(w.date);
-        return warningDate >= lastMonth;
+        return warningDate >= oneMonthAgo;
     });
 }
 
@@ -217,8 +240,8 @@ function hasWarningInMonthBefore(property) {
     if (!property.warnings || property.warnings.length === 0) return false;
 
     const now = new Date();
-    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-    const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+    const twoMonthsAgo = subtractMonths(now, 2);
+    const oneMonthAgo = subtractMonths(now, 1);
 
     return property.warnings.some(w => {
         const warningDate = new Date(w.date);
@@ -329,8 +352,9 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
  * @returns {string} HTML de la carte
  */
 function createPropertyCard(property) {
-    const imageHtml = property.thumbnailUrl
-        ? `<img src="${property.thumbnailUrl}" alt="Aperçu de la propriété ${property.name}" class="property-thumbnail">`
+    const thumbnailUrl = safeUrl(property.thumbnailUrl);
+    const imageHtml = thumbnailUrl
+        ? `<img src="${escapeHtml(thumbnailUrl)}" alt="Aperçu de la propriété ${escapeHtml(property.name)}" class="property-thumbnail">`
         : '';
 
     let cardClasses = "property-card";
@@ -356,7 +380,7 @@ function createPropertyCard(property) {
         : (property.isRefunded ? 'Remboursé' : 'N/D');
 
     // URL du projet sur Bricks.co
-    const projectUrl = `https://app.bricks.co/project/${property.id}`;
+    const projectUrl = `https://app.bricks.co/project/${encodeURIComponent(property.id)}`;
 
     // Générer le badge de warning si nécessaire
     let warningSection = '';
@@ -369,22 +393,21 @@ function createPropertyCard(property) {
         const warningsList = property.warnings
             .map(w => {
                 const warningDate = new Date(w.date);
-                const formattedDate = warningDate.toLocaleDateString('fr-FR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                const formattedDate = Number.isNaN(warningDate.getTime())
+                    ? 'Date inconnue'
+                    : warningDate.toLocaleDateString('fr-FR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
                 // Nettoyer le HTML de la description pour l'affichage
-                const cleanDescription = w.description
-                    .replace(/<[^>]*>/g, '') // Retirer les tags HTML
-                    .replace(/&nbsp;/g, ' ')
-                    .trim()
-                    .substring(0, 150); // Limiter à 150 caractères
+                const cleanDescription = stripTags(w.description).substring(0, 150);
+                const ellipsis = cleanDescription.length >= 150 ? '...' : '';
 
                 return `
                     <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 0.85em;">
-                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${formattedDate}</div>
-                        <div style="color: #6c757d;">${cleanDescription}${cleanDescription.length >= 150 ? '...' : ''}</div>
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${escapeHtml(formattedDate)}</div>
+                        <div style="color: #6c757d;">${escapeHtml(cleanDescription)}${ellipsis}</div>
                     </div>
                 `;
             })
@@ -404,17 +427,17 @@ function createPropertyCard(property) {
     }
 
     return `
-        <div class="${cardClasses}" onclick="window.open('${projectUrl}', '_blank')" style="cursor: pointer;">
+        <div class="${cardClasses}" data-project-url="${escapeHtml(projectUrl)}" style="cursor: pointer;">
             ${imageHtml}
-            <div class="property-name">${property.name} ${statusBadge}</div>
+            <div class="property-name">${escapeHtml(property.name)} ${statusBadge}</div>
             <div class="property-details">
-                <div><strong>Adresse:</strong> ${property.address}</div>
+                <div><strong>Adresse:</strong> ${escapeHtml(property.address)}</div>
                 <div><strong>Briques:</strong> ${formatNumber(property.ownedBricks)}</div>
                 <div><strong>Investissement:</strong> ${formatCurrency(property.investment)}</div>
-                <div><strong>Rendement annuel:</strong> ${property.yearlyReturn}%</div>
+                <div><strong>Rendement annuel:</strong> ${escapeHtml(property.yearlyReturn)}%</div>
                 <div><strong>Revenus mensuels nets:</strong> ${formatCurrency(property.monthlyRevenue)}</div>
-                <div><strong>Premier versement:</strong> ${revenueStartDisplay}</div>
-                <div><strong>Date de remboursement:</strong> ${refundDateDisplay}</div>
+                <div><strong>Premier versement:</strong> ${escapeHtml(revenueStartDisplay)}</div>
+                <div><strong>Date de remboursement:</strong> ${escapeHtml(refundDateDisplay)}</div>
             </div>
             ${warningSection}
         </div>
@@ -433,24 +456,25 @@ function updateProjections(netRevenueData) {
         return;
     }
 
-    container.innerHTML = '';
-
     const currentMonth = getCurrentMonthYYYYMM();
-    const monthLabels = ["Ce Mois-ci (est.)", "Mois M+1", "Mois M+2", "Mois M+3"];
+    const revenueData = netRevenueData || {};
+    const cards = [];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < CONFIG.PROJECTIONS_MONTHS; i++) {
         const monthKey = addMonthsToYYYYMM(currentMonth, i);
-        const value = netRevenueData[monthKey];
+        const value = revenueData[monthKey];
         const revenueDisplay = typeof value === 'number' ? formatCurrency(value) : 'N/D';
+        const label = i === 0 ? 'Ce Mois-ci (est.)' : `Mois M+${i}`;
 
-        const cardHtml = `
+        cards.push(`
             <div class="stat-card" style="flex-basis: 200px; padding: 15px;">
                 <div class="stat-value" style="font-size: 1.8rem; margin-bottom: 8px;">${revenueDisplay}</div>
-                <div class="stat-label" style="font-size: 0.9rem;">${monthLabels[i]}</div>
+                <div class="stat-label" style="font-size: 0.9rem;">${label}</div>
             </div>
-        `;
-        container.innerHTML += cardHtml;
+        `);
     }
+
+    container.innerHTML = cards.join('');
 
     logger.debug(LOG_CATEGORIES.UI, 'Projections updated');
 }

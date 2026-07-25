@@ -12,7 +12,7 @@ import { resizeAllCharts } from '../charts/chartManager.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
-import { updatePropertySortAndFilter } from '../ui/uiUpdater.js';
+import { updatePropertySortAndFilter, showResults } from '../ui/uiUpdater.js';
 
 /**
  * Initialise l'application au chargement de la page

@@ -5,6 +5,7 @@
  */
 
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { CONFIG } from './config.js';
 
 class AppState {
     constructor() {
@@ -87,7 +88,9 @@ class AppState {
 
         const oldValue = this._state[key];
 
-        if (typeof oldValue !== 'object' || oldValue === null) {
+        // Un tableau est un objet : sans ce garde-fou, une fusion le transformerait
+        // silencieusement en objet simple (ex: allData deviendrait inexploitable).
+        if (typeof oldValue !== 'object' || oldValue === null || Array.isArray(oldValue)) {
             logger.warn(LOG_CATEGORIES.UI, `Cannot partial update non-object state: ${key}`);
             return;
         }
@@ -203,6 +206,8 @@ class AppState {
 export const state = new AppState();
 
 // Exposer dans window pour debug en console (uniquement en mode debug)
-if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+// Note : l'application est servie sans bundler, import.meta.env n'existe pas ici,
+// c'est CONFIG.DEBUG qui pilote l'exposition.
+if (typeof window !== 'undefined' && CONFIG.DEBUG) {
     window.__appState__ = state;
 }
