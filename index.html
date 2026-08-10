@@ -51,8 +51,10 @@
                        placeholder="cf_clearance=…; __Secure-better-auth.session_token=…"
                        autocomplete="off" spellcheck="false">
                 <button id="fetchApiDataBtn" class="bouton bouton-principal">Charger les données</button>
+                <button id="refreshStatusBtn" class="bouton bouton-secondaire">Vérifier les statuts</button>
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>
+            <p id="statusProgress" class="chargement hidden" role="status"></p>
             <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
             <p id="dataAge" class="age-donnees hidden"></p>
         </section>
@@ -124,7 +126,7 @@
             <section class="stats-grid stats-risque" aria-labelledby="titreRisque">
                 <button type="button" class="stat-card stat-cliquable" data-risque="procedure">
                     <div class="stat-value stat-alerte" id="procedureCount">0</div>
-                    <div class="stat-label">En procédure</div>
+                    <div class="stat-label">En défaut, échéances dues</div>
                     <div class="stat-detail" id="detailProcedure"></div>
                 </button>
                 <button type="button" class="stat-card stat-cliquable" data-risque="impaye">
@@ -314,7 +316,7 @@
                             <option value="warning-current-month">Alerte ce mois-ci</option>
                             <option value="has-warning">Avec alerte</option>
                             <option value="no-warning">Sans alerte</option>
-                            <option value="risk-procedure">En procédure</option>
+                            <option value="risk-procedure">En défaut, échéances dues</option>
                             <option value="risk-impaye">Impayé ou retard</option>
                             <option value="risk-signale">Signalé, sans incident</option>
                             <option value="risk-sain">Sans signalement</option>

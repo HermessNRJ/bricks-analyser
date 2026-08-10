@@ -11,6 +11,7 @@ import { showDeletionModal } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
 import { setInvestmentRange, INVESTMENT_RANGES, DEFAULT_INVESTMENT_RANGE } from '../charts/investmentChart.js';
 import { setupForecastHandler } from './forecastHandler.js';
+import { setupStatusHandler } from './statusHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
@@ -32,6 +33,7 @@ function initializeApp() {
     setupPaginationControls();
     setupInvestmentRangeControl();
     setupForecastHandler();
+    setupStatusHandler();
     setupRiskShortcuts();
 
     // S'abonner aux changements d'état pour mettre à jour l'UI

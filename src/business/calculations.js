@@ -6,7 +6,7 @@ import { CONFIG, tauxImpositionPour } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
-import { repartitionRisque } from './riskAnalysis.js';
+import { repartitionRisque, niveauRisque } from './riskAnalysis.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -51,9 +51,10 @@ function resolveFirstSeenMonth(knownMonth, candidateMonth) {
  * Fonction principale : calcule toutes les statistiques d'investissement
  * @param {Array} data - Données mensuelles des projets
  * @param {Array} warnings - Liste des warnings (optionnel)
+ * @param {Object} [statuts] - Suivis officiels de projet, indexés par identifiant
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data, warnings = []) {
+export function calculateInvestmentStats(data, warnings = [], statuts = {}) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -241,6 +242,13 @@ export function calculateInvestmentStats(data, warnings = []) {
         grossEntries: projectGrossRevenueEntries.length
     });
 
+    // Le niveau de risque est arrêté ici, une fois pour toutes : tuiles, filtres
+    // et fiches lisent la même valeur. Le recalculer ailleurs les avait déjà fait
+    // diverger — les tuiles comptaient 38 défauts quand le registre en filtrait 4.
+    properties.forEach(p => {
+        p.niveauRisque = niveauRisque(p, statuts?.[p.id]);
+    });
+
     // Recalculer totalBricks en excluant les projets remboursés
     totalBricks = 0;
     for (const prop of properties) {
@@ -332,7 +340,7 @@ export function calculateInvestmentStats(data, warnings = []) {
         partDetenues,
         partRemboursees,
         partFinancement,
-        risque: repartitionRisque(properties),
+        risque: repartitionRisque(properties, statuts),
         investmentEvolution,
         netRevenueEvolutionData,
         grossRevenueEvolutionData,

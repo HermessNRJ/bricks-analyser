@@ -21,7 +21,7 @@ describe('saveToLocalStorage', () => {
 
         expect(saveToLocalStorage(data, warnings)).toBe(true);
         expect(JSON.parse(localStorage.getItem(KEY)))
-            .toEqual({ data, warnings, savedAt: expect.any(String) });
+            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {} });
     });
 
     it('accepte un appel sans warnings', () => {
@@ -56,7 +56,7 @@ describe('loadFromLocalStorage', () => {
         const warnings = [{ propertyId: 'a' }];
         saveToLocalStorage(data, warnings);
 
-        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String) });
+        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {} });
     });
 
     it('migre l\'ancien format (tableau nu)', () => {
@@ -64,13 +64,15 @@ describe('loadFromLocalStorage', () => {
         localStorage.setItem(KEY, JSON.stringify(legacy));
 
         // L'ancien format est un tableau nu : aucune date n'y figure
-        expect(loadFromLocalStorage()).toEqual({ data: legacy, warnings: [], savedAt: null });
+        expect(loadFromLocalStorage())
+            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {} });
     });
 
     it('complète les warnings absents du nouveau format', () => {
         localStorage.setItem(KEY, JSON.stringify({ data: [] }));
 
-        expect(loadFromLocalStorage()).toEqual({ data: [], warnings: [], savedAt: null });
+        expect(loadFromLocalStorage())
+            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {} });
     });
 
     it('purge un JSON corrompu', () => {
@@ -141,5 +143,23 @@ describe('saveToLocalStorage — la date ne rajeunit pas toute seule', () => {
     it('horodate la toute première sauvegarde', () => {
         expect(saveToLocalStorage([])).toBe(true);
         expect(loadFromLocalStorage().savedAt).toBeTruthy();
+    });
+});
+
+describe('saveToLocalStorage — suivis officiels de projet', () => {
+    it('conserve les statuts déjà enregistrés quand aucun n\'est fourni', () => {
+        const statuts = { p1: { id: 'p1', suivi: true, statut: 'defaulted', impayees: 4 } };
+        saveToLocalStorage([], [], { statuts });
+
+        saveToLocalStorage([{ yearMonthDate: '2024-02', projects: [] }]);
+
+        expect(loadFromLocalStorage().statuts).toEqual(statuts);
+    });
+
+    it('remplace les statuts quand de nouveaux sont fournis', () => {
+        saveToLocalStorage([], [], { statuts: { p1: { suivi: false } } });
+        saveToLocalStorage([], [], { statuts: { p2: { suivi: true } } });
+
+        expect(loadFromLocalStorage().statuts).toEqual({ p2: { suivi: true } });
     });
 });

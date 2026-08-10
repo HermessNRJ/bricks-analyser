@@ -1,11 +1,16 @@
 /**
- * Analyse du risque à partir des warnings Bricks
+ * Analyse du risque d'un portefeuille Bricks
  *
- * L'API ne publie aucun statut de défaut : les warnings ne portent qu'un texte
- * libre et une date. Le niveau de risque est donc DÉDUIT du vocabulaire employé,
- * selon des règles explicites — et non relevé d'un champ officiel.
+ * Deux sources, par ordre d'autorité :
  *
- * Deux précautions guident le classement :
+ * 1. Le suivi de projet (projects.bricks.co) porte le statut officiel et le
+ *    décompte des échéances impayées. C'est lui qui fait foi.
+ * 2. À défaut, le texte des alertes du portefeuille est lu par mots-clés. Cette
+ *    approximation ne sert que de repli : elle avait classé « Hôtel 4* Théoule
+ *    sur mer » sans incident alors que le projet est en défaut depuis quatre
+ *    échéances, sa dernière actualité ne parlant que de démarches préfectorales.
+ *
+ * Deux précautions guident la lecture du texte :
  *  - seul le warning le PLUS RÉCENT compte : c'est l'état courant du dossier ;
  *  - « régularisé » et « reversé » signalent une résolution, pas un incident.
  *    Les compter comme des défauts gonflerait artificiellement le risque.
@@ -28,11 +33,72 @@ export const NIVEAUX_RISQUE = {
  * Libellés d'affichage des niveaux
  */
 export const LIBELLES_RISQUE = {
-    [NIVEAUX_RISQUE.PROCEDURE]: 'En procédure',
+    [NIVEAUX_RISQUE.PROCEDURE]: 'En défaut ou procédure',
     [NIVEAUX_RISQUE.IMPAYE]: 'Impayé ou retard',
     [NIVEAUX_RISQUE.SIGNALE]: 'Signalé',
     [NIVEAUX_RISQUE.SAIN]: 'Sans signalement'
 };
+
+/**
+ * Statuts officiels renvoyés par le suivi de projet qui valent défaut
+ */
+const STATUTS_EN_DEFAUT = ['defaulted', 'litigation', 'contentieux'];
+
+/**
+ * Déduit le niveau de risque du suivi officiel d'un projet
+ *
+ * Ce suivi fait foi : il porte le statut déclaré par Bricks et le décompte des
+ * échéances impayées. Il prime donc sur toute lecture du texte des alertes,
+ * laquelle avait par exemple classé « Hôtel 4* Théoule sur mer » sans incident
+ * alors que le projet est en défaut avec quatre échéances impayées, sa
+ * dernière actualité ne parlant que de démarches préfectorales.
+ *
+ * @param {Object} statut - Entrée renvoyée par fetchProjectStatus
+ * @returns {string|null} Niveau de NIVEAUX_RISQUE, ou null si non concluant
+ */
+export function niveauDepuisStatutOfficiel(statut) {
+    if (!statut) {
+        return null;
+    }
+
+    // Aucune page de suivi : Bricks n'a ouvert aucun incident sur ce projet
+    if (statut.suivi === false) {
+        return NIVEAUX_RISQUE.SAIN;
+    }
+
+    const enDefaut = STATUTS_EN_DEFAUT.includes(String(statut.statut || '').toLowerCase());
+    const impayees = Number(statut.impayees) || 0;
+
+    // « defaulted » est un marqueur qui reste attaché au projet même une fois les
+    // échéances rattrapées : sans le décompte des impayées, on rangerait parmi
+    // les défauts en cours des dossiers depuis régularisés.
+    if (enDefaut && impayees > 0) {
+        return NIVEAUX_RISQUE.PROCEDURE;
+    }
+
+    if (impayees > 0) {
+        return NIVEAUX_RISQUE.IMPAYE;
+    }
+
+    // Un suivi existe mais plus rien n'est dû : incident passé, désormais réglé
+    return NIVEAUX_RISQUE.SIGNALE;
+}
+
+/**
+ * Indique si un suivi décrit un défaut désormais régularisé
+ * Utile pour nuancer l'affichage : ces projets ont connu un incident, mais
+ * n'ont plus d'échéance due aujourd'hui.
+ * @param {Object} statut - Entrée renvoyée par fetchProjectStatus
+ * @returns {boolean}
+ */
+export function estDefautRegularise(statut) {
+    if (!statut || statut.suivi === false) {
+        return false;
+    }
+
+    return STATUTS_EN_DEFAUT.includes(String(statut.statut || '').toLowerCase())
+        && (Number(statut.impayees) || 0) === 0;
+}
 
 // Le dossier est passé au contentieux : le plus grave, quel que soit le reste
 const TERMES_PROCEDURE = [
@@ -115,12 +181,22 @@ export function classerWarning(warning) {
 
 /**
  * Détermine le niveau de risque d'une propriété
- * Seul le warning le plus récent est retenu : les précédents décrivent un état
- * dépassé du dossier.
+ *
+ * Le suivi officiel prime quand il est connu. À défaut — statut pas encore
+ * récupéré, appel en échec — on retombe sur la lecture du dernier warning,
+ * qui reste une approximation.
+ *
  * @param {Object} property - Propriété avec sa liste de warnings
+ * @param {Object} [statutOfficiel] - Entrée du suivi de projet, si disponible
  * @returns {string} Niveau de NIVEAUX_RISQUE
  */
-export function niveauRisque(property) {
+export function niveauRisque(property, statutOfficiel = null) {
+    const officiel = niveauDepuisStatutOfficiel(statutOfficiel);
+
+    if (officiel) {
+        return officiel;
+    }
+
     const warnings = property?.warnings;
 
     if (!Array.isArray(warnings) || warnings.length === 0) {
@@ -143,9 +219,10 @@ export function niveauRisque(property) {
  * exclues : un projet soldé ne porte plus aucun risque et diluerait la mesure.
  *
  * @param {Array} properties - Liste des propriétés
+ * @param {Object} [statuts] - Suivis officiels indexés par identifiant de projet
  * @returns {Object} Compteurs, parts et capital exposé par niveau
  */
-export function repartitionRisque(properties) {
+export function repartitionRisque(properties, statuts = {}) {
     const encoursDetenus = (properties || []).filter(p => !p.isRefunded);
     const base = encoursDetenus.length;
     const capitalBase = encoursDetenus.reduce((somme, p) => somme + (p.investment || 0), 0);
@@ -158,8 +235,16 @@ export function repartitionRisque(properties) {
         [NIVEAUX_RISQUE.SAIN]: vide()
     };
 
+    let defautsRegularises = 0;
+
     encoursDetenus.forEach(p => {
-        const niveau = niveauRisque(p);
+        const statut = statuts?.[p.id];
+        const niveau = p.niveauRisque || niveauRisque(p, statut);
+
+        if (estDefautRegularise(statut)) {
+            defautsRegularises += 1;
+        }
+
         repartition[niveau].nombre += 1;
         repartition[niveau].capital += p.investment || 0;
         repartition[niveau].ids.push(p.id);
@@ -180,9 +265,17 @@ export function repartitionRisque(properties) {
 
     logger.debug(LOG_CATEGORIES.CALC_STATS, 'Risk breakdown computed', {
         base,
+        statutsOfficiels: Object.keys(statuts || {}).length,
         procedure: repartition[NIVEAUX_RISQUE.PROCEDURE].nombre,
         impaye: repartition[NIVEAUX_RISQUE.IMPAYE].nombre
     });
 
-    return { base, capitalBase, repartition, enDifficulte };
+    return {
+        base,
+        capitalBase,
+        repartition,
+        enDifficulte,
+        defautsRegularises,
+        statutsConnus: Object.keys(statuts || {}).length
+    };
 }

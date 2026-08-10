@@ -1142,6 +1142,11 @@ select:hover {
 /* Âge des données : discret quand elles sont fraîches, signalé au-delà de
    deux semaines — un filtre « ce mois-ci » à zéro sur des données périmées se
    lirait sinon comme une absence d'incident. */
+#statusProgress {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+}
+
 .age-donnees {
     font-size: 0.82rem;
     color: var(--ink-faint);

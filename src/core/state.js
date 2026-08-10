@@ -12,6 +12,7 @@ class AppState {
         this._state = {
             // Données principales
             allData: [],
+            lastResults: null,
 
             // Instances de charts Chart.js
             charts: {

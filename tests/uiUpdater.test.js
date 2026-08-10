@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { updateUI, updatePropertySortAndFilter } from '../src/ui/uiUpdater.js';
+import { niveauRisque } from '../src/business/riskAnalysis.js';
 
 /**
  * Reproduit le squelette DOM dont uiUpdater a besoin (voir index.html).
@@ -26,7 +27,10 @@ function setupDOM() {
 }
 
 function property(overrides = {}) {
-    return {
+    // calculateInvestmentStats attache le niveau de risque à chaque propriété :
+    // la fixture doit en faire autant, sinon elle teste un objet que la
+    // production ne produit jamais.
+    const base = {
         id: 'p1',
         name: 'Immeuble Lyon',
         address: '1 rue de la Paix',
@@ -44,6 +48,8 @@ function property(overrides = {}) {
         warningsCount: 0,
         ...overrides
     };
+
+    return { ...base, niveauRisque: base.niveauRisque || niveauRisque(base) };
 }
 
 function results(properties, netRevenueEvolutionData = {}) {

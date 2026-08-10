@@ -7,7 +7,7 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
  * Charge les données depuis le Local Storage
- * @returns {Object|null} Objet {data, warnings, savedAt} ou null si absent/invalide
+ * @returns {Object|null} Objet {data, warnings, savedAt, statuts} ou null si absent/invalide
  */
 export function loadFromLocalStorage() {
     try {
@@ -25,7 +25,7 @@ export function loadFromLocalStorage() {
             logger.info(LOG_CATEGORIES.STORAGE, 'Legacy format detected, converting', {
                 entries: parsed.length
             });
-            return { data: parsed, warnings: [], savedAt: null };
+            return { data: parsed, warnings: [], savedAt: null, statuts: {} };
         }
 
         // Nouveau format (objet avec data et warnings)
@@ -38,7 +38,8 @@ export function loadFromLocalStorage() {
                 data: parsed.data,
                 warnings: parsed.warnings || [],
                 // Absent des sauvegardes antérieures : l'âge est alors inconnu
-                savedAt: parsed.savedAt || null
+                savedAt: parsed.savedAt || null,
+                statuts: parsed.statuts || {}
             };
         }
 
@@ -67,9 +68,11 @@ export function loadFromLocalStorage() {
  * @param {Object} [options]
  * @param {string} [options.dateRecuperation] - Date ISO d'un appel à l'API ;
  *   omise, la date déjà enregistrée est conservée
+ * @param {Object} [options.statuts] - Suivis officiels de projet ; omis, ceux
+ *   déjà enregistrés sont conservés
  * @returns {boolean} true si succès, false sinon
  */
-export function saveToLocalStorage(data, warnings = [], { dateRecuperation } = {}) {
+export function saveToLocalStorage(data, warnings = [], { dateRecuperation, statuts } = {}) {
     if (!Array.isArray(data)) {
         logger.error(LOG_CATEGORIES.STORAGE, 'Cannot save non-array data to localStorage');
         return false;
@@ -82,7 +85,8 @@ export function saveToLocalStorage(data, warnings = [], { dateRecuperation } = {
         const storageObject = {
             data: data,
             warnings: warnings || [],
-            savedAt: dateRecuperation || lireDateRecuperation() || new Date().toISOString()
+            savedAt: dateRecuperation || lireDateRecuperation() || new Date().toISOString(),
+            statuts: statuts || lireStatuts()
         };
         const jsonData = JSON.stringify(storageObject);
         localStorage.setItem(CONFIG.LOCAL_STORAGE_KEY, jsonData);
@@ -117,6 +121,19 @@ function lireDateRecuperation() {
         return stored ? (JSON.parse(stored).savedAt || null) : null;
     } catch {
         return null;
+    }
+}
+
+/**
+ * Relit les suivis de projet déjà enregistrés
+ * @returns {Object} Statuts indexés par identifiant, vide si absents
+ */
+function lireStatuts() {
+    try {
+        const stored = localStorage.getItem(CONFIG.LOCAL_STORAGE_KEY);
+        return stored ? (JSON.parse(stored).statuts || {}) : {};
+    } catch {
+        return {};
     }
 }
 

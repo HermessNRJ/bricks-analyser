@@ -87,6 +87,7 @@ export async function processData(fileData, warnings = []) {
  * @param {Object} [options]
  * @param {string} [options.dateRecuperation] - Date ISO si les données viennent
  *   d'être récupérées ; omise, l'âge affiché reste celui du dernier appel API
+ * @param {Object} [options.statuts] - Suivis officiels de projet
  * @returns {Promise<Object>} Résultats des calculs
  */
 export async function finalizeProcessing(finalData, warnings = [], options = {}) {
@@ -98,8 +99,12 @@ export async function finalizeProcessing(finalData, warnings = [], options = {})
         // Mettre à jour l'état global
         state.set('allData', finalData);
 
-        // Calculer les statistiques (avec warnings)
-        const results = calculateInvestmentStats(finalData, warnings);
+        // Le suivi officiel des projets prime sur la lecture des alertes
+        const statuts = options.statuts || loadFromLocalStorage()?.statuts || {};
+        const results = calculateInvestmentStats(finalData, warnings, statuts);
+
+        // Le rafraîchissement des statuts a besoin de la liste des propriétés
+        state.set('lastResults', results);
 
         logger.info(LOG_CATEGORIES.CALC_STATS, 'Statistics calculated successfully', {
             totalInvestment: results.totalInvestment,

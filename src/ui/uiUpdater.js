@@ -7,7 +7,7 @@ import { getCurrentMonthYYYYMM, addMonthsToYYYYMM, subtractMonths } from '../uti
 import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { niveauRisque, NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
+import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
 
 // Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
 const TAILLE_PAGE = 24;
@@ -34,7 +34,7 @@ const LIBELLES_FILTRES = {
     warningFilter: {
         'warning-current-month': 'Alerte ce mois-ci',
         'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
-        'risk-procedure': 'En procédure', 'risk-impaye': 'Impayé ou retard',
+        'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'Impayé ou retard',
         'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
         'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
     }
@@ -274,17 +274,27 @@ function updateRiskCards(results) {
 
     const resume = document.getElementById('risqueResume');
     if (resume) {
+        const regularises = risque.defautsRegularises
+            ? ` · ${formatNumber(risque.defautsRegularises)} défauts passés, aujourd'hui régularisés`
+            : '';
+
         resume.textContent = risque.enDifficulte.nombre > 0
-            ? `${formatCurrency(risque.enDifficulte.capital, 0)} exposés, soit ${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu`
-            : 'Aucun capital exposé à un incident en cours';
+            ? `${formatCurrency(risque.enDifficulte.capital, 0)} exposés, soit ${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu${regularises}`
+            : `Aucune échéance due aujourd'hui${regularises}`;
     }
 
     // Le total est rappelé pour que la somme des tuiles soit vérifiable d'un coup d'œil
     const note = document.getElementById('risqueNote');
     if (note) {
-        note.textContent = `Répartition des ${formatNumber(detenues)} propriétés détenues selon leur dernier signalement :`
+        const source = risque.statutsConnus > 0
+            ? `d'après le suivi officiel de ${formatNumber(risque.statutsConnus)} projets`
+            : `d'après le texte des alertes`;
+
+        note.textContent = `Répartition des ${formatNumber(detenues)} propriétés détenues, ${source} :`
             + ` chaque propriété compte dans une seule case, et les quatre totalisent ${formatNumber(detenues)}.`
-            + ` Ces niveaux sont déduits du texte des alertes, l'API ne publiant aucun statut.`;
+            + (risque.statutsConnus > 0
+                ? ''
+                : ` Cette lecture n'est qu'une approximation : cliquez sur « Vérifier les statuts » pour interroger la source qui fait foi.`);
     }
 }
 
@@ -643,16 +653,16 @@ function filterProperties(properties, filterType = currentFilter, warningFilterT
         // projet soldé ne porte plus de risque, et le raccourci « Voir » doit
         // montrer exactement les fiches derrière le chiffre annoncé.
         case 'risk-procedure':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.PROCEDURE);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.PROCEDURE);
             break;
         case 'risk-impaye':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.IMPAYE);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.IMPAYE);
             break;
         case 'risk-signale':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.SIGNALE);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SIGNALE);
             break;
         case 'risk-sain':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.SAIN);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SAIN);
             break;
     }
 

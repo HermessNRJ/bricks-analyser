@@ -13,7 +13,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 *   **Tableau de Bord Complet:**
     *   **Statistiques Clés:** Investissement total, revenus mensuels nets espérés, nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
     *   **Cumulatifs:** Total des revenus nets perçus et total des impôts estimés depuis le début, chaque mois étant taxé au taux qui avait cours à l'époque (30 % jusqu'en décembre 2025, 31,4 % ensuite).
-    *   **Suivi des incidents:** Nombre de projets en procédure ou en impayé, capital exposé et part du portefeuille. Ces chiffres sont **déduits du texte des warnings** (l'API ne publie aucun statut) ; cliquer sur une tuile filtre le registre sur les fiches concernées.
+    *   **Suivi des incidents:** Répartition des propriétés détenues entre défaut avec échéances dues, impayé, suivi à jour et sans signalement, avec le capital exposé. Les niveaux proviennent du **suivi officiel de chaque projet** (`projects.bricks.co`), qui porte le statut déclaré et le décompte des échéances impayées ; à défaut, ils retombent sur une lecture du texte des alertes, nettement moins fiable. Cliquer sur une tuile filtre le registre sur les fiches concernées.
 
 *   **Visualisations Graphiques:**
     *   **Évolution de l'Investissement:** Suivez la croissance de votre investissement total au fil du temps.
@@ -123,6 +123,24 @@ Endpoints utilisés (relayés sous `/api`) :
 * **Projets financés :** `GET /projects/financed`
 * **Tous les projets :** `GET /projects` (filtre les projets ongoing/upcoming où vous détenez des parts)
 * **Warnings :** `GET /investor/portfolio/properties/highlighted-updates`
+
+### Suivi officiel des projets
+
+`projects.bricks.co` expose l'état qui fait foi, là où les warnings ci-dessus ne livrent
+que du texte libre :
+
+* `GET /api/projects/{id}/echeances-investors` — statut du projet (`defaulted`, `active`),
+  détail des échéances (`unpaid`, `paid`, `regularized`), pénalités et étapes de procédure.
+  Un `404 PAGE_NOT_AVAILABLE` signifie qu'aucun incident n'est ouvert : c'est une réponse
+  utile, pas une erreur.
+
+Cet hôte est relayé sous `/projects-api`, avec le même traitement Cloudflare. Ces appels
+**n'exigent aucune authentification** : seule la protection Cloudflare impose le proxy.
+
+L'API n'offrant pas de vue d'ensemble, il faut une requête par projet détenu. Elles sont
+donc lancées cinq à la fois, avec un compteur de progression, et le résultat est conservé
+dans le localStorage : un simple rechargement de page ne relance pas la série. Le bouton
+« Vérifier les statuts » la rejoue à la demande.
 
 Le mode `npm run serve` (serveur Python statique) ne fournit pas ce proxy : le chargement
 API n'y fonctionne pas, seules les données déjà en localStorage s'affichent.

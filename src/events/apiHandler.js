@@ -6,6 +6,7 @@ import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarning
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { rafraichirStatuts } from './statusHandler.js';
 
 /**
  * Configure le gestionnaire d'API
@@ -76,6 +77,11 @@ export function setupAPIHandler() {
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';
+
+            // Le statut officiel de chaque projet demande un appel par projet :
+            // on enchaîne ici, une fois les données à l'écran, plutôt que de
+            // faire attendre l'affichage.
+            rafraichirStatuts();
 
             logger.info(LOG_CATEGORIES.EVENT, 'API data processed successfully');
 
