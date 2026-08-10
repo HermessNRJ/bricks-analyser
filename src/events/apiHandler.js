@@ -2,7 +2,7 @@
  * Gestionnaire de récupération des données via API
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings } from '../data/apiClient.js';
+import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
@@ -20,30 +20,40 @@ export function setupAPIHandler() {
         return;
     }
 
-    fetchBtn.addEventListener('click', async () => {
-        const token = tokenInput.value.trim();
+    const loadFromAPI = async () => {
+        // Le bouton est désactivé pendant un chargement : évite un double envoi
+        // via la touche Entrée.
+        if (fetchBtn.disabled) {
+            return;
+        }
 
-        if (!token) {
-            showError('Veuillez entrer un Bearer Token API.');
+        const session = normalizeSessionCookie(tokenInput.value);
+
+        if (!session) {
+            showError('Veuillez coller votre cookie de session Bricks.');
+            return;
+        }
+
+        if (!hasSessionCookie(session)) {
+            showError("Le cookie de session Bricks (better-auth.session_token) est absent de la valeur collée. Copiez l'en-tête Cookie complet depuis les outils de développement sur app.bricks.co.");
             return;
         }
 
         logger.info(LOG_CATEGORIES.EVENT, 'API fetch initiated');
 
         // UI feedback
-        loadingMsg.style.display = 'block';
+        loadingMsg.classList.remove('hidden');
         fetchBtn.disabled = true;
-        fetchBtn.style.opacity = '0.7';
         hideError();
 
         try {
             // Récupérer les projets financés : sans eux, rien à afficher
-            const financedData = await fetchFinancedProjects(token);
+            const financedData = await fetchFinancedProjects(session);
 
             // Récupérer les projets en cours/à venir
             let allProjectsData;
             try {
-                allProjectsData = await fetchAllProjects(token);
+                allProjectsData = await fetchAllProjects(session);
             } catch (secondErr) {
                 logger.warn(LOG_CATEGORIES.EVENT, 'Failed to fetch ongoing/upcoming projects', secondErr);
                 showError(`Données des projets financés chargées, mais échec de la récupération des projets en cours/à venir: ${secondErr.message}`);
@@ -54,24 +64,17 @@ export function setupAPIHandler() {
             // Fusionner les données
             const combinedData = mergeAPIProjects(financedData, allProjectsData);
 
-            // Récupérer les warnings
-            let warningsData = [];
-            try {
-                warningsData = await fetchWarnings(token);
-                logger.info(LOG_CATEGORIES.EVENT, 'Warnings fetched successfully', {
-                    count: warningsData.length,
-                    propertyIds: warningsData.map(w => w.propertyId),
-                    sampleWarning: warningsData.length > 0 ? warningsData[0] : null
-                });
-            } catch (warningsErr) {
-                logger.warn(LOG_CATEGORIES.EVENT, 'Failed to fetch warnings', warningsErr);
-                // Continuer sans les warnings
-            }
+            // Les warnings sont accessoires : fetchWarnings renvoie [] en cas d'échec
+            const warningsData = await fetchWarnings(session);
+            logger.info(LOG_CATEGORIES.EVENT, 'Warnings retrieved', {
+                count: warningsData.length,
+                propertyIds: warningsData.map(w => w.propertyId)
+            });
 
             // Traiter les données avec les warnings
             await processData(combinedData, warningsData);
 
-            // Nettoyer le token input
+            // Ne pas laisser la session dans le DOM
             tokenInput.value = '';
 
             logger.info(LOG_CATEGORIES.EVENT, 'API data processed successfully');
@@ -82,9 +85,18 @@ export function setupAPIHandler() {
             logger.error(LOG_CATEGORIES.EVENT, 'API fetch failed', err);
             showError(err.message || "Une erreur inconnue est survenue lors de la récupération des données API.");
         } finally {
-            loadingMsg.style.display = 'none';
+            loadingMsg.classList.add('hidden');
             fetchBtn.disabled = false;
-            fetchBtn.style.opacity = '1';
+        }
+    };
+
+    fetchBtn.addEventListener('click', loadFromAPI);
+
+    // Coller le cookie puis Entrée : le parcours le plus courant
+    tokenInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            loadFromAPI();
         }
     });
 

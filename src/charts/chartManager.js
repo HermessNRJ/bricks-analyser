@@ -11,11 +11,40 @@ import { createTaxChart } from './taxChart.js';
 import { createTreemapChart } from './treemapChart.js';
 
 /**
+ * Aligne Chart.js sur le système visuel de l'application
+ * Sans cela les graphiques gardent la typographie et les gris par défaut de la
+ * bibliothèque, étrangers au reste de la page.
+ */
+function applyChartTheme() {
+    if (typeof Chart === 'undefined' || Chart.defaults.__themeApplied) {
+        return;
+    }
+
+    Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#5c6b77';
+    Chart.defaults.borderColor = '#e4e9ed';
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(22, 32, 43, 0.94)';
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 4;
+    Chart.defaults.plugins.tooltip.titleFont = { weight: '600', size: 12 };
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+    Chart.defaults.plugins.legend.labels.padding = 14;
+
+    Chart.defaults.__themeApplied = true;
+
+    logger.debug(LOG_CATEGORIES.CHART, 'Chart.js theme applied');
+}
+
+/**
  * Crée tous les graphiques avec les données fournies
  * @param {Object} results - Résultats des calculs de statistiques
  */
 export function createCharts(results) {
     logger.info(LOG_CATEGORIES.CHART, 'Creating all charts');
+
+    applyChartTheme();
 
     createInvestmentChart(results.investmentEvolution);
     createDistributionChart(results.properties);
@@ -55,7 +84,8 @@ export function destroyAllCharts() {
         distribution: null,
         revenueEvolution: null,
         taxAmount: null,
-        treemap: null
+        treemap: null,
+        forecast: null
     });
 }
 

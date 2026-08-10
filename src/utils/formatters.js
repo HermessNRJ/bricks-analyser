@@ -46,13 +46,16 @@ export function formatNumber(value, decimals = 0) {
  */
 export function formatPercentage(value, decimals = 1) {
     if (value === null || value === undefined || isNaN(value)) {
-        return '0%';
+        return formatPercentage(0, decimals);
     }
 
-    return `${value.toLocaleString('fr-FR', {
+    // Le style « percent » d'Intl place l'espace insécable avant le signe,
+    // comme l'exige la typographie française — ce que « 5.7% » ne fait pas.
+    return new Intl.NumberFormat('fr-FR', {
+        style: 'percent',
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
-    })}%`;
+    }).format(value / 100);
 }
 
 /**

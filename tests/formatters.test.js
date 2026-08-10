@@ -52,12 +52,27 @@ describe('formatNumber', () => {
 });
 
 describe('formatPercentage', () => {
+    // Intl insère une espace insécable fine avant le signe : on la normalise
+    // pour comparer, tout en vérifiant qu'elle est bien présente.
+    const lisible = (valeur) => formatPercentage(valeur).replace(/[\u202f\u00a0]/g, ' ');
+
     it('formate avec une décimale par défaut', () => {
-        expect(formatPercentage(5.67)).toBe('5,7%');
+        expect(lisible(5.67)).toBe('5,7 %');
+    });
+
+    it('sépare le signe par une espace insécable', () => {
+        expect(formatPercentage(5.67)).toMatch(/[\u202f\u00a0]%$/);
+    });
+
+    it('respecte le nombre de décimales demandé', () => {
+        expect(formatPercentage(12.345, 2).replace(/[\u202f\u00a0]/g, ' ')).toBe('12,35 %');
+        expect(formatPercentage(12.9, 0).replace(/[\u202f\u00a0]/g, ' ')).toBe('13 %');
     });
 
     it('gère les valeurs invalides', () => {
-        expect(formatPercentage(undefined)).toBe('0%');
+        expect(lisible(undefined)).toBe('0,0 %');
+        expect(lisible(null)).toBe('0,0 %');
+        expect(lisible(NaN)).toBe('0,0 %');
     });
 });
 

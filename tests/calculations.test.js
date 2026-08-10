@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { calculateMonthlyRevenue, calculateInvestmentStats } from '../src/business/calculations.js';
-import { CONFIG } from '../src/core/config.js';
+import { CONFIG, tauxImpositionPour } from '../src/core/config.js';
 
 /**
  * Construit un projet au format API Bricks.
@@ -35,8 +35,8 @@ describe('calculateMonthlyRevenue', () => {
     it('répartit le rendement annuel sur 12 mois', () => {
         const { gross, net, tax } = calculateMonthlyRevenue(1200, 12);
         expect(gross).toBeCloseTo(12, 10);      // 1200 * 12% / 12
-        expect(net).toBeCloseTo(8.4, 10);       // - 30% de flat tax
-        expect(tax).toBeCloseTo(3.6, 10);
+        expect(net).toBeCloseTo(12 * (1 - CONFIG.TAX_RATE), 10);  // - la flat tax courante
+        expect(tax).toBeCloseTo(12 * CONFIG.TAX_RATE, 10);
     });
 
     it('net + tax reste égal au brut', () => {
@@ -67,7 +67,8 @@ describe('calculateInvestmentStats — agrégats', () => {
         expect(stats.totalInvestment).toBe(100);   // 10 briques * 10€
         expect(stats.totalBricks).toBe(10);
         expect(stats.properties).toHaveLength(1);
-        expect(stats.monthlyRevenue).toBeCloseTo(0.7, 10); // 100*12%/12*0.7
+        // 100 € à 12 % l'an = 1 € brut par mois, moins la flat tax courante
+        expect(stats.monthlyRevenue).toBeCloseTo(1 * (1 - CONFIG.TAX_RATE), 10);
     });
 
     it('convertit brickPrice des centimes vers les euros', () => {
@@ -264,7 +265,9 @@ describe('calculateInvestmentStats — évolution de l\'investissement', () => {
         expect(Object.keys(investmentEvolution)).toEqual(['2024-01']);
     });
 
-    it('exclut les mois non datés (N/A) de la courbe d\'évolution', () => {
+    it('rattache les projets non datés (N/A) au mois courant', () => {
+        // Les projets en financement/à venir n'ont pas de mois, mais les briques
+        // sont payées : les écarter creuserait un écart avec l'investissement total.
         const data = [
             month('2024-01', [project({ id: 'a' })]),
             month('N/A', [project({ id: 'b', projectStatus: 'ongoing' })])
@@ -272,8 +275,27 @@ describe('calculateInvestmentStats — évolution de l\'investissement', () => {
 
         const { investmentEvolution, totalInvestment } = calculateInvestmentStats(data);
 
-        expect(Object.keys(investmentEvolution)).toEqual(['2024-01']);
-        expect(totalInvestment).toBe(200); // le projet N/A compte quand même dans le total
+        expect(Object.keys(investmentEvolution)).toEqual(['2024-01', '2024-06']);
+        expect(investmentEvolution['2024-06']).toBe(200);
+        expect(totalInvestment).toBe(200);
+    });
+
+    it('fait converger le dernier point de la courbe vers l\'investissement total', () => {
+        const data = [
+            month('2024-01', [project({ id: 'a' })]),
+            month('2024-02', [project({ id: 'b', ownedBricks: 5 })]),
+            month('N/A', [
+                project({ id: 'c', ownedBricks: 3, projectStatus: 'ongoing' }),
+                project({ id: 'd', ownedBricks: 2, projectStatus: 'upcoming' })
+            ])
+        ];
+
+        const { investmentEvolution, totalInvestment } = calculateInvestmentStats(data);
+
+        const mois = Object.keys(investmentEvolution).sort();
+        const dernierPoint = investmentEvolution[mois[mois.length - 1]];
+
+        expect(dernierPoint).toBeCloseTo(totalInvestment, 2);
     });
 });
 
@@ -286,9 +308,10 @@ describe('calculateInvestmentStats — évolution des revenus et taxes', () => {
 
         const { netRevenueEvolutionData } = calculateInvestmentStats(data);
 
-        expect(netRevenueEvolutionData['2024-01']).toBeCloseTo(0.7, 10);
-        expect(netRevenueEvolutionData['2024-02']).toBeCloseTo(0.7, 10);
-        expect(netRevenueEvolutionData['2024-03']).toBeCloseTo(1.4, 10);
+        const net = (brut) => brut * (1 - tauxImpositionPour('2024-01'));
+        expect(netRevenueEvolutionData['2024-01']).toBeCloseTo(net(1), 10);
+        expect(netRevenueEvolutionData['2024-02']).toBeCloseTo(net(1), 10);
+        expect(netRevenueEvolutionData['2024-03']).toBeCloseTo(net(2), 10);
     });
 
     it('étend la plage jusqu\'aux mois de projection', () => {
@@ -310,7 +333,7 @@ describe('calculateInvestmentStats — évolution des revenus et taxes', () => {
         expect(taxAmountEvolutionData['2024-02']).toBeCloseTo(
             grossRevenueEvolutionData['2024-02'] - netRevenueEvolutionData['2024-02'], 10
         );
-        expect(taxAmountEvolutionData['2024-02']).toBeCloseTo(0.3, 10);
+        expect(taxAmountEvolutionData['2024-02']).toBeCloseTo(tauxImpositionPour('2024-02'), 10);
     });
 
     it('ne cumule le réalisé que jusqu\'au mois courant', () => {
@@ -321,7 +344,7 @@ describe('calculateInvestmentStats — évolution des revenus et taxes', () => {
 
         // janvier → juin = 6 mois de 0,70€ net et 0,30€ de taxe
         expect(totalNetRevenueSinceBeginning).toBeCloseTo(6 * 0.7, 8);
-        expect(totalTaxesSinceBeginning).toBeCloseTo(6 * 0.3, 8);
+        expect(totalTaxesSinceBeginning).toBeCloseTo(6 * tauxImpositionPour('2024-01'), 8);
     });
 
     it('ignore les dates de premier versement mal formées', () => {

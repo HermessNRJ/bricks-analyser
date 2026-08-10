@@ -6,95 +6,143 @@ import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
- * Récupère les projets financés depuis l'API Bricks.co
- * @param {string} token - Bearer token d'authentification
- * @returns {Promise<Array>} Données des projets financés
- * @throws {Error} Si la requête échoue
+ * Nom du cookie de session posé par better-auth après le SSO Google
  */
-export async function fetchFinancedProjects(token) {
-    const url = `${CONFIG.API_BASE_URL}${CONFIG.API_ENDPOINTS.FINANCED}`;
+const SESSION_COOKIE_NAME = 'better-auth.session_token';
 
-    logger.debug(LOG_CATEGORIES.API, 'Fetching financed projects', { url });
+/**
+ * Normalise l'en-tête Cookie collé par l'utilisateur
+ * On accepte la ligne telle qu'elle se copie depuis les outils de développement,
+ * avec ou sans le préfixe « Cookie: ».
+ * @param {string} raw - Valeur brute saisie
+ * @returns {string} En-tête Cookie prêt à être relayé
+ */
+export function normalizeSessionCookie(raw) {
+    if (typeof raw !== 'string') {
+        return '';
+    }
+    return raw.trim().replace(/^Cookie\s*:\s*/i, '').replace(/;\s*$/, '');
+}
+
+/**
+ * Vérifie que la valeur collée contient bien le cookie de session Bricks
+ * Sans lui, l'API répond 401 : autant le dire tout de suite plutôt que de
+ * laisser l'utilisateur deviner.
+ * @param {string} cookie - En-tête Cookie normalisé
+ * @returns {boolean} true si le cookie de session est présent
+ */
+export function hasSessionCookie(cookie) {
+    return typeof cookie === 'string' && cookie.includes(SESSION_COOKIE_NAME);
+}
+
+/**
+ * Effectue un GET authentifié sur l'API Bricks (via le proxy) et renvoie le JSON
+ * Centralise l'en-tête de session, le parsing d'erreur et le logging.
+ * @param {string} endpoint - Chemin de l'endpoint (voir CONFIG.API_ENDPOINTS)
+ * @param {string} session - En-tête Cookie contenant la session Bricks
+ * @param {Object} options
+ * @param {string} options.label - Libellé technique pour les logs
+ * @param {string} [options.context] - Précision ajoutée aux messages d'erreur utilisateur
+ * @returns {Promise<*>} Corps de la réponse désérialisé
+ * @throws {Error} Si la requête échoue
+ * @private
+ */
+async function requestJSON(endpoint, session, { label, context = '' }) {
+    const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+    const suffix = context ? ` (${context})` : '';
+
+    logger.debug(LOG_CATEGORIES.API, `Fetching ${label}`, { url });
 
     try {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                // Le proxy nginx retransforme cet en-tête en Cookie vers api.bricks.co
+                'X-Bricks-Session': normalizeSessionCookie(session),
                 'Accept': 'application/json'
             }
         });
 
         if (!response.ok) {
-            // Tenter de parser le body d'erreur
+            // Tenter de parser le body d'erreur, sinon retomber sur le statusText
             let errorData;
             try {
                 errorData = await response.json();
             } catch {
-                // Si le parsing échoue, utiliser le statusText
-                throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}${suffix}`);
             }
 
-            throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)}`);
+            throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)}${suffix}`);
         }
 
-        const data = await response.json();
-
-        logger.info(LOG_CATEGORIES.API, 'Financed projects fetched successfully', {
-            count: Array.isArray(data) ? data.length : 'unknown'
-        });
-
-        return data;
+        return await response.json();
 
     } catch (err) {
-        logger.error(LOG_CATEGORIES.API, 'Failed to fetch financed projects', err);
+        logger.error(LOG_CATEGORIES.API, `Failed to fetch ${label}`, err);
         throw err;
     }
 }
 
 /**
+ * Récupère les projets financés depuis l'API Bricks.co
+ * @param {string} session - En-tête Cookie contenant la session Bricks
+ * @returns {Promise<Array>} Données des projets financés
+ * @throws {Error} Si la requête échoue
+ */
+export async function fetchFinancedProjects(session) {
+    const data = await requestJSON(CONFIG.API_ENDPOINTS.FINANCED, session, {
+        label: 'financed projects'
+    });
+
+    logger.info(LOG_CATEGORIES.API, 'Financed projects fetched successfully', {
+        count: Array.isArray(data) ? data.length : 'unknown'
+    });
+
+    return data;
+}
+
+/**
  * Récupère tous les projets (en cours de financement et à venir) depuis l'API
- * @param {string} token - Bearer token d'authentification
+ * @param {string} session - En-tête Cookie contenant la session Bricks
  * @returns {Promise<Object>} Données avec { ongoing, upcoming }
  * @throws {Error} Si la requête échoue
  */
-export async function fetchAllProjects(token) {
-    const url = `${CONFIG.API_BASE_URL}${CONFIG.API_ENDPOINTS.ALL_PROJECTS}`;
+export async function fetchAllProjects(session) {
+    const data = await requestJSON(CONFIG.API_ENDPOINTS.ALL_PROJECTS, session, {
+        label: 'all projects (ongoing & upcoming)',
+        context: 'récupération projets en cours/à venir'
+    });
 
-    logger.debug(LOG_CATEGORIES.API, 'Fetching all projects (ongoing & upcoming)', { url });
+    logger.info(LOG_CATEGORIES.API, 'All projects fetched successfully', {
+        ongoingCount: data.ongoing?.projects?.length || 0,
+        upcomingCount: data.upcoming?.projects?.length || 0
+    });
 
+    return data;
+}
+
+/**
+ * Récupère les warnings (highlighted updates) depuis l'API Bricks.co
+ * Ne rejette jamais : les warnings sont accessoires, un échec renvoie une liste vide.
+ * @param {string} session - En-tête Cookie contenant la session Bricks
+ * @returns {Promise<Array>} Liste des warnings (vide en cas d'échec)
+ */
+export async function fetchWarnings(session) {
     try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+        const data = await requestJSON(CONFIG.API_ENDPOINTS.WARNINGS, session, {
+            label: 'property warnings',
+            context: 'récupération warnings'
         });
 
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch {
-                throw new Error(`Erreur HTTP ${response.status}: ${response.statusText} (récupération projets en cours/à venir)`);
-            }
-
-            throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)} (récupération projets en cours/à venir)`);
-        }
-
-        const data = await response.json();
-
-        logger.info(LOG_CATEGORIES.API, 'All projects fetched successfully', {
-            ongoingCount: data.ongoing?.projects?.length || 0,
-            upcomingCount: data.upcoming?.projects?.length || 0
+        logger.info(LOG_CATEGORIES.API, 'Warnings fetched successfully', {
+            count: Array.isArray(data) ? data.length : 0
         });
 
-        return data;
+        return data || [];
 
-    } catch (err) {
-        logger.error(LOG_CATEGORIES.API, 'Failed to fetch all projects', err);
-        throw err;
+    } catch {
+        // Erreur déjà loguée par requestJSON : on ne bloque pas l'application
+        return [];
     }
 }
 
@@ -113,82 +161,28 @@ export function mergeAPIProjects(financedData, allProjectsData) {
         upcomingCount: allProjectsData.upcoming?.projects?.length || 0
     });
 
-    // Extraire les projets ongoing avec des briques possédées
-    if (allProjectsData.ongoing && allProjectsData.ongoing.projects) {
-        allProjectsData.ongoing.projects.forEach(proj => {
-            if (proj.ownedBricks > 0) {
-                proj.projectStatus = 'ongoing';
-                // Emballer dans une structure compatible
-                combined.push({
-                    yearMonthDate: 'N/A',
-                    projects: [proj]
-                });
-            }
-        });
-    }
+    // Les projets ongoing/upcoming où l'utilisateur détient des briques sont
+    // emballés dans une structure mensuelle compatible avec les projets financés.
+    ['ongoing', 'upcoming'].forEach(status => {
+        const projects = allProjectsData[status]?.projects;
 
-    // Extraire les projets upcoming avec des briques possédées
-    if (allProjectsData.upcoming && allProjectsData.upcoming.projects) {
-        allProjectsData.upcoming.projects.forEach(proj => {
+        if (!Array.isArray(projects)) {
+            return;
+        }
+
+        projects.forEach(proj => {
             if (proj.ownedBricks > 0) {
-                proj.projectStatus = 'upcoming';
                 combined.push({
                     yearMonthDate: 'N/A',
-                    projects: [proj]
+                    projects: [{ ...proj, projectStatus: status }]
                 });
             }
         });
-    }
+    });
 
     logger.info(LOG_CATEGORIES.API, 'API data merged', {
         totalEntries: combined.length
     });
 
     return combined;
-}
-
-/**
- * Récupère les warnings (highlighted updates) depuis l'API Bricks.co
- * @param {string} token - Bearer token d'authentification
- * @returns {Promise<Array>} Liste des warnings
- * @throws {Error} Si la requête échoue
- */
-export async function fetchWarnings(token) {
-    const url = `${CONFIG.API_BASE_URL}${CONFIG.API_ENDPOINTS.WARNINGS}`;
-
-    logger.debug(LOG_CATEGORIES.API, 'Fetching property warnings', { url });
-
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-            } catch {
-                throw new Error(`Erreur HTTP ${response.status}: ${response.statusText} (récupération warnings)`);
-            }
-
-            throw new Error(`Erreur API ${response.status}: ${errorData.message || JSON.stringify(errorData)} (récupération warnings)`);
-        }
-
-        const data = await response.json();
-
-        logger.info(LOG_CATEGORIES.API, 'Warnings fetched successfully', {
-            count: Array.isArray(data) ? data.length : 0
-        });
-
-        return data || [];
-
-    } catch (err) {
-        logger.error(LOG_CATEGORIES.API, 'Failed to fetch warnings', err);
-        // Ne pas bloquer l'application si les warnings échouent
-        return [];
-    }
 }

@@ -2,10 +2,11 @@
  * Calculs financiers et statistiques d'investissement
  */
 
-import { CONFIG } from '../core/config.js';
+import { CONFIG, tauxImpositionPour } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
+import { repartitionRisque } from './riskAnalysis.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -263,18 +264,22 @@ export function calculateInvestmentStats(data, warnings = []) {
     // CALCUL DE L'ÉVOLUTION DE L'INVESTISSEMENT
     // ========================================================================
     const monthlyInvestments = {};
-    uniqueProjects.forEach((project) => {
-        const monthKey = project.firstSeenMonth;
+    const currentMonthKey = getCurrentMonthYYYYMM();
 
+    uniqueProjects.forEach((project) => {
         // Les projets en financement/à venir arrivent avec yearMonthDate = 'N/A' :
-        // impossible de les placer sur un axe temporel, on les laisse hors de la courbe
-        // (ils restent comptés dans totalInvestment).
-        if (!isValidYYYYMM(monthKey)) {
-            logger.debug(LOG_CATEGORIES.CALC_STATS, 'Project excluded from investment evolution (no valid month)', {
+        // aucune date ne les situe sur l'axe temporel, mais les briques sont déjà
+        // payées. On les rattache au mois courant pour que le dernier point de la
+        // courbe corresponde bien à totalInvestment.
+        const monthKey = isValidYYYYMM(project.firstSeenMonth)
+            ? project.firstSeenMonth
+            : currentMonthKey;
+
+        if (monthKey === currentMonthKey && !isValidYYYYMM(project.firstSeenMonth)) {
+            logger.debug(LOG_CATEGORIES.CALC_STATS, 'Undated project placed on current month', {
                 id: project.id,
-                monthKey
+                status: project.projectStatus
             });
-            return;
         }
 
         const projectInvestment = project.ownedBricks * project.brickPrice;
@@ -311,11 +316,23 @@ export function calculateInvestmentStats(data, warnings = []) {
     // ========================================================================
     // RETOUR DES RÉSULTATS
     // ========================================================================
+    // Les pourcentages se rapportent aux propriétés encore détenues : un projet
+    // remboursé ne fait plus partie du portefeuille courant.
+    const detenues = properties.filter(p => !p.isRefunded).length;
+    const partDetenues = properties.length > 0 ? (detenues / properties.length) * 100 : 0;
+    const partRemboursees = properties.length > 0 ? (refundedProjectsCount / properties.length) * 100 : 0;
+    const partFinancement = detenues > 0 ? (fundingOrUpcomingProjectsCount / detenues) * 100 : 0;
+
     return {
         totalBricks,
         totalInvestment,
         monthlyRevenue,
         properties,
+        detenuesCount: detenues,
+        partDetenues,
+        partRemboursees,
+        partFinancement,
+        risque: repartitionRisque(properties),
         investmentEvolution,
         netRevenueEvolutionData,
         grossRevenueEvolutionData,
@@ -389,19 +406,6 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
             monthsCount: allMonthsInRange.length
         });
 
-        // Évolution des revenus nets
-        if (projectNetRevenueEntries.length > 0) {
-            allMonthsInRange.forEach(currentMonth => {
-                let totalNetRevenueInCurrentMonth = 0;
-                projectNetRevenueEntries.forEach(entry => {
-                    if (entry.startDate <= currentMonth) {
-                        totalNetRevenueInCurrentMonth += entry.revenue;
-                    }
-                });
-                netRevenueEvolutionData[currentMonth] = totalNetRevenueInCurrentMonth;
-            });
-        }
-
         // Évolution des revenus bruts
         if (projectGrossRevenueEntries.length > 0) {
             allMonthsInRange.forEach(currentMonth => {
@@ -415,12 +419,18 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
             });
         }
 
-        // Calcul des taxes (différence brut - net)
-        allMonthsInRange.forEach(currentMonth => {
-            const gross = grossRevenueEvolutionData[currentMonth] || 0;
-            const net = netRevenueEvolutionData[currentMonth] || 0;
-            taxAmountEvolutionData[currentMonth] = gross - net;
-        });
+        // Net et impôt se déduisent du brut au taux EN VIGUEUR CE MOIS-LÀ.
+        // Appliquer le taux du jour à tout l'historique gonflerait les impôts
+        // déjà payés sur les années au taux précédent.
+        if (projectNetRevenueEntries.length > 0 || projectGrossRevenueEntries.length > 0) {
+            allMonthsInRange.forEach(currentMonth => {
+                const gross = grossRevenueEvolutionData[currentMonth] || 0;
+                const taux = tauxImpositionPour(currentMonth);
+
+                netRevenueEvolutionData[currentMonth] = gross * (1 - taux);
+                taxAmountEvolutionData[currentMonth] = gross * taux;
+            });
+        }
 
         // Calcul des totaux cumulés jusqu'au mois actuel
         for (const month in netRevenueEvolutionData) {
