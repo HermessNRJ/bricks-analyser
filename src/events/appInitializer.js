@@ -15,6 +15,7 @@ import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
 import { updatePropertySortAndFilter, showResults, setSearch, changePage } from '../ui/uiUpdater.js';
+import { afficherAgeDonnees } from '../ui/dataAge.js';
 
 /**
  * Initialise l'application au chargement de la page
@@ -237,6 +238,8 @@ async function loadInitialData() {
             entries: cachedStorage.data.length,
             warnings: cachedStorage.warnings.length
         });
+
+        afficherAgeDonnees(cachedStorage.savedAt);
 
         try {
             // Utiliser finalizeProcessing pour traiter les données (avec warnings)

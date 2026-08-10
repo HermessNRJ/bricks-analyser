@@ -5,7 +5,8 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { saveToLocalStorage } from '../data/storage.js';
+import { saveToLocalStorage, loadFromLocalStorage } from '../data/storage.js';
+import { afficherAgeDonnees } from '../ui/dataAge.js';
 import { validateBricksData } from '../data/fileParser.js';
 import { mergeDatasets, identifyMissingProjects, removeProjectsById } from './dataProcessor.js';
 import { calculateInvestmentStats } from './calculations.js';
@@ -21,6 +22,10 @@ import { updateForecastContext } from '../events/forecastHandler.js';
  * @returns {Promise<void>}
  */
 export async function processData(fileData, warnings = []) {
+    // Ce point d'entrée n'est atteint que depuis un appel à l'API : c'est ici
+    // que naît la date de récupération.
+    const dateRecuperation = new Date().toISOString();
+
     try {
         logger.info(LOG_CATEGORIES.DATA_MERGE, 'Processing imported data', {
             entries: fileData.length
@@ -57,14 +62,15 @@ export async function processData(fileData, warnings = []) {
                 isOpen: true,
                 projectIdsToRemove: missingProjectIds,
                 dataContext: mergedData,
-                warnings: warnings
+                warnings: warnings,
+                dateRecuperation
             });
 
             // La modal s'occupera d'appeler finalizeProcessing ou handleConfirmDelete
             // On ne fait rien de plus ici, la modal gère la suite
         } else {
             logger.info(LOG_CATEGORIES.DATA_MERGE, 'No missing projects, proceeding to finalize');
-            await finalizeProcessing(mergedData, warnings);
+            await finalizeProcessing(mergedData, warnings, { dateRecuperation });
         }
 
     } catch (err) {
@@ -78,9 +84,12 @@ export async function processData(fileData, warnings = []) {
  * Calcule les stats, met à jour l'UI, sauvegarde dans localStorage
  * @param {Array} finalData - Données finales à traiter
  * @param {Array} warnings - Liste des warnings (optionnel)
+ * @param {Object} [options]
+ * @param {string} [options.dateRecuperation] - Date ISO si les données viennent
+ *   d'être récupérées ; omise, l'âge affiché reste celui du dernier appel API
  * @returns {Promise<Object>} Résultats des calculs
  */
-export async function finalizeProcessing(finalData, warnings = []) {
+export async function finalizeProcessing(finalData, warnings = [], options = {}) {
     logger.info(LOG_CATEGORIES.DATA_MERGE, 'Finalizing data processing', {
         entries: finalData.length
     });
@@ -99,8 +108,11 @@ export async function finalizeProcessing(finalData, warnings = []) {
         });
 
         // Sauvegarder dans localStorage (avec warnings)
-        const saved = saveToLocalStorage(finalData, warnings);
-        if (!saved) {
+        const saved = saveToLocalStorage(finalData, warnings, options);
+
+        if (saved) {
+            afficherAgeDonnees(loadFromLocalStorage()?.savedAt || null);
+        } else {
             logger.warn(LOG_CATEGORIES.STORAGE, 'Failed to save to localStorage, but continuing');
         }
 
@@ -158,7 +170,9 @@ export async function handleConfirmDelete(projectIdsToRemove) {
     const cleanedData = removeProjectsById(dataContext, projectIdsToRemove);
 
     // Finaliser avec les données nettoyées (et les warnings)
-    return await finalizeProcessing(cleanedData, warnings);
+    return await finalizeProcessing(cleanedData, warnings, {
+        dateRecuperation: modalState.dateRecuperation
+    });
 }
 
 /**
@@ -179,5 +193,7 @@ export async function handleKeepAllItems() {
     }
 
     // Finaliser avec toutes les données (aucune suppression et les warnings)
-    return await finalizeProcessing(dataContext, warnings);
+    return await finalizeProcessing(dataContext, warnings, {
+        dateRecuperation: modalState.dateRecuperation
+    });
 }

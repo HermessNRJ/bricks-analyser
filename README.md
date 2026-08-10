@@ -12,17 +12,22 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 
 *   **Tableau de Bord Complet:**
     *   **Statistiques Clés:** Investissement total, revenus mensuels nets espérés, nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
-    *   **Cumulatifs:** Total des revenus nets perçus et total des impôts (flat tax 30%) estimés depuis le début.
+    *   **Cumulatifs:** Total des revenus nets perçus et total des impôts estimés depuis le début, chaque mois étant taxé au taux qui avait cours à l'époque (30 % jusqu'en décembre 2025, 31,4 % ensuite).
+    *   **Suivi des incidents:** Nombre de projets en procédure ou en impayé, capital exposé et part du portefeuille. Ces chiffres sont **déduits du texte des warnings** (l'API ne publie aucun statut) ; cliquer sur une tuile filtre le registre sur les fiches concernées.
 
 *   **Visualisations Graphiques:**
     *   **Évolution de l'Investissement:** Suivez la croissance de votre investissement total au fil du temps.
     *   **Répartition par Propriété:** Visualisez la distribution de votre investissement entre les différentes propriétés (graphique en donut interactif).
     *   **Treemap du Portefeuille:** Vue d'ensemble de vos propriétés actives avec taille proportionnelle à l'investissement et couleur basée sur le rendement annuel (gradient continu de rouge à vert).
     *   **Évolution des Revenus Mensuels Nets:** Observez la progression de vos revenus nets mensuels attendus.
-    *   **Montant de l'Impôt Mensuel:** Suivez l'estimation de la flat tax (30%) sur vos revenus bruts mensuels.
+    *   **Montant de l'Impôt Mensuel:** Suivez l'estimation de la flat tax sur vos revenus bruts mensuels.
+    *   **Le mur:** Une brique par propriété, largeur proportionnelle à l'investissement et couleur selon le statut. Cliquer sur une brique amène à la fiche correspondante.
 
 *   **Projections de Revenus:**
-    *   Affiche les revenus mensuels nets estimés pour le mois en cours et les trois prochains mois (M+1, M+2, M+3).
+    *   Affiche les revenus mensuels nets estimés jusqu'au dernier mois où le montant change réellement — répéter un montant identique n'apprend rien.
+
+*   **Simulateur:**
+    *   Déroule mois par mois vos hypothèses d'apport, d'horizon, de rendement et d'impayés, avec ou sans réinvestissement. Les valeurs de départ sont celles de votre propre portefeuille. C'est une calculette, pas une prévision.
 
 *   **Liste Détaillée des Propriétés:**
     *   **Informations complètes:** Adresse, briques possédées, investissement, rendement, revenus mensuels nets, date de premier versement, date de remboursement estimée.
@@ -33,13 +38,16 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 *   **Filtrage et Tri Avancés:**
     *   **Tri:** Par investissement, nombre de briques, rendement, revenus mensuels, nom, date de premier versement (croissant/décroissant).
     *   **Filtres par statut:** Toutes, actives uniquement, remboursées, en financement, à venir.
-    *   **Filtres par date:** Avec/sans date de 1er versement, avec/sans date de remboursement.
-    *   **Filtres par warning:** Tous, avec/sans warning, warnings du mois dernier, warnings du mois d'avant.
+    *   **Recherche libre:** Par nom ou adresse.
+    *   **Filtres par warning:** Alerte du mois en cours, avec/sans alerte, en procédure, impayé ou retard, alerte sous 30 jours, alerte du mois d'avant.
+    *   **Filtres actifs rappelés:** Chaque filtre en vigueur s'affiche en puce, avec une remise à zéro — un compteur amputé ne reste jamais inexpliqué.
+    *   **Pagination:** 24 fiches par page.
     *   **Préférences sauvegardées:** Vos choix de tri et filtrage sont conservés dans le localStorage.
 
 *   **Persistance des Données:**
     *   Les données et warnings chargés sont sauvegardés dans le Local Storage de votre navigateur.
     *   Rechargement automatique au démarrage pour une consultation rapide.
+    *   La date de récupération est affichée, et signalée au-delà de deux semaines : un filtre « alerte ce mois-ci » à zéro peut simplement traduire des données périmées.
     *   Logique de fusion intelligente lors de nouveaux imports API pour mettre à jour les données existantes, ajouter les nouveautés, et proposer la suppression des éléments disparus.
 
 *   **Utilitaires:**
@@ -124,9 +132,11 @@ API n'y fonctionne pas, seules les données déjà en localStorage s'affichent.
 Les tests couvrent la logique métier (calculs financiers, fusion des données, filtres, tri,
 persistance, client API) sans nécessiter de token ni de données personnelles.
 
+Node 22 ou plus est requis (voir le champ `engines` de `package.json`).
+
 ```bash
 npm install          # une seule fois
-npm test             # ~200 tests unitaires (Vitest + jsdom)
+npm test             # ~300 tests unitaires (Vitest + jsdom)
 npm run test:watch   # mode watch pendant le développement
 npm run test:coverage
 ```
@@ -140,6 +150,11 @@ npx playwright install chromium   # une seule fois
 npm run serve                     # dans un autre terminal (port 8099)
 npm run test:e2e
 ```
+
+Chaque poussée et chaque pull request déclenchent la CI (`.github/workflows/tests.yml`) :
+tests unitaires sur la borne basse de `engines` et sur node 22 courant, plus un
+`npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc là,
+et non sur la machine de quelqu'un après la fusion.
 
 Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:8099`),
 `CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
@@ -163,12 +178,15 @@ vérifiés par le smoke test et à la main.
   (`src/utils/html.js`), et les URLs de miniatures sont restreintes à `http(s)`.
 * `nginx.conf` envoie une `Content-Security-Policy` qui limite les scripts au domaine
   de l'application et aux deux CDN de Chart.js.
-* Les scripts Chart.js sont chargés depuis un CDN sans `integrity`. Pour ajouter les
-  hachages SRI :
+* Les scripts Chart.js sont chargés depuis un CDN avec une empreinte `integrity` :
+  le navigateur refuse le script si son contenu change. À régénérer après toute
+  montée de version, puis à reporter dans `index.html` :
   ```bash
-  curl -s <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
+  curl -sfL <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
   ```
-  puis reporter le résultat dans `index.html` via `integrity="sha384-..." crossorigin="anonymous"`.
+* `CONFIG.DEBUG` et `CONFIG.LOG_LEVEL` sont réglés pour la production : aux niveaux
+  `debug` et `info`, les journaux recopient identifiants de projets et montants dans
+  la console, et `DEBUG` expose `window.__appState__`.
 * Le cookie de session n'est jamais persisté : il est effacé du champ de saisie après usage,
   et n'est écrit ni dans le localStorage ni dans les logs.
 * Le proxy `/api/` ne transporte que la session fournie par l'appelant : il ne détient aucun

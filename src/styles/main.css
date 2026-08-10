@@ -362,9 +362,12 @@ input {
    Chiffres clés
    -------------------------------------------------------------------------- */
 
+/* 8 tuiles de statistiques et 4 d'incidents : le nombre de colonnes doit les
+   diviser, sinon la dernière rangée laisse des cases vides — et le fond gris
+   qui dessine les séparateurs s'y voit comme un pavé. */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--rule-width);
     background: var(--rule);
     border: var(--rule-width) solid var(--rule);
@@ -376,6 +379,18 @@ input {
 .stat-card {
     background: var(--surface);
     padding: 18px 20px;
+}
+
+@media (min-width: 560px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    .stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
 .stat-value {
@@ -1096,6 +1111,19 @@ select:hover {
     border-radius: var(--radius);
     margin-bottom: 14px;
     font-size: 0.88rem;
+}
+
+/* Âge des données : discret quand elles sont fraîches, signalé au-delà de
+   deux semaines — un filtre « ce mois-ci » à zéro sur des données périmées se
+   lirait sinon comme une absence d'incident. */
+.age-donnees {
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+    margin-top: 10px;
+}
+
+.age-donnees.est-perime {
+    color: var(--alerte);
 }
 
 .chargement {

@@ -11,11 +11,19 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="./src/styles/main.css">
 
-    <!-- Chart.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Chart.js et son plugin treemap.
+         Les empreintes SRI sont obligatoires ici : cette page manipule un
+         cookie de session Bricks, un CDN compromis y exécuterait du code
+         arbitraire. Le navigateur refuse le script si le contenu a changé.
+         Régénérer après toute montée de version :
+           curl -sfL <url> | openssl dgst -sha384 -binary | openssl base64 -A -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
+            integrity="sha384-9MhbyIRcBVQiiC7FSd7T38oJNj2Zh+EfxS7/vjhBi4OOT78NlHSnzM31EZRWR1LZ"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <!-- Chart.js Treemap Plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"
+            integrity="sha384-nr2GTsyDh6Kjn1H+dqXUUJpoNTdiOr8swo074Cg0uOwPSRFx27UcVV98yi4LFw3H"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <!-- Main Application Module (ES6) -->
     <script type="module" src="./src/events/appInitializer.js"></script>
@@ -46,6 +54,7 @@
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>
             <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
+            <p id="dataAge" class="age-donnees hidden"></p>
         </section>
 
         <div id="results" class="hidden">

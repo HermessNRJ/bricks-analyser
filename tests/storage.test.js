@@ -20,7 +20,8 @@ describe('saveToLocalStorage', () => {
         const warnings = [{ propertyId: 'a', date: '2024-01-01' }];
 
         expect(saveToLocalStorage(data, warnings)).toBe(true);
-        expect(JSON.parse(localStorage.getItem(KEY))).toEqual({ data, warnings });
+        expect(JSON.parse(localStorage.getItem(KEY)))
+            .toEqual({ data, warnings, savedAt: expect.any(String) });
     });
 
     it('accepte un appel sans warnings', () => {
@@ -55,20 +56,21 @@ describe('loadFromLocalStorage', () => {
         const warnings = [{ propertyId: 'a' }];
         saveToLocalStorage(data, warnings);
 
-        expect(loadFromLocalStorage()).toEqual({ data, warnings });
+        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String) });
     });
 
     it('migre l\'ancien format (tableau nu)', () => {
         const legacy = [{ yearMonthDate: '2024-01', projects: [] }];
         localStorage.setItem(KEY, JSON.stringify(legacy));
 
-        expect(loadFromLocalStorage()).toEqual({ data: legacy, warnings: [] });
+        // L'ancien format est un tableau nu : aucune date n'y figure
+        expect(loadFromLocalStorage()).toEqual({ data: legacy, warnings: [], savedAt: null });
     });
 
     it('complète les warnings absents du nouveau format', () => {
         localStorage.setItem(KEY, JSON.stringify({ data: [] }));
 
-        expect(loadFromLocalStorage()).toEqual({ data: [], warnings: [] });
+        expect(loadFromLocalStorage()).toEqual({ data: [], warnings: [], savedAt: null });
     });
 
     it('purge un JSON corrompu', () => {
@@ -98,5 +100,46 @@ describe('clearLocalStorage / hasStoredData', () => {
 
         expect(clearLocalStorage()).toBe(true);
         expect(hasStoredData()).toBe(false);
+    });
+});
+
+describe('saveToLocalStorage — horodatage', () => {
+    it('enregistre la date de récupération', () => {
+        saveToLocalStorage([{ yearMonthDate: '2024-01', projects: [] }]);
+
+        const savedAt = JSON.parse(localStorage.getItem(KEY)).savedAt;
+
+        expect(Number.isNaN(new Date(savedAt).getTime())).toBe(false);
+    });
+
+    it('relit la date écrite', () => {
+        saveToLocalStorage([{ yearMonthDate: '2024-01', projects: [] }]);
+
+        expect(loadFromLocalStorage().savedAt).toBeTruthy();
+    });
+});
+
+describe('saveToLocalStorage — la date ne rajeunit pas toute seule', () => {
+    it('conserve la date existante quand aucune récupération n\'est signalée', () => {
+        // Chaque ouverture de page réécrit le cache : sans cette garde,
+        // les données afficheraient éternellement « aujourd'hui ».
+        const jadis = '2024-01-15T10:00:00.000Z';
+        saveToLocalStorage([], [], { dateRecuperation: jadis });
+
+        saveToLocalStorage([{ yearMonthDate: '2024-02', projects: [] }]);
+
+        expect(loadFromLocalStorage().savedAt).toBe(jadis);
+    });
+
+    it('adopte la date fournie lors d\'une récupération', () => {
+        saveToLocalStorage([], [], { dateRecuperation: '2024-01-15T10:00:00.000Z' });
+        saveToLocalStorage([], [], { dateRecuperation: '2024-03-01T08:00:00.000Z' });
+
+        expect(loadFromLocalStorage().savedAt).toBe('2024-03-01T08:00:00.000Z');
+    });
+
+    it('horodate la toute première sauvegarde', () => {
+        expect(saveToLocalStorage([])).toBe(true);
+        expect(loadFromLocalStorage().savedAt).toBeTruthy();
     });
 });

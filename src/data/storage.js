@@ -7,7 +7,7 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
  * Charge les données depuis le Local Storage
- * @returns {Object|null} Objet contenant {data, warnings} ou null si absent/invalide
+ * @returns {Object|null} Objet {data, warnings, savedAt} ou null si absent/invalide
  */
 export function loadFromLocalStorage() {
     try {
@@ -25,7 +25,7 @@ export function loadFromLocalStorage() {
             logger.info(LOG_CATEGORIES.STORAGE, 'Legacy format detected, converting', {
                 entries: parsed.length
             });
-            return { data: parsed, warnings: [] };
+            return { data: parsed, warnings: [], savedAt: null };
         }
 
         // Nouveau format (objet avec data et warnings)
@@ -36,7 +36,9 @@ export function loadFromLocalStorage() {
             });
             return {
                 data: parsed.data,
-                warnings: parsed.warnings || []
+                warnings: parsed.warnings || [],
+                // Absent des sauvegardes antérieures : l'âge est alors inconnu
+                savedAt: parsed.savedAt || null
             };
         }
 
@@ -55,20 +57,32 @@ export function loadFromLocalStorage() {
 
 /**
  * Sauvegarde les données dans le Local Storage
+ *
+ * La date enregistrée est celle de la RÉCUPÉRATION auprès de Bricks, pas celle
+ * de l'écriture : l'application réécrit le cache à chaque ouverture de page, et
+ * l'horodater alors rajeunirait indéfiniment des données inchangées.
+ *
  * @param {Array} data - Données à sauvegarder
  * @param {Array} warnings - Warnings à sauvegarder (optionnel)
+ * @param {Object} [options]
+ * @param {string} [options.dateRecuperation] - Date ISO d'un appel à l'API ;
+ *   omise, la date déjà enregistrée est conservée
  * @returns {boolean} true si succès, false sinon
  */
-export function saveToLocalStorage(data, warnings = []) {
+export function saveToLocalStorage(data, warnings = [], { dateRecuperation } = {}) {
     if (!Array.isArray(data)) {
         logger.error(LOG_CATEGORIES.STORAGE, 'Cannot save non-array data to localStorage');
         return false;
     }
 
     try {
+        // La date de récupération permet de dire à l'écran de quand datent les
+        // chiffres : sans elle, rien ne distingue un portefeuille chargé ce
+        // matin d'un autre vieux de trois semaines.
         const storageObject = {
             data: data,
-            warnings: warnings || []
+            warnings: warnings || [],
+            savedAt: dateRecuperation || lireDateRecuperation() || new Date().toISOString()
         };
         const jsonData = JSON.stringify(storageObject);
         localStorage.setItem(CONFIG.LOCAL_STORAGE_KEY, jsonData);
@@ -90,6 +104,19 @@ export function saveToLocalStorage(data, warnings = []) {
         }
 
         return false;
+    }
+}
+
+/**
+ * Relit la date de récupération déjà enregistrée
+ * @returns {string|null} Date ISO, ou null si absente ou illisible
+ */
+function lireDateRecuperation() {
+    try {
+        const stored = localStorage.getItem(CONFIG.LOCAL_STORAGE_KEY);
+        return stored ? (JSON.parse(stored).savedAt || null) : null;
+    } catch {
+        return null;
     }
 }
 

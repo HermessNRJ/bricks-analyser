@@ -38,9 +38,14 @@ export const CONFIG = {
     // UI
     PROJECTIONS_MONTHS: 4, // Nombre de mois de projection à afficher
 
-    // Logging
-    DEBUG: true, // Passer à false en production
-    LOG_LEVEL: 'debug' // 'debug', 'info', 'warn', 'error', 'off'
+    // Journalisation
+    //
+    // Aux niveaux « debug » et « info », les journaux recopient dans la console
+    // les identifiants de projets, les montants et les alertes — soit tout le
+    // portefeuille. « warn » ne laisse passer que ce qui signale un problème.
+    // DEBUG expose en plus window.__appState__ : à réserver au développement.
+    DEBUG: false,
+    LOG_LEVEL: 'warn' // 'debug', 'info', 'warn', 'error', 'off'
 };
 
 /**

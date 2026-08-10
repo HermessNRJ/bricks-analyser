@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # La borne basse de "engines" et une version courante : une montée de
+        # dépendance qui exigerait un node plus récent doit échouer ici, pas
+        # sur la machine de quelqu'un après la fusion.
+        node: ['22.0.0', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # "npm ci" installe exactement le lockfile et échoue s'il a divergé
+      # de package.json — ce qui est précisément ce qu'on veut détecter.
+      - run: npm ci
+
+      - run: npm test
+
+  audit:
+    name: Vulnérabilités
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm audit --audit-level=high
