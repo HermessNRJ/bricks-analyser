@@ -12,9 +12,9 @@
     "serve": "python3 -m http.server 8099"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^25.0.1",
     "playwright": "^1.62.0",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.10"
   }
 }
