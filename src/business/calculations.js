@@ -246,7 +246,8 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}) {
     // et fiches lisent la même valeur. Le recalculer ailleurs les avait déjà fait
     // diverger — les tuiles comptaient 38 défauts quand le registre en filtrait 4.
     properties.forEach(p => {
-        p.niveauRisque = niveauRisque(p, statuts?.[p.id]);
+        p.suivi = statuts?.[p.id] || null;
+        p.niveauRisque = niveauRisque(p, p.suivi);
     });
 
     // Recalculer totalBricks en excluant les projets remboursés

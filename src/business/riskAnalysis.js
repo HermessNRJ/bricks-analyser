@@ -66,6 +66,12 @@ export function niveauDepuisStatutOfficiel(statut) {
         return NIVEAUX_RISQUE.SAIN;
     }
 
+    // Un contentieux ouvert est le stade le plus avancé : garanties activées,
+    // dossier transmis. Il prime, même si les échéances viennent d'être soldées.
+    if (statut.contentieux === true) {
+        return NIVEAUX_RISQUE.PROCEDURE;
+    }
+
     const enDefaut = STATUTS_EN_DEFAUT.includes(String(statut.statut || '').toLowerCase());
     const impayees = Number(statut.impayees) || 0;
 
@@ -92,7 +98,7 @@ export function niveauDepuisStatutOfficiel(statut) {
  * @returns {boolean}
  */
 export function estDefautRegularise(statut) {
-    if (!statut || statut.suivi === false) {
+    if (!statut || statut.suivi === false || statut.contentieux === true) {
         return false;
     }
 

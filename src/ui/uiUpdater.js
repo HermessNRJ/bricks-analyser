@@ -839,6 +839,98 @@ export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, cou
 }
 
 /**
+ * Construit le bandeau du suivi officiel d'une propriété
+ *
+ * Échéances dues, pénalités, contentieux : ce que le texte des alertes ne dit
+ * pas toujours. Absent tant que les statuts n'ont pas été récupérés.
+ *
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML du bandeau, vide s'il n'y a rien à signaler
+ */
+function createSuiviSection(property) {
+    const suivi = property.suivi;
+
+    if (!suivi || !suivi.suivi) {
+        return '';
+    }
+
+    const faits = [];
+
+    if (suivi.contentieux) {
+        faits.push('contentieux ouvert');
+    }
+
+    if (suivi.impayees > 0) {
+        faits.push(`${suivi.impayees} échéance${suivi.impayees > 1 ? 's' : ''} due${suivi.impayees > 1 ? 's' : ''}`);
+    }
+
+    if (suivi.penalites > 0) {
+        faits.push(`${formatCurrency(suivi.penalites, 0)} de pénalités`);
+    }
+
+    if (faits.length === 0) {
+        // Un dossier existe mais plus rien n'est dû : le dire évite de laisser
+        // croire à un incident en cours.
+        faits.push('incident passé, plus rien de dû');
+    }
+
+    const grave = suivi.contentieux || suivi.impayees > 0;
+    // formatMonthName capitalise le mois : en incise, il se lit en minuscule
+    const mois = suivi.derniereEcheanceImpayee
+        ? formatMonthName(String(suivi.derniereEcheanceImpayee).slice(0, 7))
+        : '';
+    const depuis = mois
+        ? ` · dernière échéance due en ${mois.charAt(0).toLowerCase()}${mois.slice(1)}`
+        : '';
+
+    return `
+        <div class="suivi-officiel${grave ? ' est-grave' : ''}">
+            ${escapeHtml(faits.join(' · '))}${escapeHtml(depuis)}
+        </div>
+    `;
+}
+
+/**
+ * Construit le bloc des actualités officielles d'une propriété
+ *
+ * Le flux du projet est bien plus circonstancié que les alertes du
+ * portefeuille : il détaille démarches, retards et relances.
+ *
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML des actualités, vide s'il n'y en a pas
+ */
+function createActualitesSection(property) {
+    const actualites = property.suivi?.actualites;
+
+    if (!Array.isArray(actualites) || actualites.length === 0) {
+        return '';
+    }
+
+    const liste = actualites.map(a => {
+        const date = a.date ? new Date(a.date) : null;
+        const dateLisible = date && !Number.isNaN(date.getTime())
+            ? date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+            : 'Date inconnue';
+
+        return `
+            <div class="actualite-item">
+                <div class="alerte-date">${escapeHtml(dateLisible)}</div>
+                <div class="alerte-texte">${escapeHtml(a.texte)}${a.tronquee ? '…' : ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="alertes">
+            <div class="actualites-entete">
+                ${actualites.length} actualité${actualites.length > 1 ? 's' : ''} du projet
+            </div>
+            <div class="alertes-liste">${liste}</div>
+        </div>
+    `;
+}
+
+/**
  * Construit le bloc des alertes d'une propriété
  * @param {Object} property - Données de la propriété
  * @returns {string} HTML des alertes, vide s'il n'y en a pas
@@ -894,6 +986,7 @@ function createPropertyCard(property) {
         : '';
 
     let cardClasses = 'property-card';
+    if (property.niveauRisque === NIVEAUX_RISQUE.PROCEDURE) cardClasses += ' property-en-defaut';
     if (property.isRefunded) cardClasses += ' property-refunded';
     if (property.projectStatus === 'ongoing') cardClasses += ' property-ongoing';
     if (property.projectStatus === 'upcoming') cardClasses += ' property-upcoming';
@@ -951,7 +1044,8 @@ function createPropertyCard(property) {
                     <dd>${escapeHtml(refundDateDisplay)}</dd>
                 </div>
             </dl>
-            ${createAlertesSection(property)}
+            ${createSuiviSection(property)}
+            ${createActualitesSection(property) || createAlertesSection(property)}
         </div>
     `;
 }

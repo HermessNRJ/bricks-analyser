@@ -133,6 +133,16 @@ que du texte libre :
   détail des échéances (`unpaid`, `paid`, `regularized`), pénalités et étapes de procédure.
   Un `404 PAGE_NOT_AVAILABLE` signifie qu'aucun incident n'est ouvert : c'est une réponse
   utile, pas une erreur.
+* `GET /api/project-activities/public/{id}?limit=3` — actualités du projet, bien plus
+  circonstanciées que les alertes du portefeuille. Seules les trois dernières sont
+  conservées, tronquées à 600 caractères : le flux complet sur 138 projets dépasserait
+  la capacité du localStorage.
+* `GET /api/projects/{id}/contentieux-investors` — `has_active_contentieux`, le stade le
+  plus avancé d'une procédure. Il prime sur tout autre signal.
+
+La récupération se fait en trois phases, chacune restreinte aux projets concernés : les
+échéances pour tous, les actualités pour ceux qui ont un dossier de suivi, le contentieux
+pour les seuls projets en défaut — il ne survient pas ailleurs.
 
 Cet hôte est relayé sous `/projects-api`, avec le même traitement Cloudflare. Ces appels
 **n'exigent aucune authentification** : seule la protection Cloudflare impose le proxy.

@@ -171,3 +171,65 @@ describe('repartitionRisque — cohérence tuile / registre', () => {
         expect(repartition.sain.ids).toEqual(['b']);
     });
 });
+
+describe('fetchProjectStatuses — phases', () => {
+    const echeances = (etats) => async (id) => ({ id, ...etats[id] });
+
+    it('ne demande les actualités que pour les projets suivis', async () => {
+        const vus = [];
+        const statuts = await fetchProjectStatuses(['a', 'b'], {
+            concurrence: 2,
+            fetcher: echeances({
+                a: { suivi: true, statut: 'active', impayees: 0 },
+                b: { suivi: false }
+            }),
+            fetcherActualites: async (id) => { vus.push(id); return [{ date: '2026-01-01', texte: 'x' }]; },
+            fetcherContentieux: async () => false
+        });
+
+        expect(vus).toEqual(['a']);
+        expect(statuts.a.actualites).toHaveLength(1);
+        expect(statuts.b.actualites).toBeUndefined();
+    });
+
+    it('ne vérifie le contentieux que sur les projets en défaut', async () => {
+        const vus = [];
+        await fetchProjectStatuses(['a', 'b', 'c'], {
+            concurrence: 3,
+            fetcher: echeances({
+                a: { suivi: true, statut: 'defaulted', impayees: 2 },
+                b: { suivi: true, statut: 'active', impayees: 0 },
+                c: { suivi: false }
+            }),
+            fetcherActualites: async () => [],
+            fetcherContentieux: async (id) => { vus.push(id); return true; }
+        });
+
+        expect(vus).toEqual(['a']);
+    });
+
+    it('nomme la phase dans la progression', async () => {
+        const phases = new Set();
+        await fetchProjectStatuses(['a'], {
+            concurrence: 1,
+            fetcher: echeances({ a: { suivi: true, statut: 'defaulted', impayees: 1 } }),
+            fetcherActualites: async () => [],
+            fetcherContentieux: async () => false,
+            onProgress: (faits, total, phase) => phases.add(phase)
+        });
+
+        expect([...phases]).toEqual(['échéances', 'actualités', 'contentieux']);
+    });
+});
+
+describe('niveauDepuisStatutOfficiel — contentieux', () => {
+    it('place un contentieux ouvert au niveau le plus grave', () => {
+        expect(niveauDepuisStatutOfficiel({ suivi: true, statut: 'active', impayees: 0, contentieux: true }))
+            .toBe(NIVEAUX_RISQUE.PROCEDURE);
+    });
+
+    it('ne compte pas comme régularisé un défaut passé en contentieux', () => {
+        expect(estDefautRegularise({ suivi: true, statut: 'defaulted', impayees: 0, contentieux: true }))
+            .toBe(false);
+    });
+});

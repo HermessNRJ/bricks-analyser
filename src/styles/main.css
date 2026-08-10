@@ -1000,6 +1000,10 @@ select:hover {
     white-space: nowrap;
 }
 
+/* Un projet en défaut se voit depuis la grille, sans ouvrir la fiche */
+.property-en-defaut { border-left-color: var(--alerte); }
+.property-en-defaut:hover { border-left-color: var(--alerte); }
+
 .property-refunded { border-left-color: var(--statut-rembourse); }
 .property-refunded:hover { border-left-color: var(--statut-rembourse); }
 .property-refunded .property-name,
@@ -1033,6 +1037,41 @@ select:hover {
 /* --------------------------------------------------------------------------
    Alertes sur une propriété
    -------------------------------------------------------------------------- */
+
+/* Le suivi officiel : une ligne de faits, pas une narration */
+.suivi-officiel {
+    margin-top: 12px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    background: var(--surface-sunken);
+    border-left: 2px solid var(--rule-strong);
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76rem;
+    color: var(--ink-muted);
+}
+
+.suivi-officiel.est-grave {
+    background: var(--alerte-fond);
+    border-left-color: var(--alerte);
+    color: #7d2416;
+}
+
+.actualites-entete {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+}
+
+.actualite-item {
+    background: var(--surface-sunken);
+    border-left: 2px solid var(--rule-strong);
+    border-radius: 0 3px 3px 0;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+}
 
 .alertes {
     margin-top: 14px;

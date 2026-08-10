@@ -65,9 +65,9 @@ export async function rafraichirStatuts({ silencieux = false } = {}) {
 
     try {
         const statuts = await fetchProjectStatuses(cibles, {
-            onProgress: (faits, total) => {
+            onProgress: (faits, total, phase) => {
                 if (!silencieux) {
-                    afficherProgression(`Vérification du statut des projets… ${faits} / ${total}`);
+                    afficherProgression(`Vérification des projets — ${phase}… ${faits} / ${total}`);
                 }
             }
         });

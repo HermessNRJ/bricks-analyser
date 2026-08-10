@@ -70,52 +70,175 @@ export async function fetchProjectStatus(projectId) {
     }
 }
 
-/**
- * Récupère le suivi de plusieurs projets, par lots
- *
- * Les appels sont bornés en parallélisme : 200 requêtes lancées d'un coup
- * seraient à la fois inutiles et agressives pour l'API.
- *
- * @param {string[]} projectIds - Identifiants à interroger
- * @param {Object} [options]
- * @param {Function} [options.onProgress] - Appelé avec (faits, total)
- * @param {number} [options.concurrence] - Appels simultanés
- * @param {Function} [options.fetcher] - Injection pour les tests
- * @returns {Promise<Object>} Statuts indexés par identifiant de projet
- */
-export async function fetchProjectStatuses(projectIds, options = {}) {
-    const { onProgress, concurrence = CONCURRENCE, fetcher = fetchProjectStatus } = options;
-    const ids = [...new Set(projectIds || [])];
-    const statuts = {};
+/** Actualités conservées par projet, et longueur retenue de chacune.
+ *  Le flux complet ferait plusieurs mégaoctets sur 138 projets : le
+ *  localStorage n'y survivrait pas, et les fiches n'en montrent que le début. */
+const ACTUALITES_GARDEES = 3;
+const LONGUEUR_ACTUALITE = 600;
 
-    let faits = 0;
+/**
+ * Récupère les dernières actualités d'un projet
+ *
+ * Ce flux est nettement plus riche que les alertes du portefeuille : il porte
+ * le détail des démarches, des retards et des relances.
+ *
+ * @param {string} projectId - Identifiant du projet
+ * @returns {Promise<Array>} Actualités { date, texte }, vide si indisponible
+ */
+export async function fetchProjectActivities(projectId) {
+    try {
+        const response = await fetch(
+            `${BASE}/project-activities/public/${encodeURIComponent(projectId)}?limit=${ACTUALITES_GARDEES}`,
+            { method: 'GET', headers: { 'Accept': 'application/json' } }
+        );
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const data = await response.json();
+
+        return (data?.items || [])
+            .slice(0, ACTUALITES_GARDEES)
+            .map(item => ({
+                date: item.created_at || null,
+                texte: String(item.content || '').slice(0, LONGUEUR_ACTUALITE),
+                tronquee: String(item.content || '').length > LONGUEUR_ACTUALITE
+            }));
+
+    } catch (err) {
+        logger.warn(LOG_CATEGORIES.API, 'Project activities request errored', { projectId, err });
+        return [];
+    }
+}
+
+/**
+ * Indique si un contentieux est ouvert sur un projet
+ * @param {string} projectId - Identifiant du projet
+ * @returns {Promise<boolean>} true si une procédure contentieuse est active
+ */
+export async function fetchProjectContentieux(projectId) {
+    try {
+        const response = await fetch(
+            `${BASE}/projects/${encodeURIComponent(projectId)}/contentieux-investors`,
+            { method: 'GET', headers: { 'Accept': 'application/json' } }
+        );
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const data = await response.json();
+        return Boolean(data?.has_active_contentieux);
+
+    } catch (err) {
+        logger.warn(LOG_CATEGORIES.API, 'Contentieux request errored', { projectId, err });
+        return false;
+    }
+}
+
+/**
+ * Applique un traitement à une liste, avec un parallélisme borné
+ *
+ * 200 requêtes lancées d'un coup seraient à la fois inutiles et agressives
+ * pour l'API : on en tient au plus `concurrence` en vol.
+ *
+ * @param {Array} elements - Éléments à traiter
+ * @param {Function} traitement - Appelé avec chaque élément
+ * @param {number} concurrence - Appels simultanés
+ * @param {Function} [surAvancement] - Appelé après chaque élément traité
+ * @returns {Promise<void>}
+ */
+async function parLots(elements, traitement, concurrence, surAvancement) {
     let curseur = 0;
 
     const travailleur = async () => {
-        while (curseur < ids.length) {
-            const id = ids[curseur++];
-            const resultat = await fetcher(id);
+        while (curseur < elements.length) {
+            const element = elements[curseur++];
+            await traitement(element);
 
-            // Une erreur ponctuelle ne doit pas être mémorisée comme « sain » :
-            // on l'omet, l'analyse retombera sur le texte des alertes.
-            if (!resultat.erreur) {
-                statuts[id] = resultat;
-            }
-
-            faits += 1;
-            if (onProgress) {
-                onProgress(faits, ids.length);
+            if (surAvancement) {
+                surAvancement();
             }
         }
     };
 
     await Promise.all(
-        Array.from({ length: Math.min(concurrence, ids.length) }, travailleur)
+        Array.from({ length: Math.min(concurrence, elements.length) }, travailleur)
     );
+}
+
+/**
+ * Récupère le suivi complet de plusieurs projets
+ *
+ * Trois phases, chacune restreinte aux projets qu'elle concerne :
+ *  1. les échéances, pour tous ;
+ *  2. les actualités, pour ceux qui ont un dossier de suivi ;
+ *  3. le contentieux, pour ceux déclarés en défaut — il ne survient pas ailleurs.
+ *
+ * @param {string[]} projectIds - Identifiants à interroger
+ * @param {Object} [options]
+ * @param {Function} [options.onProgress] - Appelé avec (faits, total, phase)
+ * @param {number} [options.concurrence] - Appels simultanés
+ * @param {Function} [options.fetcher] - Injection pour les tests (échéances)
+ * @param {Function} [options.fetcherActualites] - Injection pour les tests
+ * @param {Function} [options.fetcherContentieux] - Injection pour les tests
+ * @returns {Promise<Object>} Statuts indexés par identifiant de projet
+ */
+export async function fetchProjectStatuses(projectIds, options = {}) {
+    const {
+        onProgress,
+        concurrence = CONCURRENCE,
+        fetcher = fetchProjectStatus,
+        fetcherActualites = fetchProjectActivities,
+        fetcherContentieux = fetchProjectContentieux
+    } = options;
+
+    const ids = [...new Set(projectIds || [])];
+    const statuts = {};
+
+    let faits = 0;
+    const avancer = (phase, total) => () => {
+        faits += 1;
+        if (onProgress) {
+            onProgress(faits, total, phase);
+        }
+    };
+
+    // Phase 1 : l'état des échéances, pour chaque projet détenu
+    await parLots(ids, async (id) => {
+        const resultat = await fetcher(id);
+
+        // Une erreur ponctuelle ne doit pas être mémorisée comme « sain » :
+        // on l'omet, l'analyse retombera sur le texte des alertes.
+        if (!resultat.erreur) {
+            statuts[id] = resultat;
+        }
+    }, concurrence, avancer('échéances', ids.length));
+
+    const avecSuivi = Object.values(statuts).filter(s => s.suivi).map(s => s.id);
+    const enDefaut = Object.values(statuts)
+        .filter(s => s.suivi && String(s.statut || '').toLowerCase() === 'defaulted')
+        .map(s => s.id);
+
+    const total = ids.length + avecSuivi.length + enDefaut.length;
+    faits = ids.length;
+
+    // Phase 2 : les actualités, là où il y a quelque chose à raconter
+    await parLots(avecSuivi, async (id) => {
+        statuts[id].actualites = await fetcherActualites(id);
+    }, concurrence, avancer('actualités', total));
+
+    // Phase 3 : le contentieux ne suit qu'un défaut
+    await parLots(enDefaut, async (id) => {
+        statuts[id].contentieux = await fetcherContentieux(id);
+    }, concurrence, avancer('contentieux', total));
 
     logger.info(LOG_CATEGORIES.API, 'Project statuses fetched', {
         demandes: ids.length,
-        obtenus: Object.keys(statuts).length
+        obtenus: Object.keys(statuts).length,
+        avecActualites: avecSuivi.length,
+        contentieuxVerifies: enDefaut.length
     });
 
     return statuts;
