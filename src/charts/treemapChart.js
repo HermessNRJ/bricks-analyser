@@ -5,7 +5,7 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { formatCurrency, truncate } from '../utils/formatters.js';
+import { formatCurrency, truncate, formatPercentage } from '../utils/formatters.js';
 
 /**
  * Interpole entre deux couleurs RGB
@@ -239,9 +239,9 @@ export function createTreemapChart(properties) {
 
                                 return [
                                     `💰 Investissement: ${formatCurrency(prop.investment)}`,
-                                    `📊 Part du portefeuille: ${percentage}%`,
+                                    `Part du portefeuille : ${formatPercentage(Number(percentage))}`,
                                     `🧱 Briques: ${prop.ownedBricks.toLocaleString()}`,
-                                    `📈 Rendement annuel: ${prop.yearlyReturn}%`,
+                                    `Rendement annuel : ${formatPercentage(prop.yearlyReturn)}`,
                                     `💵 Revenus mensuels: ${formatCurrency(prop.monthlyRevenue)}`,
                                     `📍 Adresse: ${truncate(prop.address, 40)}`
                                 ];

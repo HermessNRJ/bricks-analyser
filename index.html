@@ -22,206 +22,326 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>📊 Analyseur d'Investissements Bricks</h1>
-            <p>Analysez vos investissements immobiliers en temps réel</p>
-        </div>
+        <header class="header">
+            <h1>Analyseur d'investissements Bricks</h1>
+            <p>Vos briques, vos revenus et vos alertes, en un seul écran.</p>
+        </header>
 
-        <div class="upload-section">
-            <h2>🔐 Charger vos données d'investissement</h2>
-            <p style="margin: 15px 0; color: #666;">Entrez votre token API Bricks pour charger vos données</p>
+        <section class="upload-section" id="uploadSection" aria-labelledby="titreSession">
+            <h2 id="titreSession">Charger vos données</h2>
+            <p class="aide">
+                Sur <strong>app.bricks.co</strong>, ouvrez les outils de développement, onglet Réseau,
+                cliquez sur une requête vers <code>api.bricks.co</code> et copiez la valeur de l'en-tête
+                <code>Cookie</code>. Elle reste valable environ 30 jours.
+            </p>
 
-            <div id="error" class="error hidden"></div>
+            <div id="error" class="error hidden" role="alert"></div>
 
-            <div style="margin-top: 20px;">
-                <div>
-                    <input type="password" id="apiTokenInput" placeholder="Entrez votre Bearer Token API"
-                           style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; width: 280px; margin-right: 10px; font-size: 14px;">
-                    <button id="fetchApiDataBtn"
-                            style="padding: 10px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
-                        Charger les données API
-                    </button>
-                </div>
-                <div id="apiLoadingMessage" style="display:none; color: #6c757d; margin-top:10px; font-size: 0.9em;">Chargement des données API...</div>
-                <button id="resetCacheBtn" style="margin-top: 15px; padding: 10px 15px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
-                    Effacer les Données Locales
-                </button>
+            <div class="session-ligne">
+                <label class="sr-only" for="apiTokenInput">Cookie de session Bricks</label>
+                <input type="password" id="apiTokenInput"
+                       placeholder="cf_clearance=…; __Secure-better-auth.session_token=…"
+                       autocomplete="off" spellcheck="false">
+                <button id="fetchApiDataBtn" class="bouton bouton-principal">Charger les données</button>
+                <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>
-        </div>
+            <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
+        </section>
 
         <div id="results" class="hidden">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalBricks">0</div>
-                    <div class="stat-label">Briques Possédées</div>
+            <!-- Le mur : une brique par propriété, largeur proportionnelle à l'investissement -->
+            <section class="mur-section" aria-labelledby="titreMur">
+                <div class="mur-entete">
+                    <h2 class="mur-titre" id="titreMur">Le mur</h2>
+                    <p class="mur-total" id="murTotal"></p>
                 </div>
+                <div class="mur" id="murStrip" role="list"></div>
+                <div class="mur-legende" aria-hidden="true">
+                    <span><i class="pastille-actif"></i>Actif</span>
+                    <span><i class="pastille-financement"></i>En financement</span>
+                    <span><i class="pastille-avenir"></i>À venir</span>
+                    <span><i class="pastille-rembourse"></i>Remboursé</span>
+                    <span><i class="pastille-alerte"></i>Alerte en cours</span>
+                </div>
+            </section>
+
+            <section class="stats-grid" aria-label="Chiffres clés">
                 <div class="stat-card">
                     <div class="stat-value" id="totalInvestment">0€</div>
-                    <div class="stat-label">Investissement Total</div>
+                    <div class="stat-label">Investissement total</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="monthlyRevenue">0€</div>
-                    <div class="stat-label">Revenus Mensuels Nets Espérés</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="totalProperties">0</div>
-                    <div class="stat-label">Propriétés</div>
+                    <div class="stat-label">Revenus nets mensuels</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalNetRevenueSinceBeginning">0€</div>
-                    <div class="stat-label">Total Net Cumulé (Réel)</div>
+                    <div class="stat-label">Net cumulé perçu</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalTaxesSinceBeginning">0€</div>
-                    <div class="stat-label">Total Impôts Cumulés (Réel)</div>
+                    <div class="stat-label">Impôts cumulés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalProperties">0</div>
+                    <div class="stat-label">Propriétés détenues</div>
+                    <div class="stat-detail" id="detailDetenues"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalBricks">0</div>
+                    <div class="stat-label">Briques possédées</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="refundedProjectsCountValue">0</div>
-                    <div class="stat-label">Projets Remboursés</div>
+                    <div class="stat-label">Projets remboursés</div>
+                    <div class="stat-detail" id="detailRembourses"></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="fundingProjectsCountValue">0</div>
-                    <div class="stat-label">Projets En Financement/À Venir</div>
+                    <div class="stat-label">En financement ou à venir</div>
+                    <div class="stat-detail" id="detailFinancement"></div>
                 </div>
-            </div>
+            </section>
 
-            <div class="projections-section" style="margin-top: 30px; background: white; border-radius: 15px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); flex-shrink: 0;">
-                <h3 style="text-align: center; margin-bottom: 20px; color: #333; font-size: 1.4rem; font-weight: 600;">🗓️ Projections Revenus Mensuels Nets</h3>
-                <div id="projectedRevenuesDisplay" style="display: flex; flex-wrap: wrap; justify-content: space-around; text-align: center; gap: 15px;">
-                    <!-- Projections will be dynamically inserted here by JavaScript -->
+            <!-- Ces deux chiffres sont déduits du texte des warnings, pas d'un
+                 statut officiel : cliquer filtre le registre pour vérifier. -->
+            <section class="stats-grid stats-risque" aria-label="Suivi des incidents">
+                <button type="button" class="stat-card stat-cliquable" data-risque="procedure">
+                    <div class="stat-value stat-alerte" id="procedureCount">0</div>
+                    <div class="stat-label">En procédure</div>
+                    <div class="stat-detail" id="detailProcedure"></div>
+                </button>
+                <button type="button" class="stat-card stat-cliquable" data-risque="impaye">
+                    <div class="stat-value stat-alerte-faible" id="impayeCount">0</div>
+                    <div class="stat-label">Impayé ou retard</div>
+                    <div class="stat-detail" id="detailImpaye"></div>
+                </button>
+                <div class="stat-card">
+                    <div class="stat-value" id="difficulteCapital">0€</div>
+                    <div class="stat-label">Capital exposé</div>
+                    <div class="stat-detail" id="detailDifficulte"></div>
                 </div>
-                <p style="font-size: 0.85em; color: #666; text-align: center; margin-top: 20px;">
-                    Note: Les revenus sont généralement versés autour du 8 du mois.
+                <div class="stat-card">
+                    <div class="stat-value" id="sainCount">0</div>
+                    <div class="stat-label">Sans signalement</div>
+                    <div class="stat-detail" id="detailSain"></div>
+                </div>
+            </section>
+
+            <section class="projections-section" aria-labelledby="titreProjections">
+                <h3 id="titreProjections">Prochains versements</h3>
+                <div id="projectedRevenuesDisplay"></div>
+                <p class="note" id="projectionsNote">Les revenus sont généralement versés autour du 8 du mois.</p>
+            </section>
+
+            <!-- Simulateur : déroule les hypothèses saisies, mois par mois -->
+            <section class="simulateur" aria-labelledby="titreSimulateur">
+                <h3 id="titreSimulateur">Simuler la suite</h3>
+                <p class="chart-note">
+                    Ce calcul déroule vos hypothèses, il ne prédit rien. Modifiez-les pour voir
+                    comment le résultat bouge.
                 </p>
-            </div>
+
+                <div class="simulateur-champs">
+                    <label for="simApport">
+                        Apport mensuel
+                        <span class="champ-unite">
+                            <input type="number" id="simApport" min="0" max="1000000" step="10" value="100">
+                            <span>€ / mois</span>
+                        </span>
+                        <span class="champ-repere" id="repereApport"></span>
+                    </label>
+
+                    <label for="simHorizon">
+                        Horizon
+                        <span class="champ-unite">
+                            <input type="number" id="simHorizon" min="1" max="50" step="1" value="10">
+                            <span>ans</span>
+                        </span>
+                        <span class="champ-repere" id="repereHorizon"></span>
+                    </label>
+
+                    <label for="simRendement">
+                        Rendement annuel brut
+                        <span class="champ-unite">
+                            <input type="number" id="simRendement" min="0" max="100" step="0.1" value="10">
+                            <span>%</span>
+                        </span>
+                        <span class="champ-repere" id="repereRendement"></span>
+                        <span class="champ-correspondance" id="correspondanceRendement"></span>
+                    </label>
+
+                    <label for="simImpaye">
+                        Taux d'impayés
+                        <span class="champ-unite">
+                            <input type="number" id="simImpaye" min="0" max="100" step="0.5" value="0">
+                            <span>%</span>
+                        </span>
+                        <span class="champ-repere" id="repereImpaye"></span>
+                    </label>
+
+                </div>
+
+                <div class="simulateur-options">
+                    <label class="champ-case" for="simReinvestir">
+                        <input type="checkbox" id="simReinvestir" checked>
+                        Réinvestir les revenus nets
+                    </label>
+
+                    <button type="button" id="simReset" class="bouton bouton-secondaire">
+                        Repartir de mon portefeuille
+                    </button>
+                </div>
+
+                <div class="simulateur-resultats" id="simResultats"></div>
+
+                <div class="simulateur-graphique">
+                    <canvas id="forecastChart" width="400" height="260"></canvas>
+                </div>
+
+                <p class="note" id="simHypotheses"></p>
+            </section>
 
             <div class="charts-section">
                 <div class="chart-container">
-                    <div class="chart-title">📈 Évolution de l'Investissement</div>
+                    <h3 class="chart-title">Évolution de l'investissement</h3>
+                    <div class="chart-outils">
+                        <label class="champ" for="investmentRangeFilter">
+                            Période
+                            <select id="investmentRangeFilter">
+                                <option value="3">3 derniers mois</option>
+                                <option value="6">6 derniers mois</option>
+                                <option value="12">12 derniers mois</option>
+                                <option value="all">Tout l'historique</option>
+                            </select>
+                        </label>
+                    </div>
                     <canvas id="investmentChart" width="400" height="300"></canvas>
                 </div>
+
                 <div class="chart-container">
-                    <div class="chart-title">🏠 Répartition par Propriété</div>
-                    <canvas id="distributionChart" width="400" height="300" style="cursor: pointer;"></canvas>
-                    <p style="text-align: center; font-size: 0.8em; color: #999; margin-top: 10px;">💡 Cliquez sur "Autres" pour voir le détail</p>
+                    <h3 class="chart-title">Répartition par propriété</h3>
+                    <canvas id="distributionChart" width="400" height="320"></canvas>
+                    <p class="chart-note">Cliquez sur « Autres » pour voir le détail.</p>
                 </div>
+
                 <div class="chart-container">
-                    <div class="chart-title">📈 Évolution des Revenus Mensuels Nets</div>
+                    <h3 class="chart-title">Évolution des revenus nets</h3>
                     <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
                 </div>
+
                 <div class="chart-container">
-                    <div class="chart-title">💸 Montant de l'Impôt Mensuel (est. 30%)</div>
+                    <h3 class="chart-title" id="titreImpot">Impôt mensuel estimé</h3>
                     <canvas id="taxAmountChart" width="400" height="300"></canvas>
                 </div>
             </div>
 
-            <!-- Treemap Section (full width) -->
-            <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); margin-bottom: 30px;">
-                <div class="chart-title">🗺️ Vue Complète du Portefeuille (Treemap)</div>
-                <p style="text-align: center; font-size: 0.9em; color: #666; margin-bottom: 15px;">
-                    Propriétés actives affichées proportionnellement à leur investissement
-                </p>
-                <div style="position: relative; height: 600px; width: 100%;">
+            <section class="treemap-section" aria-labelledby="titreTreemap">
+                <h3 class="chart-title" id="titreTreemap">Portefeuille en surface</h3>
+                <p class="chart-note">Propriétés actives, surface proportionnelle à l'investissement.</p>
+                <div class="treemap-cadre">
                     <canvas id="treemapChart"></canvas>
                 </div>
-                <p style="text-align: center; font-size: 0.8em; color: #999; margin-top: 10px;">
-                    💡 Survolez pour voir les détails • Taille = investissement • Couleur = rendement annuel (gradient continu)
-                </p>
-                <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; font-size: 0.75em; color: #666;">
+                <div class="gradient-legende">
                     <span>Rendement faible</span>
-                    <div style="width: 200px; height: 12px; background: linear-gradient(to right, rgba(220, 53, 69, 0.8), rgba(253, 126, 20, 0.8), rgba(255, 193, 7, 0.8), rgba(40, 167, 69, 0.8)); border-radius: 6px;"></div>
+                    <div class="gradient-barre" aria-hidden="true"></div>
                     <span>Rendement élevé</span>
                 </div>
-            </div>
+            </section>
 
-            <div class="properties-list">
-                <h2 style="text-align: center; margin-bottom: 25px; color: #333;">🏘️ Détail des Propriétés</h2>
+            <section class="properties-list" aria-labelledby="titreRegistre">
+                <h2 id="titreRegistre">Registre des propriétés</h2>
 
-                <!-- Contrôles de tri et filtres -->
                 <div class="properties-controls">
-                    <label>
-                        📊 Trier par :
+                    <label class="champ-recherche" for="propertySearch">
+                        Rechercher
+                        <input type="search" id="propertySearch" placeholder="Nom ou adresse…"
+                               autocomplete="off" spellcheck="false">
+                    </label>
+
+                    <label for="propertySortBy">
+                        Trier par
                         <select id="propertySortBy">
-                            <option value="investment-desc">Investissement (décroissant)</option>
-                            <option value="investment-asc">Investissement (croissant)</option>
-                            <option value="bricks-desc">Nombre de briques (décroissant)</option>
-                            <option value="bricks-asc">Nombre de briques (croissant)</option>
-                            <option value="return-desc">Rendement (décroissant)</option>
-                            <option value="return-asc">Rendement (croissant)</option>
-                            <option value="revenue-desc">Revenus mensuels (décroissant)</option>
-                            <option value="revenue-asc">Revenus mensuels (croissant)</option>
-                            <option value="revenuestart-desc">Premier versement (récent → ancien)</option>
-                            <option value="revenuestart-asc">Premier versement (ancien → récent)</option>
-                            <option value="name-asc">Nom (A → Z)</option>
-                            <option value="name-desc">Nom (Z → A)</option>
+                            <option value="investment-desc">Investissement ↓</option>
+                            <option value="investment-asc">Investissement ↑</option>
+                            <option value="bricks-desc">Briques ↓</option>
+                            <option value="bricks-asc">Briques ↑</option>
+                            <option value="return-desc">Rendement ↓</option>
+                            <option value="return-asc">Rendement ↑</option>
+                            <option value="revenue-desc">Revenus mensuels ↓</option>
+                            <option value="revenue-asc">Revenus mensuels ↑</option>
+                            <option value="revenuestart-desc">Premier versement, récent</option>
+                            <option value="revenuestart-asc">Premier versement, ancien</option>
+                            <option value="name-asc">Nom A → Z</option>
+                            <option value="name-desc">Nom Z → A</option>
                         </select>
                     </label>
 
-                    <label>
-                        🔍 Filtrer par statut :
+                    <label for="propertyFilter">
+                        Statut
                         <select id="propertyFilter">
-                            <option value="all">Toutes les propriétés</option>
-                            <option value="active">Actives uniquement</option>
-                            <option value="refunded">Remboursées uniquement</option>
+                            <option value="all">Tous</option>
+                            <option value="active">Actives</option>
+                            <option value="refunded">Remboursées</option>
                             <option value="ongoing">En financement</option>
                             <option value="upcoming">À venir</option>
                         </select>
                     </label>
 
-                    <label>
-                        📅 Filtrer par date :
-                        <select id="propertyDateFilter">
-                            <option value="all">Toutes les dates</option>
-                            <option value="has-revenue-date">Avec date de 1er versement</option>
-                            <option value="no-revenue-date">Sans date de 1er versement</option>
-                            <option value="has-refund-date">Avec date de remboursement</option>
-                            <option value="no-refund-date">Sans date de remboursement</option>
-                        </select>
-                    </label>
 
-                    <label>
-                        ⚠️ Filtrer par warning :
+                    <label for="propertyWarningFilter">
+                        Alertes
                         <select id="propertyWarningFilter">
-                            <option value="all">Tous les warnings</option>
-                            <option value="has-warning">Avec warning(s)</option>
-                            <option value="no-warning">Sans warning</option>
-                            <option value="warning-last-month">Warning mois dernier</option>
-                            <option value="warning-month-before">Warning mois d'avant</option>
+                            <option value="all">Toutes</option>
+                            <option value="warning-current-month">Alerte ce mois-ci</option>
+                            <option value="has-warning">Avec alerte</option>
+                            <option value="no-warning">Sans alerte</option>
+                            <option value="risk-procedure">En procédure</option>
+                            <option value="risk-impaye">Impayé ou retard</option>
+                            <option value="warning-last-month">Alerte sous 30 jours</option>
+                            <option value="warning-month-before">Alerte le mois d'avant</option>
                         </select>
                     </label>
 
-                    <label>
-                        🌍 Filtrer par pays :
+                    <label for="propertyCountryFilter">
+                        Pays
                         <select id="propertyCountryFilter">
-                            <option value="all">Tous les pays</option>
-                            <!-- Les options seront ajoutées dynamiquement -->
+                            <option value="all">Tous</option>
                         </select>
                     </label>
+                </div>
 
-                    <div style="color: #666; font-size: 0.9rem;">
-                        <span id="propertyCount">0</span> propriété(s)
-                    </div>
+                <div class="resultat-barre">
+                    <p class="resultat-compte">
+                        <strong id="propertyCount">0</strong> <span id="propertyCountLabel">propriétés</span>
+                    </p>
+                    <div class="filtres-actifs" id="activeFilters"></div>
                 </div>
 
                 <div id="propertiesList" class="properties-grid"></div>
-            </div>
+
+                <nav class="pagination hidden" id="pagination" aria-label="Pagination du registre">
+                    <button id="prevPage" class="bouton bouton-secondaire">Précédent</button>
+                    <span class="pagination-position" id="pageIndicator"></span>
+                    <button id="nextPage" class="bouton bouton-secondaire">Suivant</button>
+                </nav>
+            </section>
         </div>
     </div>
 
-    <!-- Deletion Modal -->
+    <!-- Confirmation de suppression -->
     <div id="deletionModalOverlay" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Confirmer la suppression</h3>
-            <p style="margin-bottom: 15px; color: #666;">Les projets suivants ne sont pas présents dans le nouveau fichier. Voulez-vous les supprimer de vos données locales ?</p>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="titreSuppression">
+            <h3 id="titreSuppression">Confirmer la suppression</h3>
+            <p>Ces projets sont absents des nouvelles données. Les retirer de vos données locales ?</p>
             <ul id="deletionList"></ul>
             <div class="modal-buttons">
-                <button id="confirmDeleteBtn">Supprimer les éléments listés</button>
-                <button id="keepItemsBtn">Garder tous les éléments</button>
+                <button id="keepItemsBtn" class="bouton bouton-secondaire">Tout garder</button>
+                <button id="confirmDeleteBtn" class="bouton bouton-principal">Supprimer</button>
             </div>
         </div>
     </div>
 
-    <!-- Scroll to Top Button -->
-    <button id="scrollToTopBtn" title="Retour en haut">↑</button>
+    <button id="scrollToTopBtn" title="Retour en haut" aria-label="Retour en haut">↑</button>
 </body>
 </html>

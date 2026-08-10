@@ -3,13 +3,29 @@
  */
 
 import { state } from '../core/state.js';
+import { CONFIG } from '../core/config.js';
+import { formatPercentage } from '../utils/formatters.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+
+/**
+ * Met le taux courant dans le titre de la section
+ * Le barème peut changer : aucun taux ne doit rester figé dans le HTML.
+ */
+function majTitreImpot() {
+    const titre = document.getElementById('titreImpot');
+
+    if (titre) {
+        titre.textContent = `Impôt mensuel estimé (${formatPercentage(CONFIG.TAX_RATE * 100)})`;
+    }
+}
 
 /**
  * Crée le graphique d'évolution des taxes
  * @param {Object} taxData - Données de taxes { 'YYYY-MM': montant }
  */
 export function createTaxChart(taxData) {
+    majTitreImpot();
+
     const ctx = document.getElementById('taxAmountChart')?.getContext('2d');
     if (!ctx) {
         logger.error(LOG_CATEGORIES.CHART, 'Canvas taxAmountChart not found');
@@ -43,7 +59,7 @@ export function createTaxChart(taxData) {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: "Montant de l'Impôt (est. 30%)",
+                    label: `Montant de l'impôt (est. ${formatPercentage(CONFIG.TAX_RATE * 100)})`,
                     data: data,
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                     borderColor: 'rgba(255, 99, 132, 1)',

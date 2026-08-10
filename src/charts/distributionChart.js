@@ -14,7 +14,8 @@
 import { state } from '../core/state.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { truncate, formatCurrency } from '../utils/formatters.js';
+import { truncate, formatCurrency, formatPercentage } from '../utils/formatters.js';
+import { escapeHtml } from '../utils/html.js';
 
 // Stocker les propriétés "Autres" pour le drill-down
 let otherPropertiesCache = [];
@@ -24,31 +25,48 @@ let otherPropertiesCache = [];
  */
 const centerTextPlugin = {
     id: 'centerText',
-    beforeDraw: (chart) => {
-        const { width, height, ctx } = chart;
-        ctx.restore();
+    afterDatasetsDraw: (chart) => {
+        const { ctx, chartArea } = chart;
+
+        if (!chartArea) {
+            return;
+        }
+
+        // Le centre du donut n'est pas celui du canvas : la légende occupe le bas.
+        // chartArea exclut la légende, c'est donc lui qui donne le vrai centre.
+        const centreX = (chartArea.left + chartArea.right) / 2;
+        const centreY = (chartArea.top + chartArea.bottom) / 2;
+
+        // Le texte doit tenir dans le trou du donut, jamais déborder sur les tranches
+        const rayonInterieur = Math.min(
+            chartArea.right - chartArea.left,
+            chartArea.bottom - chartArea.top
+        ) / 2 * 0.55;
 
         const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-        const fontSize = (height / 200).toFixed(2);
-        ctx.font = `bold ${fontSize}em sans-serif`;
-        ctx.textBaseline = 'middle';
-
-        const text = formatCurrency(total, 0);
-        const textX = Math.round((width - ctx.measureText(text).width) / 2);
-        const textY = height / 2 - 10;
-
-        ctx.fillStyle = '#333';
-        ctx.fillText(text, textX, textY);
-
-        // Sous-titre
-        ctx.font = `${fontSize * 0.5}em sans-serif`;
-        ctx.fillStyle = '#666';
-        const subtitle = 'Total Investi';
-        const subtitleX = Math.round((width - ctx.measureText(subtitle).width) / 2);
-        const subtitleY = height / 2 + 20;
-        ctx.fillText(subtitle, subtitleX, subtitleY);
 
         ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const montant = formatCurrency(total, 0);
+        let taille = Math.min(26, Math.floor(rayonInterieur * 0.52));
+
+        // Réduire jusqu'à ce que le montant tienne dans le trou
+        ctx.font = `600 ${taille}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+        while (taille > 10 && ctx.measureText(montant).width > rayonInterieur * 1.7) {
+            taille -= 1;
+            ctx.font = `600 ${taille}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+        }
+
+        ctx.fillStyle = '#16202b';
+        ctx.fillText(montant, centreX, centreY - taille * 0.35);
+
+        ctx.font = `500 ${Math.max(9, Math.round(taille * 0.42))}px system-ui, sans-serif`;
+        ctx.fillStyle = '#5c6b77';
+        ctx.fillText('Total investi', centreX, centreY + taille * 0.7);
+
+        ctx.restore();
     }
 };
 
@@ -203,10 +221,10 @@ export function createDistributionChart(properties) {
                                 const data = chart.data;
                                 return data.labels.map((label, i) => {
                                     const value = data.datasets[0].data[i];
-                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    const percentage = total > 0 ? (value / total) * 100 : 0;
 
                                     return {
-                                        text: `${label} - ${formatCurrency(value, 0)} (${percentage}%)`,
+                                        text: `${label} — ${formatCurrency(value, 0)} (${formatPercentage(percentage)})`,
                                         fillStyle: data.datasets[0].backgroundColor[i],
                                         hidden: false,
                                         index: i
@@ -225,8 +243,8 @@ export function createDistributionChart(properties) {
                             label: function(context) {
                                 const label = context.label || '';
                                 const value = context.parsed;
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                                const percentage = total > 0 ? (value / total) * 100 : 0;
+                                return `${label} : ${formatCurrency(value)} (${formatPercentage(percentage)})`;
                             }
                         }
                     },
@@ -268,12 +286,12 @@ function showOthersModal(otherProperties) {
         modal.id = 'othersPropertiesModal';
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 600px;">
-                <h3 style="margin-bottom: 20px;">📊 Autres Propriétés</h3>
-                <div id="othersPropertiesList" style="max-height: 400px; overflow-y: auto; text-align: left;"></div>
-                <button id="closeOthersModal" style="margin-top: 20px; padding: 10px 25px; background-color: #667eea; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px;">
-                    Fermer
-                </button>
+            <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="titreAutres">
+                <h3 id="titreAutres">Autres propriétés</h3>
+                <div id="othersPropertiesList" class="autres-liste"></div>
+                <div class="modal-buttons">
+                    <button id="closeOthersModal" class="bouton bouton-secondaire">Fermer</button>
+                </div>
             </div>
         `;
         document.body.appendChild(modal);
@@ -295,23 +313,21 @@ function showOthersModal(otherProperties) {
     const list = document.getElementById('othersPropertiesList');
     const total = otherProperties.reduce((sum, p) => sum + p.investment, 0);
 
+    // Les noms viennent de l'API : ils sont échappés avant toute injection
     list.innerHTML = otherProperties.map(p => {
-        const percentage = total > 0 ? ((p.investment / total) * 100).toFixed(1) : 0;
-        const statusBadge = p.isRefunded ? '🔴' :
-                           p.projectStatus === 'ongoing' ? '🔵' :
-                           p.projectStatus === 'upcoming' ? '🟡' : '🟢';
+        const percentage = total > 0 ? (p.investment / total) * 100 : 0;
 
         return `
-            <div style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; color: #333;">${statusBadge} ${p.name}</div>
-                    <div style="font-size: 0.85em; color: #666; margin-top: 4px;">
-                        ${p.ownedBricks} briques • ${p.yearlyReturn}% rendement
+            <div class="autres-ligne">
+                <div>
+                    <div class="autres-nom">${escapeHtml(p.name)}</div>
+                    <div class="autres-meta">
+                        ${escapeHtml(p.ownedBricks)} briques · ${formatPercentage(p.yearlyReturn)} de rendement
                     </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-weight: bold; color: #667eea;">${formatCurrency(p.investment, 0)}</div>
-                    <div style="font-size: 0.85em; color: #666;">${percentage}%</div>
+                <div class="autres-montant">
+                    <div class="montant">${formatCurrency(p.investment, 0)}</div>
+                    <div class="autres-meta">${formatPercentage(percentage)}</div>
                 </div>
             </div>
         `;

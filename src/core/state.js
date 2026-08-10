@@ -19,7 +19,9 @@ class AppState {
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,
-                treemap: null
+                treemap: null,
+
+                forecast: null
             },
 
             // État de la modal de suppression
@@ -173,7 +175,9 @@ class AppState {
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,
-                treemap: null
+                treemap: null,
+
+                forecast: null
             },
             modal: {
                 isOpen: false,

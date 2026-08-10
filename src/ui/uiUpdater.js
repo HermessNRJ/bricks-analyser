@@ -2,19 +2,42 @@
  * Mise à jour de l'interface utilisateur
  */
 
-import { formatCurrency, formatNumber, truncate, formatMonthName } from '../utils/formatters.js';
+import { formatCurrency, formatNumber, truncate, formatMonthName, formatPercentage } from '../utils/formatters.js';
 import { getCurrentMonthYYYYMM, addMonthsToYYYYMM, subtractMonths } from '../utils/dateHelpers.js';
 import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { niveauRisque, NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
+
+// Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
+const TAILLE_PAGE = 24;
 
 // Stocker les propriétés pour le tri/filtrage
 let allProperties = [];
 let currentSortBy = 'investment-desc';
 let currentFilter = 'all';
-let currentDateFilter = 'all';
 let currentWarningFilter = 'all';
 let currentCountryFilter = 'all';
+let currentSearch = '';
+let currentPage = 1;
+let idCible = null;
+
+/**
+ * Libellés des filtres, pour les puces de rappel
+ * La clé 'all' n'apparaît jamais : c'est l'état neutre.
+ */
+const LIBELLES_FILTRES = {
+    filter: {
+        active: 'Actives', refunded: 'Remboursées',
+        ongoing: 'En financement', upcoming: 'À venir'
+    },
+    warningFilter: {
+        'warning-current-month': 'Alerte ce mois-ci',
+        'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
+        'risk-procedure': 'En procédure', 'risk-impaye': 'Impayé ou retard',
+        'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
+    }
+};
 
 /**
  * Met à jour toute l'interface avec les résultats calculés
@@ -31,17 +54,118 @@ export function updateUI(results) {
     // Charger les préférences de tri/filtrage
     currentSortBy = localStorage.getItem('propertySortBy') || 'investment-desc';
     currentFilter = localStorage.getItem('propertyFilter') || 'all';
-    currentDateFilter = localStorage.getItem('propertyDateFilter') || 'all';
     currentWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
     currentCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
+    currentPage = 1;
 
     // Remplir le dropdown des pays disponibles
     populateCountryFilter(allProperties);
 
+    renderMur(allProperties);
     updatePropertyList(allProperties);
     updateProjections(results.netRevenueEvolutionData);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');
+}
+
+/**
+ * Dessine « le mur » : une brique par propriété, largeur ∝ investissement
+ * Les projets remboursés valent 0 € et n'ont donc pas de largeur : le mur
+ * représente le portefeuille tel qu'il est engagé aujourd'hui.
+ * @param {Array} properties - Liste des propriétés
+ */
+function renderMur(properties) {
+    const strip = document.getElementById('murStrip');
+    const totalLabel = document.getElementById('murTotal');
+
+    if (!strip) {
+        return;
+    }
+
+    const engagees = properties
+        .filter(p => p.investment > 0)
+        .sort((a, b) => b.investment - a.investment);
+
+    const total = engagees.reduce((somme, p) => somme + p.investment, 0);
+
+    strip.innerHTML = engagees.map(p => {
+        const aAlerte = hasWarningInLastMonth(p);
+        const part = total > 0 ? (p.investment / total) * 100 : 0;
+        const statut = p.isRefunded ? 'refunded' : (p.projectStatus || 'financed');
+        const titre = `${p.name} — ${formatCurrency(p.investment, 0)} (${formatPercentage(part)})`;
+
+        return `<button type="button" class="brique" role="listitem"
+            data-property-id="${escapeHtml(p.id)}"
+            data-statut="${escapeHtml(statut)}"
+            data-alerte="${aAlerte}"
+            style="flex-grow:${p.investment}"
+            title="${escapeHtml(titre)}"
+            aria-label="${escapeHtml(titre)}"></button>`;
+    }).join('');
+
+    if (totalLabel) {
+        totalLabel.textContent = `${engagees.length} propriétés engagées · ${formatCurrency(total, 0)}`;
+    }
+
+    attachMurListener(strip);
+
+    logger.debug(LOG_CATEGORIES.UI, 'Mur rendered', { briques: engagees.length });
+}
+
+/**
+ * Installe (une seule fois) le listener de navigation du mur
+ * @param {HTMLElement} strip - Conteneur des briques
+ */
+function attachMurListener(strip) {
+    if (strip.dataset.listenerAttached === 'true') {
+        return;
+    }
+
+    strip.addEventListener('click', (event) => {
+        const brique = event.target.closest('[data-property-id]');
+        if (brique) {
+            focusProperty(brique.dataset.propertyId);
+        }
+    });
+
+    strip.dataset.listenerAttached = 'true';
+}
+
+/**
+ * Met en avant une propriété : lève les filtres qui la masqueraient,
+ * la place sur la bonne page, puis y amène l'écran.
+ * @param {string} propertyId - Identifiant de la propriété
+ */
+export function focusProperty(propertyId) {
+    const cible = allProperties.find(p => p.id === propertyId);
+
+    if (!cible) {
+        return;
+    }
+
+    // Un filtre actif pourrait exclure la propriété visée : on repart à zéro
+    currentFilter = 'all';
+    currentWarningFilter = 'all';
+    currentCountryFilter = 'all';
+    currentSearch = '';
+    idCible = propertyId;
+
+    persistFilters();
+    syncControls();
+
+    // Retrouver sa position dans la liste triée pour ouvrir la bonne page
+    const ordonnees = sortProperties(filterProperties(allProperties), currentSortBy);
+    const position = ordonnees.findIndex(p => p.id === propertyId);
+    currentPage = position >= 0 ? Math.floor(position / TAILLE_PAGE) + 1 : 1;
+
+    updatePropertyList(allProperties);
+
+    const carte = document.querySelector(`[data-property-id="${CSS.escape(propertyId)}"].property-card`);
+    if (carte) {
+        carte.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    logger.debug(LOG_CATEGORIES.UI, 'Property focused from mur', { propertyId, page: currentPage });
 }
 
 /**
@@ -55,8 +179,8 @@ function populateCountryFilter(properties) {
     // Extraire les pays uniques
     const countries = [...new Set(properties.map(p => p.country))].sort();
 
-    // Garder l'option "Tous les pays" et ajouter les pays
-    countryFilterSelect.innerHTML = '<option value="all">Tous les pays</option>';
+    // Garder l'option "Tous" et ajouter les pays
+    countryFilterSelect.innerHTML = '<option value="all">Tous</option>';
 
     countries.forEach(country => {
         const option = document.createElement('option');
@@ -85,11 +209,72 @@ function updateStatCards(results) {
     document.getElementById('refundedProjectsCountValue').textContent = formatNumber(results.refundedProjectsCount || 0);
     document.getElementById('fundingProjectsCountValue').textContent = formatNumber(results.fundingOrUpcomingProjectsCount || 0);
 
+    updateRiskCards(results);
+
     logger.debug(LOG_CATEGORIES.UI, 'Stat cards updated');
 }
 
 /**
- * Met à jour la liste des propriétés avec tri et filtrage
+ * Écrit un texte de détail sous une tuile, si la tuile existe
+ * @param {string} id - Identifiant de l'élément de détail
+ * @param {string} texte - Texte à afficher
+ */
+function setDetail(id, texte) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = texte;
+    }
+}
+
+/**
+ * Renseigne les pourcentages et les tuiles d'incident
+ * Les parts se rapportent aux propriétés encore détenues : un projet remboursé
+ * ne fait plus partie du portefeuille.
+ * @param {Object} results - Résultats des calculs
+ */
+function updateRiskCards(results) {
+    const detenues = results.detenuesCount ?? 0;
+    const total = (results.properties || []).length;
+
+    setDetail('detailDetenues', total > 0
+        ? `${formatPercentage(results.partDetenues ?? 0, 0)} des ${formatNumber(total)} suivies`
+        : '');
+    setDetail('detailRembourses', total > 0
+        ? `${formatPercentage(results.partRemboursees ?? 0, 0)} des ${formatNumber(total)} suivies`
+        : '');
+    setDetail('detailFinancement', detenues > 0
+        ? `${formatPercentage(results.partFinancement ?? 0)} des détenues`
+        : '');
+
+    const risque = results.risque;
+    if (!risque) {
+        return;
+    }
+
+    const procedure = risque.repartition[NIVEAUX_RISQUE.PROCEDURE];
+    const impaye = risque.repartition[NIVEAUX_RISQUE.IMPAYE];
+    const sain = risque.repartition[NIVEAUX_RISQUE.SAIN];
+
+    const ecrire = (id, valeur) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = valeur;
+    };
+
+    ecrire('procedureCount', formatNumber(procedure.nombre));
+    setDetail('detailProcedure', `${formatPercentage(procedure.part)} · ${formatCurrency(procedure.capital, 0)}`);
+
+    ecrire('impayeCount', formatNumber(impaye.nombre));
+    setDetail('detailImpaye', `${formatPercentage(impaye.part)} · ${formatCurrency(impaye.capital, 0)}`);
+
+    ecrire('difficulteCapital', formatCurrency(risque.enDifficulte.capital, 0));
+    setDetail('detailDifficulte', `${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu`);
+
+    ecrire('sainCount', formatNumber(sain.nombre));
+    setDetail('detailSain', `${formatPercentage(sain.part)} des détenues`);
+}
+
+/**
+ * Met à jour la liste des propriétés avec tri, filtrage et pagination
  * @param {Array} properties - Liste des propriétés
  */
 function updatePropertyList(properties) {
@@ -101,31 +286,245 @@ function updatePropertyList(properties) {
         return;
     }
 
-    // Appliquer les filtres
-    let filteredProperties = filterProperties(properties, currentFilter, currentDateFilter, currentWarningFilter, currentCountryFilter);
+    const filtrees = filterProperties(properties, currentFilter, currentWarningFilter, currentCountryFilter);
+    const triees = sortProperties(filtrees, currentSortBy);
 
-    // Appliquer le tri
-    let sortedProperties = sortProperties(filteredProperties, currentSortBy);
+    // Une page vidée par un changement de filtre doit reculer, pas rester vide
+    const nbPages = Math.max(1, Math.ceil(triees.length / TAILLE_PAGE));
+    currentPage = Math.min(Math.max(1, currentPage), nbPages);
 
-    // Mettre à jour le compteur
+    const debut = (currentPage - 1) * TAILLE_PAGE;
+    const page = triees.slice(debut, debut + TAILLE_PAGE);
+
     if (countElement) {
-        countElement.textContent = sortedProperties.length;
+        countElement.textContent = triees.length;
     }
 
-    // Générer le HTML
-    container.innerHTML = sortedProperties.map(property => createPropertyCard(property)).join('');
+    const countLabel = document.getElementById('propertyCountLabel');
+    if (countLabel) {
+        countLabel.textContent = triees.length > 1 ? 'propriétés' : 'propriété';
+    }
 
-    // Les cartes sont recréées à chaque tri/filtre : un seul listener délégué suffit
+    if (triees.length === 0) {
+        container.innerHTML = `
+            <div class="etat-vide">
+                <p>Aucune propriété ne correspond à ces critères.</p>
+                <button type="button" class="bouton bouton-secondaire" data-action="reinitialiser">
+                    Réinitialiser les filtres
+                </button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = page.map(property => createPropertyCard(property)).join('');
+    }
+
     attachPropertyCardListener(container);
+    renderFiltresActifs();
+    renderPagination(triees.length, nbPages, debut, page.length);
+    highlightCible(container);
 
     logger.debug(LOG_CATEGORIES.UI, 'Property list updated', {
         total: properties.length,
-        filtered: filteredProperties.length,
-        displayed: sortedProperties.length,
-        sortBy: currentSortBy,
-        filter: currentFilter,
-        countryFilter: currentCountryFilter
+        filtered: triees.length,
+        displayed: page.length,
+        page: currentPage,
+        sortBy: currentSortBy
     });
+}
+
+/**
+ * Souligne la propriété visée depuis le mur
+ * @param {HTMLElement} container - Conteneur de la liste
+ */
+function highlightCible(container) {
+    if (!idCible) {
+        return;
+    }
+
+    const carte = container.querySelector(`[data-property-id="${CSS.escape(idCible)}"]`);
+    if (carte) {
+        carte.classList.add('est-ciblee');
+    }
+}
+
+/**
+ * Affiche les puces de filtres actifs et le bouton de remise à zéro
+ */
+function renderFiltresActifs() {
+    const zone = document.getElementById('activeFilters');
+    if (!zone) return;
+
+    const puces = [];
+
+    if (currentSearch) {
+        puces.push({ cle: 'search', texte: `« ${truncate(currentSearch, 24)} »` });
+    }
+    if (currentFilter !== 'all') {
+        puces.push({ cle: 'filter', texte: LIBELLES_FILTRES.filter[currentFilter] || currentFilter });
+    }
+    if (currentWarningFilter !== 'all') {
+        puces.push({ cle: 'warningFilter', texte: LIBELLES_FILTRES.warningFilter[currentWarningFilter] || currentWarningFilter });
+    }
+    if (currentCountryFilter !== 'all') {
+        puces.push({ cle: 'countryFilter', texte: currentCountryFilter });
+    }
+
+    if (puces.length === 0) {
+        zone.innerHTML = '';
+        return;
+    }
+
+    zone.innerHTML = puces.map(p => `
+        <span class="puce">${escapeHtml(p.texte)}
+            <button type="button" data-clear="${p.cle}" aria-label="Retirer le filtre ${escapeHtml(p.texte)}">×</button>
+        </span>
+    `).join('') + `
+        <button type="button" class="bouton bouton-secondaire" data-action="reinitialiser">Tout réinitialiser</button>
+    `;
+
+    attachFiltresListener(zone);
+}
+
+/**
+ * Installe (une seule fois) le listener des puces de filtres
+ * @param {HTMLElement} zone - Conteneur des puces
+ */
+function attachFiltresListener(zone) {
+    if (zone.dataset.listenerAttached === 'true') {
+        return;
+    }
+
+    zone.addEventListener('click', (event) => {
+        const retrait = event.target.closest('[data-clear]');
+        if (retrait) {
+            clearFiltre(retrait.dataset.clear);
+            return;
+        }
+
+        if (event.target.closest('[data-action="reinitialiser"]')) {
+            resetFilters();
+        }
+    });
+
+    zone.dataset.listenerAttached = 'true';
+}
+
+/**
+ * Retire un filtre précis
+ * @param {string} cle - Clé du filtre à neutraliser
+ */
+function clearFiltre(cle) {
+    if (cle === 'search') currentSearch = '';
+    if (cle === 'filter') currentFilter = 'all';
+    if (cle === 'warningFilter') currentWarningFilter = 'all';
+    if (cle === 'countryFilter') currentCountryFilter = 'all';
+
+    currentPage = 1;
+    idCible = null;
+    persistFilters();
+    syncControls();
+    updatePropertyList(allProperties);
+}
+
+/**
+ * Remet tous les filtres et la recherche à leur état neutre
+ */
+export function resetFilters() {
+    currentFilter = 'all';
+    currentWarningFilter = 'all';
+    currentCountryFilter = 'all';
+    currentSearch = '';
+    currentPage = 1;
+    idCible = null;
+
+    persistFilters();
+    syncControls();
+    updatePropertyList(allProperties);
+
+    logger.info(LOG_CATEGORIES.UI, 'Filters reset');
+}
+
+/**
+ * Enregistre les filtres courants pour la prochaine visite
+ */
+function persistFilters() {
+    localStorage.setItem('propertyFilter', currentFilter);
+    localStorage.setItem('propertyWarningFilter', currentWarningFilter);
+    localStorage.setItem('propertyCountryFilter', currentCountryFilter);
+}
+
+/**
+ * Réaligne les contrôles du DOM sur l'état courant
+ */
+function syncControls() {
+    const champs = {
+        propertyFilter: currentFilter,
+        propertyWarningFilter: currentWarningFilter,
+        propertyCountryFilter: currentCountryFilter,
+        propertySearch: currentSearch,
+        propertySortBy: currentSortBy
+    };
+
+    Object.entries(champs).forEach(([id, valeur]) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.value = valeur;
+        }
+    });
+}
+
+/**
+ * Affiche la pagination
+ * @param {number} total - Nombre de propriétés filtrées
+ * @param {number} nbPages - Nombre de pages
+ * @param {number} debut - Index de départ de la page courante
+ * @param {number} affichees - Nombre de fiches sur la page
+ */
+function renderPagination(total, nbPages, debut, affichees) {
+    const nav = document.getElementById('pagination');
+    const indicateur = document.getElementById('pageIndicator');
+    const precedent = document.getElementById('prevPage');
+    const suivant = document.getElementById('nextPage');
+
+    if (!nav || !indicateur || !precedent || !suivant) {
+        return;
+    }
+
+    if (total <= TAILLE_PAGE) {
+        nav.classList.add('hidden');
+        return;
+    }
+
+    nav.classList.remove('hidden');
+    indicateur.textContent = `${debut + 1}–${debut + affichees} sur ${total}`;
+    precedent.disabled = currentPage <= 1;
+    suivant.disabled = currentPage >= nbPages;
+}
+
+/**
+ * Change de page
+ * @param {number} delta - -1 pour reculer, +1 pour avancer
+ */
+export function changePage(delta) {
+    currentPage += delta;
+    idCible = null;
+    updatePropertyList(allProperties);
+
+    const liste = document.getElementById('propertiesList');
+    if (liste) {
+        liste.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+/**
+ * Applique une recherche libre sur le nom et l'adresse
+ * @param {string} terme - Texte saisi
+ */
+export function setSearch(terme) {
+    currentSearch = (terme || '').trim();
+    currentPage = 1;
+    idCible = null;
+    updatePropertyList(allProperties);
 }
 
 /**
@@ -138,8 +537,26 @@ function attachPropertyCardListener(container) {
     }
 
     container.addEventListener('click', (event) => {
+        if (event.target.closest('[data-action="reinitialiser"]')) {
+            resetFilters();
+            return;
+        }
+
         const card = event.target.closest('[data-project-url]');
         if (card) {
+            window.open(card.dataset.projectUrl, '_blank', 'noopener');
+        }
+    });
+
+    // Les fiches sont des liens : elles doivent répondre au clavier
+    container.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        const card = event.target.closest('[data-project-url]');
+        if (card) {
+            event.preventDefault();
             window.open(card.dataset.projectUrl, '_blank', 'noopener');
         }
     });
@@ -148,15 +565,29 @@ function attachPropertyCardListener(container) {
 }
 
 /**
+ * Vérifie qu'une propriété correspond à la recherche libre
+ * @param {Object} property - Propriété
+ * @param {string} terme - Terme recherché (déjà normalisé)
+ * @returns {boolean}
+ */
+function matchesSearch(property, terme) {
+    if (!terme) {
+        return true;
+    }
+
+    const cible = `${property.name || ''} ${property.address || ''}`.toLowerCase();
+    return cible.includes(terme);
+}
+
+/**
  * Filtre les propriétés selon le critère
  * @param {Array} properties - Propriétés à filtrer
  * @param {string} filterType - Type de filtre
- * @param {string} dateFilterType - Type de filtre de date
  * @param {string} warningFilterType - Type de filtre de warning
  * @param {string} countryFilterType - Type de filtre de pays
  * @returns {Array} Propriétés filtrées
  */
-function filterProperties(properties, filterType, dateFilterType = 'all', warningFilterType = 'all', countryFilterType = 'all') {
+function filterProperties(properties, filterType = currentFilter, warningFilterType = currentWarningFilter, countryFilterType = currentCountryFilter) {
     let filtered = properties;
 
     // Filtre par statut
@@ -175,24 +606,12 @@ function filterProperties(properties, filterType, dateFilterType = 'all', warnin
             break;
     }
 
-    // Filtre par date
-    switch (dateFilterType) {
-        case 'has-revenue-date':
-            filtered = filtered.filter(p => p.revenueStartDate);
-            break;
-        case 'no-revenue-date':
-            filtered = filtered.filter(p => !p.revenueStartDate);
-            break;
-        case 'has-refund-date':
-            filtered = filtered.filter(p => p.refundDate);
-            break;
-        case 'no-refund-date':
-            filtered = filtered.filter(p => !p.refundDate);
-            break;
-    }
 
     // Filtre par warning
     switch (warningFilterType) {
+        case 'warning-current-month':
+            filtered = filtered.filter(p => hasWarningInCurrentMonth(p));
+            break;
         case 'has-warning':
             filtered = filtered.filter(p => p.warningsCount > 0);
             break;
@@ -205,6 +624,15 @@ function filterProperties(properties, filterType, dateFilterType = 'all', warnin
         case 'warning-month-before':
             filtered = filtered.filter(p => hasWarningInMonthBefore(p));
             break;
+        // Les remboursées sont écartées comme dans les tuiles d'incident : un
+        // projet soldé ne porte plus de risque, et le raccourci « Voir » doit
+        // montrer exactement les fiches derrière le chiffre annoncé.
+        case 'risk-procedure':
+            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.PROCEDURE);
+            break;
+        case 'risk-impaye':
+            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.IMPAYE);
+            break;
     }
 
     // Filtre par pays
@@ -212,7 +640,37 @@ function filterProperties(properties, filterType, dateFilterType = 'all', warnin
         filtered = filtered.filter(p => p.country === countryFilterType);
     }
 
+    // Recherche libre
+    const terme = currentSearch.toLowerCase();
+    if (terme) {
+        filtered = filtered.filter(p => matchesSearch(p, terme));
+    }
+
     return filtered;
+}
+
+/**
+ * Vérifie si une propriété a une alerte datée du mois calendaire en cours
+ *
+ * À distinguer de hasWarningInLastMonth, qui regarde 30 jours glissants : le
+ * 2 du mois, une alerte du 25 précédent entre dans les 30 jours mais pas dans
+ * le mois courant. C'est bien « ce mois-ci » qui est demandé ici.
+ *
+ * @param {Object} property - Propriété
+ * @returns {boolean}
+ */
+function hasWarningInCurrentMonth(property) {
+    if (!property.warnings || property.warnings.length === 0) return false;
+
+    const moisCourant = getCurrentMonthYYYYMM();
+
+    return property.warnings.some(w => {
+        const date = new Date(w.date);
+        if (Number.isNaN(date.getTime())) return false;
+
+        const mois = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        return mois === moisCourant;
+    });
 }
 
 /**
@@ -303,14 +761,19 @@ function sortProperties(properties, sortBy) {
 }
 
 /**
- * Exporte les fonctions pour mettre à jour le tri/filtrage
- * @param {string} sortBy - Nouveau critère de tri
- * @param {string} filter - Nouveau filtre
- * @param {string} dateFilter - Nouveau filtre de date
- * @param {string} warningFilter - Nouveau filtre de warning
- * @param {string} countryFilter - Nouveau filtre de pays
+ * Met à jour le tri et les filtres du registre
+ *
+ * Les critères sont nommés : la forme positionnelle imposait des chaînes
+ * d'« undefined » pour ne toucher qu'un seul filtre, et se décalait
+ * silencieusement dès qu'un critère disparaissait.
+ *
+ * @param {Object} [changements] - Critères à modifier, les autres sont conservés
+ * @param {string} [changements.sortBy] - Nouveau critère de tri
+ * @param {string} [changements.filter] - Nouveau filtre de statut
+ * @param {string} [changements.warningFilter] - Nouveau filtre d'alerte
+ * @param {string} [changements.countryFilter] - Nouveau filtre de pays
  */
-export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningFilter, countryFilter) {
+export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, countryFilter } = {}) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
         localStorage.setItem('propertySortBy', sortBy);
@@ -319,11 +782,6 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
     if (filter !== undefined) {
         currentFilter = filter;
         localStorage.setItem('propertyFilter', filter);
-    }
-
-    if (dateFilter !== undefined) {
-        currentDateFilter = dateFilter;
-        localStorage.setItem('propertyDateFilter', dateFilter);
     }
 
     if (warningFilter !== undefined) {
@@ -336,7 +794,10 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
         localStorage.setItem('propertyCountryFilter', countryFilter);
     }
 
-    // Recréer la liste avec les nouveaux critères
+    // Tout changement de critère renvoie au début de la liste
+    currentPage = 1;
+    idCible = null;
+
     updatePropertyList(allProperties);
 
     logger.info(LOG_CATEGORIES.UI, 'Property sort/filter updated', {
@@ -347,6 +808,50 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
 }
 
 /**
+ * Construit le bloc des alertes d'une propriété
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML des alertes, vide s'il n'y en a pas
+ */
+function createAlertesSection(property) {
+    if (!property.warningsCount || property.warningsCount === 0) {
+        return '';
+    }
+
+    const recente = hasWarningInLastMonth(property);
+    const classeAge = recente ? '' : ' est-ancienne';
+    const nombre = property.warningsCount;
+    const pluriel = nombre > 1 ? 's' : '';
+    const mention = recente ? `récente${pluriel}` : `ancienne${pluriel}`;
+
+    const liste = property.warnings.map(w => {
+        const date = new Date(w.date);
+        const dateLisible = Number.isNaN(date.getTime())
+            ? 'Date inconnue'
+            : date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const texte = stripTags(w.description).substring(0, 150);
+        const suite = texte.length >= 150 ? '…' : '';
+
+        return `
+            <div class="alerte-item${classeAge}">
+                <div class="alerte-date">${escapeHtml(dateLisible)}</div>
+                <div class="alerte-texte">${escapeHtml(texte)}${suite}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="alertes">
+            <div class="alertes-entete${classeAge}">
+                <span aria-hidden="true">▲</span>
+                ${nombre} alerte${pluriel} ${mention}
+            </div>
+            <div class="alertes-liste">${liste}</div>
+        </div>
+    `;
+}
+
+/**
  * Crée le HTML pour une carte de propriété
  * @param {Object} property - Données de la propriété
  * @returns {string} HTML de la carte
@@ -354,21 +859,21 @@ export function updatePropertySortAndFilter(sortBy, filter, dateFilter, warningF
 function createPropertyCard(property) {
     const thumbnailUrl = safeUrl(property.thumbnailUrl);
     const imageHtml = thumbnailUrl
-        ? `<img src="${escapeHtml(thumbnailUrl)}" alt="Aperçu de la propriété ${escapeHtml(property.name)}" class="property-thumbnail">`
+        ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" class="property-thumbnail" loading="lazy" decoding="async">`
         : '';
 
-    let cardClasses = "property-card";
-    if (property.isRefunded) cardClasses += " property-refunded";
-    if (property.projectStatus === 'ongoing') cardClasses += " property-ongoing";
-    if (property.projectStatus === 'upcoming') cardClasses += " property-upcoming";
+    let cardClasses = 'property-card';
+    if (property.isRefunded) cardClasses += ' property-refunded';
+    if (property.projectStatus === 'ongoing') cardClasses += ' property-ongoing';
+    if (property.projectStatus === 'upcoming') cardClasses += ' property-upcoming';
 
-    let statusBadge = "";
+    let statusBadge = '';
     if (property.isRefunded) {
-        statusBadge = '<span style="font-weight:normal; color:#5a6268; font-size: 0.9em;">(Remboursé)</span>';
+        statusBadge = '<span class="badge-statut">Remboursé</span>';
     } else if (property.projectStatus === 'ongoing') {
-        statusBadge = '<span style="font-weight:normal; color:#007bff; font-size: 0.9em;">(En Financement)</span>';
+        statusBadge = '<span class="badge-statut">En financement</span>';
     } else if (property.projectStatus === 'upcoming') {
-        statusBadge = '<span style="font-weight:normal; color:#ffc107; font-size: 0.9em;">(À Venir)</span>';
+        statusBadge = '<span class="badge-statut">À venir</span>';
     }
 
     // Formatage des dates
@@ -382,64 +887,40 @@ function createPropertyCard(property) {
     // URL du projet sur Bricks.co
     const projectUrl = `https://app.bricks.co/project/${encodeURIComponent(property.id)}`;
 
-    // Générer le badge de warning si nécessaire
-    let warningSection = '';
-    if (property.warningsCount > 0) {
-        const hasRecent = hasWarningInLastMonth(property);
-        const badgeColor = hasRecent ? '#ff6b6b' : '#ffa726';
-        const badgeText = hasRecent ? 'Récent' : 'Ancien';
-
-        // Créer la liste des warnings
-        const warningsList = property.warnings
-            .map(w => {
-                const warningDate = new Date(w.date);
-                const formattedDate = Number.isNaN(warningDate.getTime())
-                    ? 'Date inconnue'
-                    : warningDate.toLocaleDateString('fr-FR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
-                // Nettoyer le HTML de la description pour l'affichage
-                const cleanDescription = stripTags(w.description).substring(0, 150);
-                const ellipsis = cleanDescription.length >= 150 ? '...' : '';
-
-                return `
-                    <div style="margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 0.85em;">
-                        <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">${escapeHtml(formattedDate)}</div>
-                        <div style="color: #6c757d;">${escapeHtml(cleanDescription)}${ellipsis}</div>
-                    </div>
-                `;
-            })
-            .join('');
-
-        warningSection = `
-            <div style="margin-top: 12px; padding: 10px; background: ${badgeColor}15; border-left: 4px solid ${badgeColor}; border-radius: 4px;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 1.2em;">⚠️</span>
-                    <strong style="color: ${badgeColor};">${property.warningsCount} Warning(s) ${badgeText}</strong>
-                </div>
-                <div style="max-height: 200px; overflow-y: auto;">
-                    ${warningsList}
-                </div>
-            </div>
-        `;
-    }
-
     return `
-        <div class="${cardClasses}" data-project-url="${escapeHtml(projectUrl)}" style="cursor: pointer;">
+        <div class="${cardClasses}" role="link" tabindex="0"
+             data-project-url="${escapeHtml(projectUrl)}"
+             data-property-id="${escapeHtml(property.id)}">
             ${imageHtml}
-            <div class="property-name">${escapeHtml(property.name)} ${statusBadge}</div>
-            <div class="property-details">
-                <div><strong>Adresse:</strong> ${escapeHtml(property.address)}</div>
-                <div><strong>Briques:</strong> ${formatNumber(property.ownedBricks)}</div>
-                <div><strong>Investissement:</strong> ${formatCurrency(property.investment)}</div>
-                <div><strong>Rendement annuel:</strong> ${escapeHtml(property.yearlyReturn)}%</div>
-                <div><strong>Revenus mensuels nets:</strong> ${formatCurrency(property.monthlyRevenue)}</div>
-                <div><strong>Premier versement:</strong> ${escapeHtml(revenueStartDisplay)}</div>
-                <div><strong>Date de remboursement:</strong> ${escapeHtml(refundDateDisplay)}</div>
-            </div>
-            ${warningSection}
+            <div class="property-name" title="${escapeHtml(property.name)}">${escapeHtml(property.name)}${statusBadge}</div>
+            <div class="property-adresse" title="${escapeHtml(property.address)}">${escapeHtml(property.address)}</div>
+            <dl class="property-details">
+                <div class="paire">
+                    <dt>Investissement</dt>
+                    <dd>${formatCurrency(property.investment)}</dd>
+                </div>
+                <div class="paire">
+                    <dt>Rendement annuel</dt>
+                    <dd class="rendement">${formatPercentage(property.yearlyReturn)}</dd>
+                </div>
+                <div class="paire">
+                    <dt>Briques</dt>
+                    <dd>${formatNumber(property.ownedBricks)}</dd>
+                </div>
+                <div class="paire">
+                    <dt>Revenus nets / mois</dt>
+                    <dd>${formatCurrency(property.monthlyRevenue)}</dd>
+                </div>
+                <div class="paire">
+                    <dt>Premier versement</dt>
+                    <dd>${escapeHtml(revenueStartDisplay)}</dd>
+                </div>
+                <div class="paire">
+                    <dt>Remboursement</dt>
+                    <dd>${escapeHtml(refundDateDisplay)}</dd>
+                </div>
+            </dl>
+            ${createAlertesSection(property)}
         </div>
     `;
 }
@@ -460,23 +941,51 @@ function updateProjections(netRevenueData) {
     const revenueData = netRevenueData || {};
     const cards = [];
 
-    for (let i = 0; i < CONFIG.PROJECTIONS_MONTHS; i++) {
+    // Les mois suivants ne bougent que si un projet commence à verser. Répéter
+    // le même montant sur M+2 et M+3 n'apprend rien : on ne montre les mois que
+    // jusqu'au dernier changement, et on dit à partir de quand c'est stable.
+    let dernierChangement = 0;
+    let precedent = revenueData[currentMonth];
+
+    for (let i = 1; i < CONFIG.PROJECTIONS_MONTHS; i++) {
+        const valeur = revenueData[addMonthsToYYYYMM(currentMonth, i)];
+
+        // Une donnée absente n'est pas une variation : la série s'arrête là
+        if (typeof valeur !== 'number') {
+            break;
+        }
+
+        if (valeur !== precedent) {
+            dernierChangement = i;
+        }
+        precedent = valeur;
+    }
+
+    for (let i = 0; i <= dernierChangement; i++) {
         const monthKey = addMonthsToYYYYMM(currentMonth, i);
         const value = revenueData[monthKey];
         const revenueDisplay = typeof value === 'number' ? formatCurrency(value) : 'N/D';
-        const label = i === 0 ? 'Ce Mois-ci (est.)' : `Mois M+${i}`;
+        const label = i === 0 ? 'Ce Mois-ci (est.)' : formatMonthName(monthKey);
 
         cards.push(`
-            <div class="stat-card" style="flex-basis: 200px; padding: 15px;">
-                <div class="stat-value" style="font-size: 1.8rem; margin-bottom: 8px;">${revenueDisplay}</div>
-                <div class="stat-label" style="font-size: 0.9rem;">${label}</div>
+            <div class="stat-card">
+                <div class="stat-value">${revenueDisplay}</div>
+                <div class="stat-label">${escapeHtml(label)}</div>
             </div>
         `);
     }
 
     container.innerHTML = cards.join('');
 
-    logger.debug(LOG_CATEGORIES.UI, 'Projections updated');
+    const note = document.getElementById('projectionsNote');
+    if (note) {
+        const moisStable = addMonthsToYYYYMM(currentMonth, dernierChangement);
+        note.textContent = dernierChangement === 0
+            ? 'Versés autour du 8 du mois. Aucun nouveau projet ne commence à verser dans les mois à venir : le montant reste stable.'
+            : `Versés autour du 8 du mois. Stable à partir de ${formatMonthName(moisStable)}, aucun autre projet ne commence à verser ensuite.`;
+    }
+
+    logger.debug(LOG_CATEGORIES.UI, 'Projections updated', { moisAffiches: cards.length });
 }
 
 /**
@@ -486,6 +995,12 @@ export function showResults() {
     const resultsSection = document.getElementById('results');
     if (resultsSection) {
         resultsSection.classList.remove('hidden');
+    }
+
+    // Une fois les données à l'écran, le panneau de saisie se replie
+    const upload = document.getElementById('uploadSection');
+    if (upload) {
+        upload.classList.add('est-repliee');
     }
 }
 

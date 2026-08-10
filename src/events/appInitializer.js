@@ -9,10 +9,12 @@ import { loadFromLocalStorage } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
 import { showDeletionModal } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
+import { setInvestmentRange, INVESTMENT_RANGES, DEFAULT_INVESTMENT_RANGE } from '../charts/investmentChart.js';
+import { setupForecastHandler } from './forecastHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
-import { updatePropertySortAndFilter, showResults } from '../ui/uiUpdater.js';
+import { updatePropertySortAndFilter, showResults, setSearch, changePage } from '../ui/uiUpdater.js';
 
 /**
  * Initialise l'application au chargement de la page
@@ -25,6 +27,11 @@ function initializeApp() {
     setupScrollToTop();
     setupResetCache();
     setupPropertyControls();
+    setupSearchControl();
+    setupPaginationControls();
+    setupInvestmentRangeControl();
+    setupForecastHandler();
+    setupRiskShortcuts();
 
     // S'abonner aux changements d'état pour mettre à jour l'UI
     subscribeToStateChanges();
@@ -67,7 +74,6 @@ function subscribeToStateChanges() {
 function setupPropertyControls() {
     const sortBySelect = document.getElementById('propertySortBy');
     const filterSelect = document.getElementById('propertyFilter');
-    const dateFilterSelect = document.getElementById('propertyDateFilter');
     const warningFilterSelect = document.getElementById('propertyWarningFilter');
 
     if (sortBySelect) {
@@ -78,7 +84,7 @@ function setupPropertyControls() {
         // Écouter les changements
         sortBySelect.addEventListener('change', (e) => {
             const sortBy = e.target.value;
-            updatePropertySortAndFilter(sortBy, undefined, undefined, undefined, undefined);
+            updatePropertySortAndFilter({ sortBy });
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property sort control configured', { sortBy: savedSortBy });
@@ -92,25 +98,12 @@ function setupPropertyControls() {
         // Écouter les changements
         filterSelect.addEventListener('change', (e) => {
             const filter = e.target.value;
-            updatePropertySortAndFilter(undefined, filter, undefined, undefined, undefined);
+            updatePropertySortAndFilter({ filter });
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property filter control configured', { filter: savedFilter });
     }
 
-    if (dateFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedDateFilter = localStorage.getItem('propertyDateFilter') || 'all';
-        dateFilterSelect.value = savedDateFilter;
-
-        // Écouter les changements
-        dateFilterSelect.addEventListener('change', (e) => {
-            const dateFilter = e.target.value;
-            updatePropertySortAndFilter(undefined, undefined, dateFilter, undefined, undefined);
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property date filter control configured', { dateFilter: savedDateFilter });
-    }
 
     if (warningFilterSelect) {
         // Charger l'état depuis localStorage
@@ -120,7 +113,7 @@ function setupPropertyControls() {
         // Écouter les changements
         warningFilterSelect.addEventListener('change', (e) => {
             const warningFilter = e.target.value;
-            updatePropertySortAndFilter(undefined, undefined, undefined, warningFilter, undefined);
+            updatePropertySortAndFilter({ warningFilter });
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
@@ -135,11 +128,102 @@ function setupPropertyControls() {
         // Écouter les changements
         countryFilterSelect.addEventListener('change', (e) => {
             const countryFilter = e.target.value;
-            updatePropertySortAndFilter(undefined, undefined, undefined, undefined, countryFilter);
+            updatePropertySortAndFilter({ countryFilter });
         });
 
         logger.debug(LOG_CATEGORIES.EVENT, 'Property country filter control configured', { countryFilter: savedCountryFilter });
     }
+}
+
+/**
+ * Rend les tuiles d'incident cliquables : elles filtrent le registre
+ * Un chiffre déduit doit pouvoir être vérifié sur pièces.
+ */
+function setupRiskShortcuts() {
+    document.querySelectorAll('[data-risque]').forEach(tuile => {
+        tuile.addEventListener('click', () => {
+            const filtre = `risk-${tuile.dataset.risque}`;
+
+            updatePropertySortAndFilter({ warningFilter: filtre });
+
+            const select = document.getElementById('propertyWarningFilter');
+            if (select) {
+                select.value = filtre;
+            }
+
+            document.querySelector('.properties-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    logger.debug(LOG_CATEGORIES.EVENT, 'Risk shortcuts configured');
+}
+
+/**
+ * Configure la recherche libre du registre
+ * La saisie est temporisée : re-rendre 241 fiches à chaque frappe serait inutile.
+ */
+function setupSearchControl() {
+    const champ = document.getElementById('propertySearch');
+
+    if (!champ) {
+        return;
+    }
+
+    let minuteur = null;
+
+    champ.addEventListener('input', (e) => {
+        const valeur = e.target.value;
+
+        clearTimeout(minuteur);
+        minuteur = setTimeout(() => setSearch(valeur), 180);
+    });
+
+    logger.debug(LOG_CATEGORIES.EVENT, 'Property search configured');
+}
+
+/**
+ * Configure les boutons de pagination du registre
+ */
+function setupPaginationControls() {
+    const precedent = document.getElementById('prevPage');
+    const suivant = document.getElementById('nextPage');
+
+    if (precedent) {
+        precedent.addEventListener('click', () => changePage(-1));
+    }
+
+    if (suivant) {
+        suivant.addEventListener('click', () => changePage(1));
+    }
+
+    logger.debug(LOG_CATEGORIES.EVENT, 'Pagination controls configured');
+}
+
+/**
+ * Configure le filtre de période du graphique d'évolution de l'investissement
+ * Appelé avant le chargement des données : la période retenue est donc déjà
+ * connue quand le graphique est dessiné pour la première fois.
+ */
+function setupInvestmentRangeControl() {
+    const rangeSelect = document.getElementById('investmentRangeFilter');
+
+    if (!rangeSelect) {
+        return;
+    }
+
+    const saved = localStorage.getItem('investmentRange');
+    const initial = saved && saved in INVESTMENT_RANGES ? saved : DEFAULT_INVESTMENT_RANGE;
+
+    rangeSelect.value = initial;
+    setInvestmentRange(initial);
+
+    rangeSelect.addEventListener('change', (e) => {
+        const range = e.target.value;
+        localStorage.setItem('investmentRange', range);
+        setInvestmentRange(range);
+    });
+
+    logger.debug(LOG_CATEGORIES.EVENT, 'Investment range control configured', { range: initial });
 }
 
 /**

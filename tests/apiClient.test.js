@@ -3,8 +3,12 @@ import {
     fetchFinancedProjects,
     fetchAllProjects,
     fetchWarnings,
-    mergeAPIProjects
+    mergeAPIProjects,
+    normalizeSessionCookie,
+    hasSessionCookie
 } from '../src/data/apiClient.js';
+
+const SESSION = 'cf_clearance=abc; __Secure-better-auth.session_token=tok123';
 import { CONFIG } from '../src/core/config.js';
 
 function mockFetch(impl) {
@@ -28,16 +32,61 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
+describe('normalizeSessionCookie', () => {
+    it('retire les espaces autour de la valeur', () => {
+        expect(normalizeSessionCookie(`  ${SESSION} \n`)).toBe(SESSION);
+    });
+
+    it('retire le préfixe « Cookie: » copié depuis les outils de développement', () => {
+        expect(normalizeSessionCookie(`Cookie: ${SESSION}`)).toBe(SESSION);
+        expect(normalizeSessionCookie(`cookie:${SESSION}`)).toBe(SESSION);
+    });
+
+    it('retire un point-virgule final', () => {
+        expect(normalizeSessionCookie(`${SESSION}; `)).toBe(SESSION);
+    });
+
+    it('renvoie une chaîne vide pour une valeur absente', () => {
+        expect(normalizeSessionCookie(undefined)).toBe('');
+        expect(normalizeSessionCookie(null)).toBe('');
+        expect(normalizeSessionCookie('   ')).toBe('');
+    });
+});
+
+describe('hasSessionCookie', () => {
+    it('reconnaît le cookie de session better-auth', () => {
+        expect(hasSessionCookie(SESSION)).toBe(true);
+        expect(hasSessionCookie('better-auth.session_token=x')).toBe(true);
+    });
+
+    it('rejette une valeur sans cookie de session', () => {
+        expect(hasSessionCookie('cf_clearance=abc')).toBe(false);
+        expect(hasSessionCookie('')).toBe(false);
+        expect(hasSessionCookie(undefined)).toBe(false);
+    });
+});
+
 describe('fetchFinancedProjects', () => {
-    it('appelle le bon endpoint avec le Bearer token', async () => {
+    it('appelle le proxy avec la session dans X-Bricks-Session', async () => {
         const fetchMock = mockFetch(async () => jsonResponse([{ yearMonthDate: '2024-01' }]));
 
-        const data = await fetchFinancedProjects('tok123');
+        const data = await fetchFinancedProjects(SESSION);
 
         expect(data).toEqual([{ yearMonthDate: '2024-01' }]);
         const [url, options] = fetchMock.mock.calls[0];
         expect(url).toBe(`${CONFIG.API_BASE_URL}${CONFIG.API_ENDPOINTS.FINANCED}`);
-        expect(options.headers.Authorization).toBe('Bearer tok123');
+        expect(options.headers['X-Bricks-Session']).toBe(SESSION);
+        // Plus d'appel direct à api.bricks.co : le CORS et Cloudflare le bloquent
+        expect(url.startsWith('/')).toBe(true);
+    });
+
+    it('normalise la session collée avec son préfixe « Cookie: »', async () => {
+        const fetchMock = mockFetch(async () => jsonResponse([]));
+
+        await fetchFinancedProjects(`Cookie: ${SESSION}`);
+
+        const [, options] = fetchMock.mock.calls[0];
+        expect(options.headers['X-Bricks-Session']).toBe(SESSION);
     });
 
     it('remonte une erreur explicite sur 401', async () => {

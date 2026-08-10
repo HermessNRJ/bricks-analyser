@@ -7,7 +7,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 ## Fonctionnalités Principales
 
 *   **Chargement via API:**
-    *   Récupérez vos données en temps réel en utilisant l'API Bricks.co avec votre Bearer Token.
+    *   Récupérez vos données en temps réel depuis l'API Bricks.co, avec votre cookie de session.
     *   Collecte automatique des projets financés, en cours de financement, à venir et des warnings (highlighted updates).
 
 *   **Tableau de Bord Complet:**
@@ -50,36 +50,74 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 
 **Via Docker (Recommandé):**
 
-L'application est configurée pour être servie par `nginx` via Docker, ce qui permet d'utiliser l'API sans problème de CORS.
+L'application est servie par `nginx` via Docker. **Docker est obligatoire pour le chargement
+API** : c'est nginx qui relaie les appels vers `api.bricks.co` (voir « Accès à l'API »).
 
 *   Assurez-vous d'avoir Docker et Docker Compose installés.
 *   Clonez ce dépôt ou assurez-vous que tous les fichiers du projet sont dans le même répertoire.
 *   Ouvrez un terminal dans ce répertoire et exécutez :
     ```bash
-    docker-compose up -d
+    docker-compose up -d --build
     ```
+    `nginx.conf` est copié à la construction de l'image (voir `Dockerfile`) : toute
+    modification de la configuration du proxy exige le `--build`.
 *   L'application sera accessible à l'adresse `http://localhost:8080` (port défini dans `docker-compose.yml`).
 
 **Chargement des Données:**
 
-1. Récupérez votre Bearer Token depuis votre compte Bricks.co (via les outils de développement de votre navigateur ou l'interface développeur de Bricks).
-2. Entrez votre Bearer Token dans le champ prévu à cet effet.
-3. Cliquez sur "Charger les données API".
-4. L'application récupère automatiquement vos données depuis les endpoints suivants :
-   * `https://api.bricks.co/projects/financed` - Projets financés
-   * `https://api.bricks.co/projects` - Projets en cours de financement et à venir
-   * `https://api.bricks.co/investor/portfolio/properties/highlighted-updates` - Warnings et mises à jour importantes
-5. Les données sont traitées et affichées immédiatement, puis sauvegardées dans le localStorage pour les prochaines visites.
+L'authentification Bricks se fait par **cookie de session** (better-auth, posé après le SSO
+Google) — il n'y a plus de Bearer token. Voir « Accès à l'API » plus bas pour le détail.
 
-## Endpoints API Utilisés
+1. Connectez-vous sur `app.bricks.co`.
+2. Ouvrez les outils de développement → onglet **Réseau** → cliquez sur une requête vers
+   `api.bricks.co` → dans les en-têtes de requête, copiez la valeur de `Cookie`.
+   Elle contient `cf_clearance` (Cloudflare) et `__Secure-better-auth.session_token`,
+   tous deux nécessaires.
+3. Collez-la dans le champ prévu à cet effet. Le préfixe `Cookie:` et les espaces autour
+   sont tolérés.
+4. Cliquez sur "Charger les données API" (ou appuyez sur Entrée).
+5. Les données sont traitées et affichées immédiatement, puis sauvegardées dans le
+   localStorage pour les prochaines visites.
 
-L'application utilise les endpoints suivants de l'API Bricks.co :
+La session Bricks dure environ 30 jours : une fois collée, elle reste valable jusqu'à
+expiration ou déconnexion. **Se déconnecter de Bricks invalide immédiatement le cookie**,
+il faudra alors en recopier un nouveau.
+
+## Accès à l'API
+
+`api.bricks.co` ne peut pas être appelée directement depuis le navigateur :
+
+* Les réponses portent `Access-Control-Allow-Origin: https://app.bricks.co` — une origine
+  unique, pas `*` — avec `Access-Control-Allow-Credentials: true`. Une page servie depuis
+  `localhost` ne peut donc pas lire ces réponses.
+* Cloudflare renvoie `403` + `cf-mitigated: challenge` à toute requête dont l'origine et
+  l'empreinte client ne correspondent pas à celles de l'application officielle.
+
+`nginx.conf` définit donc un **proxy inverse** sur `/api/` qui relaie vers `api.bricks.co`
+en réécrivant `Host`, `Origin` et `Referer` vers `app.bricks.co`. Côté navigateur tout est
+same-origin, et la question du CORS disparaît.
+
+Le cookie ne pouvant pas être posé sur `bricks.co` depuis `localhost`, le client l'envoie
+dans l'en-tête `X-Bricks-Session`, que le proxy réinjecte en `Cookie` vers l'amont.
+`CONFIG.API_BASE_URL` vaut donc `/api` et non l'URL absolue.
+
+**Vérifié :** avec `Origin`/`Referer` réécrits et le `User-Agent` du navigateur relayé tel
+quel, Cloudflare laisse passer le proxy — une requête portant une session bidon reçoit un
+`401 session_expired` de l'API, et non un `403 cf-mitigated: challenge`. Un appel direct
+depuis `localhost`, lui, est bien challengé en `403`.
+
+**Limite possible :** `cf_clearance` reste lié à l'adresse IP. Si le proxy tourne ailleurs
+que sur le réseau depuis lequel le cookie a été obtenu, Cloudflare peut redemander un
+challenge ; il faut alors recopier une valeur fraîche.
+
+Endpoints utilisés (relayés sous `/api`) :
 
 * **Projets financés :** `GET /projects/financed`
 * **Tous les projets :** `GET /projects` (filtre les projets ongoing/upcoming où vous détenez des parts)
 * **Warnings :** `GET /investor/portfolio/properties/highlighted-updates`
 
-Tous les appels nécessitent un Bearer Token valide dans le header `Authorization`.
+Le mode `npm run serve` (serveur Python statique) ne fournit pas ce proxy : le chargement
+API n'y fonctionne pas, seules les données déjà en localStorage s'affichent.
 
 ## Tests
 
@@ -131,7 +169,13 @@ vérifiés par le smoke test et à la main.
   curl -s <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
   ```
   puis reporter le résultat dans `index.html` via `integrity="sha384-..." crossorigin="anonymous"`.
-* Le token API n'est jamais persisté : il est effacé du champ de saisie après usage.
+* Le cookie de session n'est jamais persisté : il est effacé du champ de saisie après usage,
+  et n'est écrit ni dans le localStorage ni dans les logs.
+* Le proxy `/api/` ne transporte que la session fournie par l'appelant : il ne détient aucun
+  identifiant. Exposer le port 8080 hors de la machine reste toutefois déconseillé.
+* Ce cookie donne un accès complet au compte Bricks (solde, IBAN, état civil). Le traiter
+  comme un mot de passe : ne jamais le committer, ni le coller dans un ticket ou un export
+  HAR partagé.
 
 ## Architecture du Code
 

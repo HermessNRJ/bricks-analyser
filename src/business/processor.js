@@ -11,6 +11,7 @@ import { mergeDatasets, identifyMissingProjects, removeProjectsById } from './da
 import { calculateInvestmentStats } from './calculations.js';
 import { updateUI, showResults } from '../ui/uiUpdater.js';
 import { createCharts } from '../charts/chartManager.js';
+import { updateForecastContext } from '../events/forecastHandler.js';
 
 /**
  * Traite les données importées (fichier ou API)
@@ -106,6 +107,7 @@ export async function finalizeProcessing(finalData, warnings = []) {
         // Mettre à jour l'interface utilisateur
         updateUI(results);
         createCharts(results);
+        updateForecastContext(results);
         showResults();
 
         // Mettre à jour l'état UI

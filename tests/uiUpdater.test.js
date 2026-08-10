@@ -15,9 +15,11 @@ function setupDOM() {
             <div class="stat-value" id="totalTaxesSinceBeginning"></div>
             <div class="stat-value" id="refundedProjectsCountValue"></div>
             <div class="stat-value" id="fundingProjectsCountValue"></div>
+            <div id="projectionsNote"></div>
             <div id="projectedRevenuesDisplay"></div>
             <select id="propertyCountryFilter"><option value="all">Tous les pays</option></select>
             <span id="propertyCount">0</span>
+            <div id="activeFilters"></div>
             <div id="propertiesList"></div>
         </div>
     `;
@@ -166,7 +168,7 @@ describe('updateUI — tri', () => {
         ['revenuestart-desc', ['Alpha', 'Charlie', 'Bravo']]
     ])('trie selon %s', (critere, attendu) => {
         updateUI(results(jeu()));
-        updatePropertySortAndFilter(critere, undefined, undefined, undefined, undefined);
+        updatePropertySortAndFilter({ sortBy: critere });
 
         expect(cardNames()).toEqual(attendu);
     });
@@ -176,14 +178,14 @@ describe('updateUI — tri', () => {
             property({ id: 'a', name: 'Avec', revenueStartDate: '2024-01' }),
             property({ id: 'b', name: 'Sans', revenueStartDate: null })
         ]));
-        updatePropertySortAndFilter('revenuestart-asc', undefined, undefined, undefined, undefined);
+        updatePropertySortAndFilter({ sortBy: 'revenuestart-asc' });
 
         expect(cardNames()).toEqual(['Avec', 'Sans']);
     });
 
     it('persiste le critère de tri dans localStorage', () => {
         updateUI(results(jeu()));
-        updatePropertySortAndFilter('name-asc', undefined, undefined, undefined, undefined);
+        updatePropertySortAndFilter({ sortBy: 'name-asc' });
 
         expect(localStorage.getItem('propertySortBy')).toBe('name-asc');
     });
@@ -212,26 +214,12 @@ describe('updateUI — filtres', () => {
         ['upcoming', 1]
     ])('filtre par statut %s', (filtre, attendu) => {
         updateUI(results(jeu()));
-        updatePropertySortAndFilter(undefined, filtre, undefined, undefined, undefined);
+        updatePropertySortAndFilter({ filter: filtre });
 
         expect(cards()).toHaveLength(attendu);
         expect(document.getElementById('propertyCount').textContent).toBe(String(attendu));
     });
 
-    it.each([
-        ['has-revenue-date', 1],
-        ['no-revenue-date', 1],
-        ['has-refund-date', 1],
-        ['no-refund-date', 1]
-    ])('filtre par date %s', (filtre, attendu) => {
-        updateUI(results([
-            property({ id: 'a', revenueStartDate: '2024-01', refundDate: '2026-01' }),
-            property({ id: 'b', revenueStartDate: null, refundDate: null })
-        ]));
-        updatePropertySortAndFilter(undefined, undefined, filtre, undefined, undefined);
-
-        expect(cards()).toHaveLength(attendu);
-    });
 
     it('filtre par présence de warning', () => {
         updateUI(results([
@@ -239,10 +227,10 @@ describe('updateUI — filtres', () => {
             property({ id: 'b' })
         ]));
 
-        updatePropertySortAndFilter(undefined, undefined, undefined, 'has-warning', undefined);
+        updatePropertySortAndFilter({ warningFilter: 'has-warning' });
         expect(cards()).toHaveLength(1);
 
-        updatePropertySortAndFilter(undefined, undefined, undefined, 'no-warning', undefined);
+        updatePropertySortAndFilter({ warningFilter: 'no-warning' });
         expect(cards()).toHaveLength(1);
     });
 
@@ -252,10 +240,10 @@ describe('updateUI — filtres', () => {
             property({ id: 'avant', warningsCount: 1, warnings: [{ date: '2024-04-20', description: 'x' }] })
         ]));
 
-        updatePropertySortAndFilter(undefined, undefined, undefined, 'warning-last-month', undefined);
+        updatePropertySortAndFilter({ warningFilter: 'warning-last-month' });
         expect(cards()).toHaveLength(1);
 
-        updatePropertySortAndFilter(undefined, undefined, undefined, 'warning-month-before', undefined);
+        updatePropertySortAndFilter({ warningFilter: 'warning-month-before' });
         expect(cards()).toHaveLength(1);
     });
 
@@ -275,7 +263,7 @@ describe('updateUI — filtres', () => {
             property({ id: 'a', country: 'France' }),
             property({ id: 'b', country: 'Portugal' })
         ]));
-        updatePropertySortAndFilter(undefined, undefined, undefined, undefined, 'Portugal');
+        updatePropertySortAndFilter({ countryFilter: 'Portugal' });
 
         expect(cards()).toHaveLength(1);
     });
@@ -286,14 +274,14 @@ describe('updateUI — filtres', () => {
             property({ id: 'b', country: 'Portugal', projectStatus: 'financed' }),
             property({ id: 'c', country: 'Portugal', projectStatus: 'ongoing' })
         ]));
-        updatePropertySortAndFilter(undefined, 'active', undefined, undefined, 'Portugal');
+        updatePropertySortAndFilter({ filter: 'active', countryFilter: 'Portugal' });
 
         expect(cards()).toHaveLength(1);
     });
 });
 
 describe('updateUI — projections', () => {
-    it('affiche 4 mois glissants à partir du mois courant', () => {
+    it('affiche les mois tant que le montant change', () => {
         updateUI(results([property()], {
             '2024-06': 10,
             '2024-07': 20,
@@ -304,8 +292,30 @@ describe('updateUI — projections', () => {
         const projections = document.querySelectorAll('#projectedRevenuesDisplay .stat-card');
         expect(projections).toHaveLength(4);
         expect(projections[0].textContent).toContain('Ce Mois-ci');
-        expect(projections[3].textContent).toContain('M+3');
         expect(projections[1].textContent).toMatch(/20/);
+    });
+
+    it('s\'arrête au dernier changement plutôt que de répéter le même montant', () => {
+        // Le cas réel : un projet commence à verser en M+1, puis plus rien ne bouge
+        updateUI(results([property()], {
+            '2024-06': 10,
+            '2024-07': 20,
+            '2024-08': 20,
+            '2024-09': 20
+        }));
+
+        const projections = document.querySelectorAll('#projectedRevenuesDisplay .stat-card');
+        expect(projections).toHaveLength(2);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/Stable à partir de/);
+    });
+
+    it('n\'affiche qu\'un mois quand le montant ne bouge jamais', () => {
+        updateUI(results([property()], {
+            '2024-06': 10, '2024-07': 10, '2024-08': 10, '2024-09': 10
+        }));
+
+        expect(document.querySelectorAll('#projectedRevenuesDisplay .stat-card')).toHaveLength(1);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/reste stable/);
     });
 
     it('affiche N/D pour un mois sans donnée', () => {
@@ -319,6 +329,75 @@ describe('updateUI — projections', () => {
         updateUI(results([property()], { '2024-06': 10 }));
         updateUI(results([property()], { '2024-06': 10 }));
 
-        expect(document.querySelectorAll('#projectedRevenuesDisplay .stat-card')).toHaveLength(4);
+        expect(document.querySelectorAll('#projectedRevenuesDisplay .stat-card')).toHaveLength(1);
+    });
+});
+
+describe('updateUI — filtres de risque', () => {
+    const enProcedure = { date: '2026-01-01', description: 'Une mise en demeure a été envoyée' };
+
+    it('ne retient que les propriétés en procédure', () => {
+        updateUI(results([
+            property({ id: 'a', name: 'Alpha', warnings: [enProcedure], warningsCount: 1 }),
+            property({ id: 'b', name: 'Bravo' })
+        ]));
+        updatePropertySortAndFilter({ warningFilter: 'risk-procedure' });
+
+        expect(cardNames()).toEqual(['Alpha']);
+    });
+
+    it('écarte une propriété remboursée, comme la tuile qui compte les incidents', () => {
+        // La tuile exclut les remboursées : le raccourci « Voir » doit montrer
+        // exactement les fiches derrière le chiffre, sans en ajouter une.
+        updateUI(results([
+            property({ id: 'a', name: 'Active', warnings: [enProcedure], warningsCount: 1 }),
+            property({ id: 'b', name: 'Soldée', isRefunded: true, investment: 0, warnings: [enProcedure], warningsCount: 1 })
+        ]));
+        updatePropertySortAndFilter({ warningFilter: 'risk-procedure' });
+
+        expect(cardNames()).toEqual(['Active']);
+        expect(document.getElementById('propertyCount').textContent).toBe('1');
+    });
+});
+
+describe('updateUI — alerte du mois en cours', () => {
+    // L'horloge des tests est figée au 15 juin 2024
+    const alerte = (date) => ({ date, description: 'Point de suivi' });
+
+    it('retient une alerte datée du mois calendaire en cours', () => {
+        updateUI(results([
+            property({ id: 'a', name: 'CeMois', warningsCount: 1, warnings: [alerte('2024-06-03')] }),
+            property({ id: 'b', name: 'Avant', warningsCount: 1, warnings: [alerte('2024-05-28')] })
+        ]));
+        updatePropertySortAndFilter({ warningFilter: 'warning-current-month' });
+
+        expect(cardNames()).toEqual(['CeMois']);
+    });
+
+    it('se distingue des 30 jours glissants', () => {
+        // Le 28 mai est dans les 30 derniers jours au 15 juin, mais pas dans
+        // le mois en cours : les deux filtres ne doivent pas se confondre.
+        updateUI(results([property({ id: 'b', name: 'Avant', warningsCount: 1, warnings: [alerte('2024-05-28')] })]));
+
+        updatePropertySortAndFilter({ warningFilter: 'warning-last-month' });
+        expect(cardNames()).toEqual(['Avant']);
+
+        updatePropertySortAndFilter({ warningFilter: 'warning-current-month' });
+        expect(cardNames()).toEqual([]);
+    });
+
+    it('ignore une date illisible', () => {
+        updateUI(results([property({ id: 'a', name: 'Cassee', warningsCount: 1, warnings: [alerte('pas-une-date')] })]));
+        updatePropertySortAndFilter({ warningFilter: 'warning-current-month' });
+
+        expect(cardNames()).toEqual([]);
+    });
+
+    it('affiche une puce nommée pour ce filtre', () => {
+        updateUI(results([property({ warningsCount: 1, warnings: [alerte('2024-06-03')] })]));
+        updatePropertySortAndFilter({ warningFilter: 'warning-current-month' });
+
+        const puces = [...document.querySelectorAll('#activeFilters .puce')].map(p => p.textContent.trim());
+        expect(puces.join(' ')).toContain('Alerte ce mois-ci');
     });
 });
