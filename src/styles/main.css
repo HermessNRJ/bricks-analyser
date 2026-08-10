@@ -447,8 +447,34 @@ input {
     letter-spacing: 0.06em;
 }
 
-.stats-risque {
-    margin-top: -12px;
+/* En-tête de la bande d'incidents : le total y est rappelé pour que la somme
+   des quatre tuiles soit vérifiable sans calcul. */
+.risque-entete {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+
+.risque-entete h2 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.risque-resume {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    color: var(--alerte);
+}
+
+.note-partition {
+    margin-top: 10px;
+    margin-bottom: 28px;
+    max-width: 80ch;
 }
 
 /* --------------------------------------------------------------------------

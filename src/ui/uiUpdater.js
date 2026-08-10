@@ -35,6 +35,7 @@ const LIBELLES_FILTRES = {
         'warning-current-month': 'Alerte ce mois-ci',
         'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
         'risk-procedure': 'En procédure', 'risk-impaye': 'Impayé ou retard',
+        'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
         'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
     }
 };
@@ -251,26 +252,40 @@ function updateRiskCards(results) {
         return;
     }
 
-    const procedure = risque.repartition[NIVEAUX_RISQUE.PROCEDURE];
-    const impaye = risque.repartition[NIVEAUX_RISQUE.IMPAYE];
-    const sain = risque.repartition[NIVEAUX_RISQUE.SAIN];
-
     const ecrire = (id, valeur) => {
         const element = document.getElementById(id);
         if (element) element.textContent = valeur;
     };
 
-    ecrire('procedureCount', formatNumber(procedure.nombre));
-    setDetail('detailProcedure', `${formatPercentage(procedure.part)} · ${formatCurrency(procedure.capital, 0)}`);
+    // Les quatre niveaux forment une partition : afficher trois d'entre eux
+    // donnait des chiffres qui semblaient devoir s'additionner sans y arriver.
+    const niveaux = [
+        [NIVEAUX_RISQUE.PROCEDURE, 'procedureCount', 'detailProcedure'],
+        [NIVEAUX_RISQUE.IMPAYE, 'impayeCount', 'detailImpaye'],
+        [NIVEAUX_RISQUE.SIGNALE, 'signaleCount', 'detailSignale'],
+        [NIVEAUX_RISQUE.SAIN, 'sainCount', 'detailSain']
+    ];
 
-    ecrire('impayeCount', formatNumber(impaye.nombre));
-    setDetail('detailImpaye', `${formatPercentage(impaye.part)} · ${formatCurrency(impaye.capital, 0)}`);
+    niveaux.forEach(([niveau, idValeur, idDetail]) => {
+        const entree = risque.repartition[niveau];
+        ecrire(idValeur, formatNumber(entree.nombre));
+        setDetail(idDetail, `${formatPercentage(entree.part)} · ${formatCurrency(entree.capital, 0)}`);
+    });
 
-    ecrire('difficulteCapital', formatCurrency(risque.enDifficulte.capital, 0));
-    setDetail('detailDifficulte', `${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu`);
+    const resume = document.getElementById('risqueResume');
+    if (resume) {
+        resume.textContent = risque.enDifficulte.nombre > 0
+            ? `${formatCurrency(risque.enDifficulte.capital, 0)} exposés, soit ${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu`
+            : 'Aucun capital exposé à un incident en cours';
+    }
 
-    ecrire('sainCount', formatNumber(sain.nombre));
-    setDetail('detailSain', `${formatPercentage(sain.part)} des détenues`);
+    // Le total est rappelé pour que la somme des tuiles soit vérifiable d'un coup d'œil
+    const note = document.getElementById('risqueNote');
+    if (note) {
+        note.textContent = `Répartition des ${formatNumber(detenues)} propriétés détenues selon leur dernier signalement :`
+            + ` chaque propriété compte dans une seule case, et les quatre totalisent ${formatNumber(detenues)}.`
+            + ` Ces niveaux sont déduits du texte des alertes, l'API ne publiant aucun statut.`;
+    }
 }
 
 /**
@@ -632,6 +647,12 @@ function filterProperties(properties, filterType = currentFilter, warningFilterT
             break;
         case 'risk-impaye':
             filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.IMPAYE);
+            break;
+        case 'risk-signale':
+            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.SIGNALE);
+            break;
+        case 'risk-sain':
+            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.SAIN);
             break;
     }
 

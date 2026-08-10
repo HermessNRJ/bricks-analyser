@@ -112,9 +112,16 @@
                 </div>
             </section>
 
-            <!-- Ces deux chiffres sont déduits du texte des warnings, pas d'un
-                 statut officiel : cliquer filtre le registre pour vérifier. -->
-            <section class="stats-grid stats-risque" aria-label="Suivi des incidents">
+            <!-- Les quatre niveaux forment une partition des propriétés détenues :
+                 leur somme doit retomber sur ce total, sans quoi il manque une
+                 catégorie à l'écran. Ils sont déduits du texte des warnings, l'API
+                 ne publiant aucun statut ; cliquer filtre le registre pour vérifier. -->
+            <div class="risque-entete">
+                <h2 id="titreRisque">Suivi des incidents</h2>
+                <p class="risque-resume" id="risqueResume"></p>
+            </div>
+
+            <section class="stats-grid stats-risque" aria-labelledby="titreRisque">
                 <button type="button" class="stat-card stat-cliquable" data-risque="procedure">
                     <div class="stat-value stat-alerte" id="procedureCount">0</div>
                     <div class="stat-label">En procédure</div>
@@ -125,17 +132,19 @@
                     <div class="stat-label">Impayé ou retard</div>
                     <div class="stat-detail" id="detailImpaye"></div>
                 </button>
-                <div class="stat-card">
-                    <div class="stat-value" id="difficulteCapital">0€</div>
-                    <div class="stat-label">Capital exposé</div>
-                    <div class="stat-detail" id="detailDifficulte"></div>
-                </div>
-                <div class="stat-card">
+                <button type="button" class="stat-card stat-cliquable" data-risque="signale">
+                    <div class="stat-value" id="signaleCount">0</div>
+                    <div class="stat-label">Signalé, sans incident</div>
+                    <div class="stat-detail" id="detailSignale"></div>
+                </button>
+                <button type="button" class="stat-card stat-cliquable" data-risque="sain">
                     <div class="stat-value" id="sainCount">0</div>
                     <div class="stat-label">Sans signalement</div>
                     <div class="stat-detail" id="detailSain"></div>
-                </div>
+                </button>
             </section>
+
+            <p class="note note-partition" id="risqueNote"></p>
 
             <section class="projections-section" aria-labelledby="titreProjections">
                 <h3 id="titreProjections">Prochains versements</h3>
@@ -307,6 +316,8 @@
                             <option value="no-warning">Sans alerte</option>
                             <option value="risk-procedure">En procédure</option>
                             <option value="risk-impaye">Impayé ou retard</option>
+                            <option value="risk-signale">Signalé, sans incident</option>
+                            <option value="risk-sain">Sans signalement</option>
                             <option value="warning-last-month">Alerte sous 30 jours</option>
                             <option value="warning-month-before">Alerte le mois d'avant</option>
                         </select>
