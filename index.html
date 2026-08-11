@@ -159,16 +159,17 @@
                         <thead>
                             <tr>
                                 <th scope="col">Année</th>
-                                <th scope="col">Coupons versés</th>
-                                <th scope="col">Prélèvement retenu</th>
+                                <th scope="col">Coupons <span class="entete-note">versés</span></th>
+                                <th scope="col">Prélèvement <span class="entete-note">retenu</span></th>
                                 <th scope="col" class="colonne-brute">Parrainage <span class="entete-note">brut</span></th>
                                 <th scope="col" class="colonne-brute">Solde boosté <span class="entete-note">brut</span></th>
+                                <th scope="col" class="colonne-capital hidden">Capital <span class="entete-note">rendu</span></th>
                             </tr>
                         </thead>
                         <tbody id="revenusAnnuelsCorps"></tbody>
                     </table>
                 </div>
-                <p class="note">Les deux dernières colonnes n'ont subi aucune retenue à la source : Bricks les verse bruts. La colonne des coupons mêle intérêts et remboursements de capital — d'où un prélèvement effectif inférieur au barème — et ne vaut donc pas montant imposable. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
+                <p class="note">Le capital remboursé est votre mise qui revient : il n'est pas imposable, et Bricks le range pourtant avec les coupons dans son état de compte. Les colonnes teintées n'ont subi aucune retenue à la source : Bricks les verse bruts. La colonne des coupons mêle intérêts et remboursements de capital — d'où un prélèvement effectif inférieur au barème — et ne vaut donc pas montant imposable. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
             </section>
 
             <section class="projections-section" aria-labelledby="titreProjections">
@@ -245,20 +246,36 @@
                 <p class="note" id="simHypotheses"></p>
             </section>
 
+            <!-- Une seule fenêtre pour les trois courbes datées : les lire sur
+                 des périodes différentes rendrait la comparaison trompeuse. -->
+            <div class="periode-graphiques">
+                <label class="champ" for="periodeGraphiques">
+                    Période des courbes
+                    <select id="periodeGraphiques">
+                        <option value="3">3 derniers mois</option>
+                        <option value="6">6 derniers mois</option>
+                        <option value="12">12 derniers mois</option>
+                        <option value="24">24 derniers mois</option>
+                        <option value="all">Tout l'historique</option>
+                        <option value="custom">Mois de début et de fin…</option>
+                    </select>
+                </label>
+                <div class="periode-bornes hidden" id="periodeBornes">
+                    <label class="champ" for="periodeDebut">
+                        Du
+                        <input type="month" id="periodeDebut">
+                    </label>
+                    <label class="champ" for="periodeFin">
+                        Au
+                        <input type="month" id="periodeFin">
+                    </label>
+                </div>
+                <p class="note">S'applique à l'investissement, aux revenus et à l'impôt. La répartition et le portefeuille en surface sont des états d'aujourd'hui, sans axe temporel.</p>
+            </div>
+
             <div class="charts-section">
                 <div class="chart-container">
                     <h3 class="chart-title">Évolution de l'investissement</h3>
-                    <div class="chart-outils">
-                        <label class="champ" for="investmentRangeFilter">
-                            Période
-                            <select id="investmentRangeFilter">
-                                <option value="3">3 derniers mois</option>
-                                <option value="6">6 derniers mois</option>
-                                <option value="12">12 derniers mois</option>
-                                <option value="all">Tout l'historique</option>
-                            </select>
-                        </label>
-                    </div>
                     <canvas id="investmentChart" width="400" height="300"></canvas>
                 </div>
 

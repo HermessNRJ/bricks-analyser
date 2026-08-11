@@ -13,7 +13,8 @@ export const CONFIG = {
         FINANCED: '/projects/financed',
         ALL_PROJECTS: '/projects',
         WARNINGS: '/investor/portfolio/properties/highlighted-updates',
-        REVENUE: '/investor/portfolio/revenue'
+        REVENUE: '/investor/portfolio/revenue',
+        WALLET: '/wallet-transactions'
     },
 
     // Premier mois interrogé pour l'historique des revenus. Bricks ne renvoie

@@ -21,9 +21,10 @@ import { updateForecastContext } from '../events/forecastHandler.js';
  * @param {Array} warnings - Liste des warnings (optionnel)
  * @param {Object} [options]
  * @param {Object} [options.revenus] - Historique des revenus réellement versés
+ * @param {Object} [options.capital] - Remboursements de capital
  * @returns {Promise<void>}
  */
-export async function processData(fileData, warnings = [], { revenus } = {}) {
+export async function processData(fileData, warnings = [], { revenus, capital } = {}) {
     // Ce point d'entrée n'est atteint que depuis un appel à l'API : c'est ici
     // que naît la date de récupération.
     const dateRecuperation = new Date().toISOString();
@@ -66,14 +67,15 @@ export async function processData(fileData, warnings = [], { revenus } = {}) {
                 dataContext: mergedData,
                 warnings: warnings,
                 dateRecuperation,
-                revenus
+                revenus,
+                capital
             });
 
             // La modal s'occupera d'appeler finalizeProcessing ou handleConfirmDelete
             // On ne fait rien de plus ici, la modal gère la suite
         } else {
             logger.info(LOG_CATEGORIES.DATA_MERGE, 'No missing projects, proceeding to finalize');
-            await finalizeProcessing(mergedData, warnings, { dateRecuperation, revenus });
+            await finalizeProcessing(mergedData, warnings, { dateRecuperation, revenus, capital });
         }
 
     } catch (err) {
@@ -93,6 +95,8 @@ export async function processData(fileData, warnings = [], { revenus } = {}) {
  * @param {Object} [options.statuts] - Suivis officiels de projet
  * @param {Object} [options.revenus] - Historique des revenus réellement versés ;
  *   omis, celui du cache est réutilisé
+ * @param {Object} [options.capital] - Remboursements de capital ; omis, celui
+ *   du cache est réutilisé
  * @returns {Promise<Object>} Résultats des calculs
  */
 export async function finalizeProcessing(finalData, warnings = [], options = {}) {
@@ -112,7 +116,10 @@ export async function finalizeProcessing(finalData, warnings = [], options = {})
         // L'état de compte Bricks prime sur les revenus estimés depuis les taux
         const revenus = options.revenus || cache?.revenus || null;
 
-        const results = calculateInvestmentStats(finalData, warnings, statuts, revenus);
+        // Le journal des mouvements dit ce qui relève du capital rendu
+        const capital = options.capital || cache?.capital || null;
+
+        const results = calculateInvestmentStats(finalData, warnings, statuts, revenus, capital);
 
         // Le rafraîchissement des statuts a besoin de la liste des propriétés
         state.set('lastResults', results);
@@ -188,7 +195,8 @@ export async function handleConfirmDelete(projectIdsToRemove) {
     // Finaliser avec les données nettoyées (et les warnings)
     return await finalizeProcessing(cleanedData, warnings, {
         dateRecuperation: modalState.dateRecuperation,
-        revenus: modalState.revenus
+        revenus: modalState.revenus,
+        capital: modalState.capital
     });
 }
 
@@ -212,6 +220,7 @@ export async function handleKeepAllItems() {
     // Finaliser avec toutes les données (aucune suppression et les warnings)
     return await finalizeProcessing(dataContext, warnings, {
         dateRecuperation: modalState.dateRecuperation,
-        revenus: modalState.revenus
+        revenus: modalState.revenus,
+        capital: modalState.capital
     });
 }

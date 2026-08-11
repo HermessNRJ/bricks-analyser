@@ -2,7 +2,8 @@
  * Gestionnaire de récupération des données via API
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
+import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, fetchTransactionsPortefeuille, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
+import { normaliserTransactions } from '../business/walletHistory.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
@@ -85,8 +86,29 @@ export function setupAPIHandler() {
                 logger.warn(LOG_CATEGORIES.EVENT, 'Revenue history unavailable, falling back to estimate');
             }
 
+            // Le journal des mouvements nomme chaque versement : lui seul
+            // distingue un remboursement de capital d'un coupon.
+            loadingMsg.textContent = 'Lecture du journal des mouvements…';
+
+            const transactions = await fetchTransactionsPortefeuille(session, {
+                onProgress: (nombre) => {
+                    loadingMsg.textContent = `Lecture du journal des mouvements… ${nombre} lignes`;
+                }
+            });
+
+            const capital = normaliserTransactions(transactions);
+
+            if (capital) {
+                logger.info(LOG_CATEGORIES.EVENT, 'Capital repayments retrieved', {
+                    total: capital.total,
+                    transactions: capital.nombre
+                });
+            }
+
+            loadingMsg.textContent = 'Chargement des données…';
+
             // Traiter les données avec les warnings
-            await processData(combinedData, warningsData, { revenus });
+            await processData(combinedData, warningsData, { revenus, capital });
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';

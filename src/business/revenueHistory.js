@@ -100,7 +100,11 @@ export function normaliserHistoriqueRevenus(payload) {
         impotCentimes += impot;
     });
 
-    const mois = Object.keys(mensuel).sort();
+    // L'API répond depuis la date demandée, pas depuis le premier versement :
+    // demander large ramenait des mois à zéro et faisait démarrer les courbes
+    // en janvier 2020 pour un portefeuille ouvert fin 2023. Les mois vides du
+    // début ne sont pas de l'histoire, seulement l'amplitude de la question.
+    const mois = rognerDebutVide(mensuel);
 
     if (mois.length === 0) {
         logger.warn(LOG_CATEGORIES.API, 'Revenue history contains no usable month');
@@ -124,6 +128,38 @@ export function normaliserHistoriqueRevenus(payload) {
             impot: enEuros(impotCentimes)
         }
     };
+}
+
+/**
+ * Retire les mois sans le moindre mouvement en tête d'historique
+ *
+ * Seul le début est rogné : un mois vide au milieu est une information — rien
+ * n'a été versé ce mois-là — alors qu'un mois vide avant le premier versement
+ * n'est qu'un artefact de la plage demandée.
+ *
+ * @param {Object} mensuel - Revenus par mois ; les mois rognés en sont retirés
+ * @returns {Array<string>} Mois conservés, triés
+ */
+function rognerDebutVide(mensuel) {
+    const mois = Object.keys(mensuel).sort();
+    const premier = mois.findIndex(m => mensuel[m].brut !== 0 || mensuel[m].net !== 0);
+
+    if (premier === -1) {
+        mois.forEach(m => delete mensuel[m]);
+        return [];
+    }
+
+    const vides = mois.slice(0, premier);
+    vides.forEach(m => delete mensuel[m]);
+
+    if (vides.length > 0) {
+        logger.debug(LOG_CATEGORIES.API, 'Empty months trimmed from history start', {
+            trimmed: vides.length,
+            firstKept: mois[premier]
+        });
+    }
+
+    return mois.slice(premier);
 }
 
 /**

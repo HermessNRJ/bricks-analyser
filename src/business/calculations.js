@@ -54,9 +54,10 @@ function resolveFirstSeenMonth(knownMonth, candidateMonth) {
  * @param {Array} warnings - Liste des warnings (optionnel)
  * @param {Object} [statuts] - Suivis officiels de projet, indexés par identifiant
  * @param {Object} [revenus] - Historique des revenus réellement versés (optionnel)
+ * @param {Object} [capital] - Remboursements de capital, lus dans le journal
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null) {
+export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null, capital = null) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -336,7 +337,8 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     const revenusReels = historiqueDisponible
         ? {
             mensuel: revenus.mensuel,
-            parAnnee: revenus.parAnnee || {},
+            parAnnee: fusionnerCapital(revenus.parAnnee, capital?.parAnnee),
+            capital: capital || null,
             premierMois: revenus.premierMois,
             dernierMois: revenus.dernierMois,
             total: revenus.total,
@@ -396,6 +398,27 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         activePropertiesCount,
         fundingOrUpcomingProjectsCount
     };
+}
+
+/**
+ * Ajoute le capital remboursé à la ventilation annuelle des revenus
+ *
+ * Le capital vient d'une autre source que les revenus — le journal des
+ * mouvements, non l'état de compte — et peut donc manquer. Une année sans
+ * remboursement connu vaut zéro, ce qui se lit mieux qu'une case vide.
+ *
+ * @param {Object} parAnnee - Revenus par année
+ * @param {Object} [capitalParAnnee] - Capital remboursé par année
+ * @returns {Object} Ventilation enrichie
+ */
+function fusionnerCapital(parAnnee, capitalParAnnee) {
+    const fusion = {};
+
+    Object.keys(parAnnee || {}).forEach(annee => {
+        fusion[annee] = { ...parAnnee[annee], capital: capitalParAnnee?.[annee] ?? 0 };
+    });
+
+    return fusion;
 }
 
 /**

@@ -188,6 +188,73 @@ export async function fetchHistoriqueRevenus(session, { debut, fin } = {}) {
 }
 
 /**
+ * Nombre de transactions demandées par appel
+ * Le journal compte un mouvement par jour rien que pour le solde boosté :
+ * demander vingt lignes à la fois en ferait des centaines d'allers-retours.
+ */
+const TAILLE_LOT = 100;
+
+/** Garde-fou : au-delà, c'est que la pagination ne progresse pas */
+const LOTS_MAX = 200;
+
+/**
+ * Récupère le journal des mouvements du portefeuille
+ *
+ * L'état de compte agrège ; ce journal détaille. Lui seul distingue un
+ * remboursement de capital d'un coupon, les deux arrivant mêlés dans
+ * `obligationCoupons`.
+ *
+ * Ne rejette jamais : en cas d'échec en cours de route, les lots déjà obtenus
+ * sont renvoyés plutôt que perdus.
+ *
+ * @param {string} session - En-tête Cookie contenant la session Bricks
+ * @param {Object} [options]
+ * @param {Function} [options.onProgress] - Reçoit le nombre de lignes obtenues
+ * @returns {Promise<Array>} Transactions, de la plus récente à la plus ancienne
+ */
+export async function fetchTransactionsPortefeuille(session, { onProgress } = {}) {
+    const transactions = [];
+    let cursor = 0;
+
+    for (let lot = 0; lot < LOTS_MAX; lot++) {
+        let page;
+
+        try {
+            page = await requestJSON(
+                `${CONFIG.API_ENDPOINTS.WALLET}?cursor=${cursor}&take=${TAILLE_LOT}`,
+                session,
+                { label: 'wallet transactions', context: 'récupération du journal des mouvements' }
+            );
+        } catch {
+            // Erreur déjà loguée : on garde ce qui a été obtenu
+            break;
+        }
+
+        const lignes = Array.isArray(page?.data) ? page.data : [];
+
+        if (lignes.length === 0) {
+            break;
+        }
+
+        transactions.push(...lignes);
+
+        if (typeof onProgress === 'function') {
+            onProgress(transactions.length);
+        }
+
+        // Le curseur renvoyé fait foi tant qu'il avance ; sinon on le déduit du
+        // nombre de lignes reçues, la taille de lot pouvant être plafonnée.
+        cursor = Number.isFinite(page.cursor) && page.cursor > cursor
+            ? page.cursor
+            : cursor + lignes.length;
+    }
+
+    logger.info(LOG_CATEGORIES.API, 'Wallet transactions fetched', { count: transactions.length });
+
+    return transactions;
+}
+
+/**
  * Combine les projets financés avec les projets en cours/à venir qui ont des briques possédées
  * @param {Array} financedData - Données des projets financés
  * @param {Object} allProjectsData - Données avec { ongoing, upcoming }

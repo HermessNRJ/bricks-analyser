@@ -8,7 +8,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 
 *   **Chargement via API:**
     *   Récupérez vos données en temps réel depuis l'API Bricks.co, avec votre cookie de session.
-    *   Collecte automatique des projets financés, en cours de financement, à venir, des warnings (highlighted updates) et de l'**état de compte** (`/investor/portfolio/revenue`), qui dit ce qui a réellement été versé mois par mois.
+    *   Collecte automatique des projets financés, en cours de financement, à venir, des warnings (highlighted updates), de l'**état de compte** (`/investor/portfolio/revenue`) et du **journal des mouvements** (`/wallet-transactions`, paginé), qui nomme chaque versement.
 
 *   **Tableau de Bord Complet:**
     *   **Statistiques Clés:** Investissement total, revenus mensuels nets attendus (avec, en regard, ce qui a réellement été perçu le dernier mois complet), nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
@@ -19,6 +19,11 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   Le **perçu** vient de l'état de compte. Il en diffère pour de bonnes raisons : les échéances impayées n'y figurent pas, les projets remboursés y ont laissé leur historique, le parrainage et le solde boosté s'y ajoutent, et le prélèvement réellement retenu n'est pas le taux forfaitaire — un remboursement de capital glissé dans un coupon n'étant pas imposable.
     *   Faute d'état de compte (import de fichier, cache d'une version antérieure), l'application retombe sur l'estimation et le dit à l'écran.
     *   **Suivi des incidents:** Répartition des propriétés détenues entre défaut avec échéances dues, impayé, suivi à jour et sans signalement, avec le capital exposé. Les niveaux proviennent du **suivi officiel de chaque projet** (`projects.bricks.co`), qui porte le statut déclaré et le décompte des échéances impayées ; à défaut, ils retombent sur une lecture du texte des alertes, nettement moins fiable. Cliquer sur une tuile filtre le registre sur les fiches concernées.
+
+*   **Période des courbes:**
+    *   Un réglage unique gouverne les trois graphiques datés — investissement, revenus, impôt. Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou mois de début et de fin au choix.
+    *   Un sélecteur par graphique aurait laissé les lire sur des fenêtres différentes, ce qui rend la comparaison trompeuse. Les bornes se calculent sur une référence commune, arrêtée au mois courant : sans cela, « les trois derniers mois » auraient désigné une fenêtre entièrement future pour la série estimée, qui se prolonge de trois mois.
+    *   La répartition par propriété et le portefeuille en surface sont des états d'aujourd'hui : aucun axe temporel, donc aucune période à leur appliquer.
 
 *   **Visualisations Graphiques:**
     *   **Évolution de l'Investissement:** Suivez la croissance de votre investissement total au fil du temps.
@@ -33,6 +38,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   Ventilation par année civile : coupons versés, prélèvement retenu, parrainage et solde boosté.
     *   Bricks ne prélève **que sur les coupons**. Le parrainage et le solde boosté — ces centimes crédités jour après jour — arrivent bruts, sans retenue à la source, et restent donc à déclarer. Vérifié sur tout l'historique : mois après mois, `taxedTotal` vaut exactement `coupons − prélèvement + parrainage + solde boosté`.
     *   La colonne des coupons mêle intérêts et remboursements de capital, d'où un prélèvement effectif inférieur au barème (22 % en 2024, 25 % en 2026 pour un barème à 30 puis 31,4 %). Elle ne vaut donc pas montant imposable : l'IFU transmis par Bricks reste la référence.
+    *   Le **capital rendu** a sa propre colonne, lue dans le journal des mouvements. C'est la mise qui revient, pas un gain — et l'état de compte la range pourtant avec les coupons : en juin 2026, Villa Gypsea y figure pour 34,67 € quand son coupon mensuel vaut 4,33 €. La colonne reste masquée tant que le journal n'a pas été lu, une colonne de zéros se lisant à tort comme « aucun remboursement ».
 
 *   **Projections de Revenus:**
     *   Affiche les revenus mensuels nets estimés jusqu'au dernier mois où le montant change réellement — répéter un montant identique n'apprend rien.

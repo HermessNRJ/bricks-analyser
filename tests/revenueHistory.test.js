@@ -110,6 +110,48 @@ describe('normaliserHistoriqueRevenus', () => {
         expect(normaliserHistoriqueRevenus({ revenuesByYearAndMonth: [{ year: 2026, month: 99 }] })).toBeNull();
     });
 
+    it('rogne les mois vides précédant le premier versement', () => {
+        // L'API répond depuis la date demandée : trois ans de zéros avant
+        // le premier euro faisaient démarrer les courbes en janvier 2020.
+        const vides = Array.from({ length: 6 }, (_, i) => ({
+            year: 2023, month: i, untaxedTotal: 0, taxedTotal: 0,
+            revenues: { withholdingTax: { total: 0 } }
+        }));
+
+        const historique = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: vides.concat([{
+                year: 2023, month: 6, untaxedTotal: 500, taxedTotal: 350,
+                revenues: { withholdingTax: { total: -150 } }
+            }])
+        });
+
+        expect(historique.premierMois).toBe('2023-07');
+        expect(Object.keys(historique.mensuel)).toEqual(['2023-07']);
+        expect(historique.parAnnee['2023'].brut).toBe(5);
+    });
+
+    it('conserve un mois vide au milieu, qui lui dit quelque chose', () => {
+        const historique = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [
+                { year: 2025, month: 0, untaxedTotal: 500, taxedTotal: 350, revenues: { withholdingTax: { total: -150 } } },
+                { year: 2025, month: 1, untaxedTotal: 0, taxedTotal: 0, revenues: { withholdingTax: { total: 0 } } },
+                { year: 2025, month: 2, untaxedTotal: 500, taxedTotal: 350, revenues: { withholdingTax: { total: -150 } } }
+            ]
+        });
+
+        expect(Object.keys(historique.mensuel)).toEqual(['2025-01', '2025-02', '2025-03']);
+        expect(historique.mensuel['2025-02'].brut).toBe(0);
+    });
+
+    it('renvoie null quand tous les mois sont vides', () => {
+        expect(normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [
+                { year: 2025, month: 0, untaxedTotal: 0, taxedTotal: 0 },
+                { year: 2025, month: 1, untaxedTotal: 0, taxedTotal: 0 }
+            ]
+        })).toBeNull();
+    });
+
     it('supporte un mois sans bloc de revenus détaillé', () => {
         const historique = normaliserHistoriqueRevenus({
             revenuesByYearAndMonth: [{ year: 2023, month: 11, untaxedTotal: 62, taxedTotal: 62 }]
@@ -220,8 +262,25 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         const historique = normaliserHistoriqueRevenus(RELEVE);
         const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
 
-        expect(resultats.revenusReels.parAnnee).toEqual(historique.parAnnee);
+        expect(resultats.revenusReels.parAnnee['2026']).toMatchObject(historique.parAnnee['2026']);
         expect(resultats.revenusReels.parAnnee['2026'].boost).toBe(0.31);
+    });
+
+    it('fusionne le capital remboursé dans la ventilation annuelle', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+        const capital = { parAnnee: { '2026': 37.68 }, parMois: { '2026-08': 37.68 }, total: 37.68, nombre: 8 };
+        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique, capital);
+
+        expect(resultats.revenusReels.parAnnee['2026'].capital).toBe(37.68);
+        expect(resultats.revenusReels.capital.total).toBe(37.68);
+    });
+
+    it('met le capital à zéro sur une année sans remboursement connu', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique, null);
+
+        expect(resultats.revenusReels.parAnnee['2026'].capital).toBe(0);
+        expect(resultats.revenusReels.capital).toBeNull();
     });
 
     it('conserve l\'estimation à part, pour comparaison', () => {

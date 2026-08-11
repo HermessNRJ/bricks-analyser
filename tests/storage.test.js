@@ -21,7 +21,7 @@ describe('saveToLocalStorage', () => {
 
         expect(saveToLocalStorage(data, warnings)).toBe(true);
         expect(JSON.parse(localStorage.getItem(KEY)))
-            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null });
+            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null, capital: null });
     });
 
     it('accepte un appel sans warnings', () => {
@@ -56,7 +56,7 @@ describe('loadFromLocalStorage', () => {
         const warnings = [{ propertyId: 'a' }];
         saveToLocalStorage(data, warnings);
 
-        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null });
+        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null, capital: null });
     });
 
     it('migre l\'ancien format (tableau nu)', () => {
@@ -65,14 +65,14 @@ describe('loadFromLocalStorage', () => {
 
         // L'ancien format est un tableau nu : aucune date n'y figure
         expect(loadFromLocalStorage())
-            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {}, revenus: null });
+            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null });
     });
 
     it('complète les warnings absents du nouveau format', () => {
         localStorage.setItem(KEY, JSON.stringify({ data: [] }));
 
         expect(loadFromLocalStorage())
-            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {}, revenus: null });
+            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null });
     });
 
     it('purge un JSON corrompu', () => {
