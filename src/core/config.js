@@ -12,8 +12,15 @@ export const CONFIG = {
     API_ENDPOINTS: {
         FINANCED: '/projects/financed',
         ALL_PROJECTS: '/projects',
-        WARNINGS: '/investor/portfolio/properties/highlighted-updates'
+        WARNINGS: '/investor/portfolio/properties/highlighted-updates',
+        REVENUE: '/investor/portfolio/revenue',
+        WALLET: '/wallet-transactions'
     },
+
+    // Premier mois interrogé pour l'historique des revenus. Bricks ne renvoie
+    // que les mois réellement versés : demander large ne coûte rien et évite
+    // de tronquer l'historique d'un investisseur de la première heure.
+    REVENUE_HISTORY_START: '2020-01',
 
     // Calculs financiers
     //
@@ -38,9 +45,14 @@ export const CONFIG = {
     // UI
     PROJECTIONS_MONTHS: 4, // Nombre de mois de projection à afficher
 
-    // Logging
-    DEBUG: true, // Passer à false en production
-    LOG_LEVEL: 'debug' // 'debug', 'info', 'warn', 'error', 'off'
+    // Journalisation
+    //
+    // Aux niveaux « debug » et « info », les journaux recopient dans la console
+    // les identifiants de projets, les montants et les alertes — soit tout le
+    // portefeuille. « warn » ne laisse passer que ce qui signale un problème.
+    // DEBUG expose en plus window.__appState__ : à réserver au développement.
+    DEBUG: false,
+    LOG_LEVEL: 'warn' // 'debug', 'info', 'warn', 'error', 'off'
 };
 
 /**

@@ -2,10 +2,12 @@
  * Gestionnaire de récupération des données via API
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
+import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, fetchTransactionsPortefeuille, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
+import { normaliserTransactions } from '../business/walletHistory.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { rafraichirStatuts } from './statusHandler.js';
 
 /**
  * Configure le gestionnaire d'API
@@ -71,11 +73,50 @@ export function setupAPIHandler() {
                 propertyIds: warningsData.map(w => w.propertyId)
             });
 
+            // L'état de compte dit ce qui a RÉELLEMENT été versé : sans lui on
+            // retombe sur l'estimation, qui compte les impayés comme encaissés.
+            const revenus = await fetchHistoriqueRevenus(session);
+
+            if (revenus) {
+                logger.info(LOG_CATEGORIES.EVENT, 'Revenue history retrieved', {
+                    months: Object.keys(revenus.mensuel).length,
+                    netTotal: revenus.total.net
+                });
+            } else {
+                logger.warn(LOG_CATEGORIES.EVENT, 'Revenue history unavailable, falling back to estimate');
+            }
+
+            // Le journal des mouvements nomme chaque versement : lui seul
+            // distingue un remboursement de capital d'un coupon.
+            loadingMsg.textContent = 'Lecture du journal des mouvements…';
+
+            const transactions = await fetchTransactionsPortefeuille(session, {
+                onProgress: (nombre) => {
+                    loadingMsg.textContent = `Lecture du journal des mouvements… ${nombre} lignes`;
+                }
+            });
+
+            const capital = normaliserTransactions(transactions);
+
+            if (capital) {
+                logger.info(LOG_CATEGORIES.EVENT, 'Capital repayments retrieved', {
+                    total: capital.total,
+                    transactions: capital.nombre
+                });
+            }
+
+            loadingMsg.textContent = 'Chargement des données…';
+
             // Traiter les données avec les warnings
-            await processData(combinedData, warningsData);
+            await processData(combinedData, warningsData, { revenus, capital });
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';
+
+            // Le statut officiel de chaque projet demande un appel par projet :
+            // on enchaîne ici, une fois les données à l'écran, plutôt que de
+            // faire attendre l'affichage.
+            rafraichirStatuts();
 
             logger.info(LOG_CATEGORIES.EVENT, 'API data processed successfully');
 

@@ -362,9 +362,12 @@ input {
    Chiffres clés
    -------------------------------------------------------------------------- */
 
+/* 8 tuiles de statistiques et 4 d'incidents : le nombre de colonnes doit les
+   diviser, sinon la dernière rangée laisse des cases vides — et le fond gris
+   qui dessine les séparateurs s'y voit comme un pavé. */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--rule-width);
     background: var(--rule);
     border: var(--rule-width) solid var(--rule);
@@ -376,6 +379,18 @@ input {
 .stat-card {
     background: var(--surface);
     padding: 18px 20px;
+}
+
+@media (min-width: 560px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    .stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
 .stat-value {
@@ -432,8 +447,34 @@ input {
     letter-spacing: 0.06em;
 }
 
-.stats-risque {
-    margin-top: -12px;
+/* En-tête de la bande d'incidents : le total y est rappelé pour que la somme
+   des quatre tuiles soit vérifiable sans calcul. */
+.risque-entete {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+
+.risque-entete h2 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.risque-resume {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    color: var(--alerte);
+}
+
+.note-partition {
+    margin-top: 10px;
+    margin-bottom: 28px;
+    max-width: 80ch;
 }
 
 /* --------------------------------------------------------------------------
@@ -959,6 +1000,10 @@ select:hover {
     white-space: nowrap;
 }
 
+/* Un projet en défaut se voit depuis la grille, sans ouvrir la fiche */
+.property-en-defaut { border-left-color: var(--alerte); }
+.property-en-defaut:hover { border-left-color: var(--alerte); }
+
 .property-refunded { border-left-color: var(--statut-rembourse); }
 .property-refunded:hover { border-left-color: var(--statut-rembourse); }
 .property-refunded .property-name,
@@ -992,6 +1037,41 @@ select:hover {
 /* --------------------------------------------------------------------------
    Alertes sur une propriété
    -------------------------------------------------------------------------- */
+
+/* Le suivi officiel : une ligne de faits, pas une narration */
+.suivi-officiel {
+    margin-top: 12px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    background: var(--surface-sunken);
+    border-left: 2px solid var(--rule-strong);
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76rem;
+    color: var(--ink-muted);
+}
+
+.suivi-officiel.est-grave {
+    background: var(--alerte-fond);
+    border-left-color: var(--alerte);
+    color: #7d2416;
+}
+
+.actualites-entete {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+}
+
+.actualite-item {
+    background: var(--surface-sunken);
+    border-left: 2px solid var(--rule-strong);
+    border-radius: 0 3px 3px 0;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+}
 
 .alertes {
     margin-top: 14px;
@@ -1096,6 +1176,24 @@ select:hover {
     border-radius: var(--radius);
     margin-bottom: 14px;
     font-size: 0.88rem;
+}
+
+/* Âge des données : discret quand elles sont fraîches, signalé au-delà de
+   deux semaines — un filtre « ce mois-ci » à zéro sur des données périmées se
+   lirait sinon comme une absence d'incident. */
+#statusProgress {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+}
+
+.age-donnees {
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+    margin-top: 10px;
+}
+
+.age-donnees.est-perime {
+    color: var(--alerte);
 }
 
 .chargement {
@@ -1283,4 +1381,120 @@ select:hover {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ---------------------------------------------------------------------------
+   Revenus par année
+   Un tableau plutôt que des tuiles : on y lit des colonnes comparables entre
+   elles, année après année, ce qu'une grille de cartes ne permet pas.
+   --------------------------------------------------------------------------- */
+
+.revenus-annuels {
+    background: #ffffff;
+    border: 1px solid #e4e9ed;
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 28px;
+}
+
+.revenus-annuels h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+}
+
+/* Les petits écrans font défiler le tableau sans étirer la page */
+.tableau-defilant {
+    overflow-x: auto;
+    margin: 14px 0 10px;
+}
+
+.tableau-revenus {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tableau-revenus th,
+.tableau-revenus td {
+    padding: 9px 11px;
+    text-align: right;
+    border-bottom: 1px solid #eef1f4;
+}
+
+.tableau-revenus thead th {
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5c6b77;
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+.tableau-revenus tbody th {
+    text-align: left;
+    font-weight: 600;
+}
+
+.entete-note {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+    color: #8a94a6;
+}
+
+/* Le versé sans retenue est ce qui reste à déclarer : il se distingue */
+.tableau-revenus .colonne-brute {
+    background: #fbf7ee;
+}
+
+.tableau-revenus .ligne-total th,
+.tableau-revenus .ligne-total td {
+    border-top: 2px solid #e4e9ed;
+    border-bottom: none;
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Fenêtre temporelle commune aux graphiques datés
+   --------------------------------------------------------------------------- */
+
+.periode-graphiques {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px 22px;
+    background: #ffffff;
+    border: 1px solid #e4e9ed;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.periode-bornes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.periode-graphiques .note {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+.periode-graphiques input[type="month"] {
+    font: inherit;
+    padding: 7px 10px;
+    border: 1px solid #d5dce2;
+    border-radius: 4px;
+    background: #ffffff;
+    color: inherit;
+}
+
+/* Le capital rendu n'est pas un revenu : il se lit à part des deux natures brutes */
+.tableau-revenus .colonne-capital {
+    background: #f4f6f8;
+    color: #5c6b77;
 }

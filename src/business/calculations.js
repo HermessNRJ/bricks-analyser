@@ -6,7 +6,8 @@ import { CONFIG, tauxImpositionPour } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
-import { repartitionRisque } from './riskAnalysis.js';
+import { repartitionRisque, niveauRisque } from './riskAnalysis.js';
+import { serieMensuelle } from './revenueHistory.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -51,9 +52,12 @@ function resolveFirstSeenMonth(knownMonth, candidateMonth) {
  * Fonction principale : calcule toutes les statistiques d'investissement
  * @param {Array} data - Données mensuelles des projets
  * @param {Array} warnings - Liste des warnings (optionnel)
+ * @param {Object} [statuts] - Suivis officiels de projet, indexés par identifiant
+ * @param {Object} [revenus] - Historique des revenus réellement versés (optionnel)
+ * @param {Object} [capital] - Remboursements de capital, lus dans le journal
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data, warnings = []) {
+export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null, capital = null) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -241,6 +245,14 @@ export function calculateInvestmentStats(data, warnings = []) {
         grossEntries: projectGrossRevenueEntries.length
     });
 
+    // Le niveau de risque est arrêté ici, une fois pour toutes : tuiles, filtres
+    // et fiches lisent la même valeur. Le recalculer ailleurs les avait déjà fait
+    // diverger — les tuiles comptaient 38 défauts quand le registre en filtrait 4.
+    properties.forEach(p => {
+        p.suivi = statuts?.[p.id] || null;
+        p.niveauRisque = niveauRisque(p, p.suivi);
+    });
+
     // Recalculer totalBricks en excluant les projets remboursés
     totalBricks = 0;
     for (const prop of properties) {
@@ -314,6 +326,41 @@ export function calculateInvestmentStats(data, warnings = []) {
     );
 
     // ========================================================================
+    // REVENUS RÉELLEMENT PERÇUS
+    // ========================================================================
+    // Les séries ci-dessus restent des ESPÉRANCES : elles supposent que chaque
+    // projet détenu verse son coupon au taux affiché. Quand Bricks nous donne
+    // son état de compte, c'est lui qui fait foi pour le passé — l'estimation
+    // ne sert plus qu'aux mois à venir, où rien n'a encore été versé.
+    const historiqueDisponible = Boolean(revenus?.mensuel && Object.keys(revenus.mensuel).length > 0);
+
+    const revenusReels = historiqueDisponible
+        ? {
+            mensuel: revenus.mensuel,
+            parAnnee: fusionnerCapital(revenus.parAnnee, capital?.parAnnee),
+            capital: capital || null,
+            premierMois: revenus.premierMois,
+            dernierMois: revenus.dernierMois,
+            total: revenus.total,
+            net: serieMensuelle(revenus, 'net'),
+            brut: serieMensuelle(revenus, 'brut'),
+            impot: serieMensuelle(revenus, 'impot'),
+            // Le mois courant n'est pas terminé : son montant n'est pas comparable
+            // aux précédents et doit être signalé comme tel à l'écran.
+            moisPartiel: revenus.dernierMois === getCurrentMonthYYYYMM() ? revenus.dernierMois : null,
+            ...serieAttendue(revenus, netRevenueEvolutionData)
+        }
+        : null;
+
+    if (historiqueDisponible) {
+        logger.info(LOG_CATEGORIES.CALC_STATS, 'Using Bricks statement for realised revenue', {
+            months: Object.keys(revenus.mensuel).length,
+            netEstime: totalNetRevenueSinceBeginning,
+            netReel: revenus.total.net
+        });
+    }
+
+    // ========================================================================
     // RETOUR DES RÉSULTATS
     // ========================================================================
     // Les pourcentages se rapportent aux propriétés encore détenues : un projet
@@ -332,16 +379,108 @@ export function calculateInvestmentStats(data, warnings = []) {
         partDetenues,
         partRemboursees,
         partFinancement,
-        risque: repartitionRisque(properties),
+        risque: repartitionRisque(properties, statuts),
         investmentEvolution,
         netRevenueEvolutionData,
         grossRevenueEvolutionData,
         taxAmountEvolutionData,
-        totalNetRevenueSinceBeginning,
-        totalTaxesSinceBeginning,
+        revenusReels,
+        // « Perçu » et « payé » se lisent sur l'état de compte quand on l'a ;
+        // l'estimation ne prend le relais que faute de mieux.
+        totalNetRevenueSinceBeginning: historiqueDisponible
+            ? revenus.total.net
+            : totalNetRevenueSinceBeginning,
+        totalTaxesSinceBeginning: historiqueDisponible
+            ? revenus.total.impot
+            : totalTaxesSinceBeginning,
+        totalNetRevenueEstime: totalNetRevenueSinceBeginning,
         refundedProjectsCount,
         activePropertiesCount,
         fundingOrUpcomingProjectsCount
+    };
+}
+
+/**
+ * Ajoute le capital remboursé à la ventilation annuelle des revenus
+ *
+ * Le capital vient d'une autre source que les revenus — le journal des
+ * mouvements, non l'état de compte — et peut donc manquer. Une année sans
+ * remboursement connu vaut zéro, ce qui se lit mieux qu'une case vide.
+ *
+ * @param {Object} parAnnee - Revenus par année
+ * @param {Object} [capitalParAnnee] - Capital remboursé par année
+ * @returns {Object} Ventilation enrichie
+ */
+function fusionnerCapital(parAnnee, capitalParAnnee) {
+    const fusion = {};
+
+    Object.keys(parAnnee || {}).forEach(annee => {
+        fusion[annee] = { ...parAnnee[annee], capital: capitalParAnnee?.[annee] ?? 0 };
+    });
+
+    return fusion;
+}
+
+/**
+ * Nombre de mois sur lesquels le perçu est confronté à l'attendu
+ *
+ * La confrontation ne vaut que sur une fenêtre récente. L'attendu se calcule
+ * sur les projets ENCORE détenus : plus on remonte, plus il manque de projets
+ * remboursés depuis, qui versaient pourtant à l'époque. En décembre 2024 il
+ * annonçait 13,59 € contre 36,41 € réellement perçus — l'attendu passait sous
+ * le perçu, ce qui se lit à l'envers de la vérité. Un an en arrière, l'écart
+ * dû aux remboursements reste de l'ordre de quelques euros ; au-delà il
+ * dépasse celui qu'on cherche à montrer.
+ */
+const MOIS_COMPARAISON = 12;
+
+/**
+ * Confronte le perçu à ce que le portefeuille aurait dû verser
+ *
+ * Reconstruire l'attendu sur tout l'historique a été tenté et écarté : rendre
+ * aux projets remboursés leur mise (10 € la brique) sur leur horizon annoncé
+ * recolle bien en 2024, mais dérive de 14 € en 2026, les remboursements
+ * arrivant plus tôt que l'horizon. Faute de date de remboursement réelle, la
+ * fenêtre récente reste le seul terrain sûr.
+ *
+ * @param {Object} revenus - Historique normalisé des revenus perçus
+ * @param {Object} netRevenueEvolutionData - Série nette attendue, par mois
+ * @returns {Object} { attendu, debutComparaison, ecart }
+ * @private
+ */
+function serieAttendue(revenus, netRevenueEvolutionData) {
+    const moisPerçus = Object.keys(revenus.mensuel).sort();
+    const fenetre = moisPerçus.slice(-MOIS_COMPARAISON);
+    const attendu = {};
+
+    fenetre.forEach(mois => {
+        const valeur = netRevenueEvolutionData?.[mois];
+
+        if (typeof valeur === 'number') {
+            attendu[mois] = valeur;
+        }
+    });
+
+    const moisAttendus = Object.keys(attendu).sort();
+
+    // L'écart se lit sur le dernier mois RÉVOLU : un mois entamé manque
+    // simplement de versements encore à venir, et son écart ne veut rien dire.
+    const moisCourant = getCurrentMonthYYYYMM();
+    const dernierComplet = moisAttendus.filter(mois => mois !== moisCourant).pop() || null;
+
+    const ecart = dernierComplet
+        ? {
+            mois: dernierComplet,
+            percu: revenus.mensuel[dernierComplet].net,
+            attendu: attendu[dernierComplet],
+            manque: attendu[dernierComplet] - revenus.mensuel[dernierComplet].net
+        }
+        : null;
+
+    return {
+        attendu,
+        debutComparaison: moisAttendus[0] || null,
+        ecart
     };
 }
 

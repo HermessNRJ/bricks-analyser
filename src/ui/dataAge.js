@@ -1,0 +1,97 @@
+/**
+ * Affichage de l'âge des données
+ *
+ * Les chiffres du tableau de bord viennent du localStorage, parfois vieux de
+ * plusieurs semaines. Sans repère, un filtre comme « alerte ce mois-ci » qui
+ * renvoie zéro se lit comme une bonne nouvelle alors qu'il traduit simplement
+ * des données qui n'ont pas été rafraîchies.
+ */
+
+import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+
+// Au-delà de ce délai, l'âge des données est signalé plutôt que mentionné
+const SEUIL_PERIME_JOURS = 14;
+
+/**
+ * Nombre de jours entiers écoulés depuis une date
+ * @param {Date} date - Date de référence
+ * @param {Date} [maintenant] - Instant de comparaison
+ * @returns {number} Nombre de jours
+ */
+export function joursDepuis(date, maintenant = new Date()) {
+    const millisecondesParJour = 24 * 60 * 60 * 1000;
+    return Math.floor((maintenant.getTime() - date.getTime()) / millisecondesParJour);
+}
+
+/**
+ * Formule l'âge des données en français
+ * @param {string|null} savedAt - Date ISO de récupération, ou null si inconnue
+ * @param {Date} [maintenant] - Instant de comparaison
+ * @returns {{texte: string, estPerime: boolean}|null} Libellé, ou null si rien à dire
+ */
+export function decrireAge(savedAt, maintenant = new Date()) {
+    if (!savedAt) {
+        return null;
+    }
+
+    const date = new Date(savedAt);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    const jours = joursDepuis(date, maintenant);
+
+    // Une date postérieure à maintenant vient d'une horloge décalée : on
+    // n'annonce pas des données « dans 2 jours ».
+    const anciennete = Math.max(0, jours);
+
+    const dateLisible = date.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+
+    let quand;
+    if (anciennete === 0) {
+        quand = "aujourd'hui";
+    } else if (anciennete === 1) {
+        quand = 'hier';
+    } else {
+        quand = `il y a ${anciennete} jours`;
+    }
+
+    return {
+        texte: `Données récupérées le ${dateLisible}, ${quand}.`,
+        estPerime: anciennete >= SEUIL_PERIME_JOURS
+    };
+}
+
+/**
+ * Affiche l'âge des données sous le panneau de session
+ * @param {string|null} savedAt - Date ISO de récupération
+ */
+export function afficherAgeDonnees(savedAt) {
+    const element = document.getElementById('dataAge');
+
+    if (!element) {
+        return;
+    }
+
+    const age = decrireAge(savedAt);
+
+    if (!age) {
+        element.classList.add('hidden');
+        element.textContent = '';
+        return;
+    }
+
+    element.textContent = age.estPerime
+        ? `${age.texte} Rechargez-les pour tenir compte des dernières alertes.`
+        : age.texte;
+
+    element.classList.toggle('est-perime', age.estPerime);
+    element.classList.remove('hidden');
+
+    logger.debug(LOG_CATEGORIES.UI, 'Data age displayed', { savedAt, estPerime: age.estPerime });
+}

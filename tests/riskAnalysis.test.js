@@ -187,3 +187,53 @@ describe('repartitionRisque', () => {
         expect(() => repartitionRisque(null)).not.toThrow();
     });
 });
+
+describe('repartitionRisque — partition complète', () => {
+    const bien = (id, warnings = [], isRefunded = false) => ({
+        id, investment: isRefunded ? 0 : 100, warnings, isRefunded
+    });
+    const w = (description) => ({ description, date: '2026-01-01' });
+
+    it('répartit chaque propriété détenue dans exactement un niveau', () => {
+        // Le défaut corrigé : trois des quatre niveaux étaient affichés, donc
+        // les chiffres semblaient devoir s'additionner sans jamais y arriver.
+        const properties = [
+            bien('a', [w('procédure judiciaire')]),
+            bien('b', [w('montant impayé')]),
+            bien('c', [w('les travaux avancent')]),
+            bien('d', [w('intérêts régularisés et reversés')]),
+            bien('e'),
+            bien('f'),
+            bien('g', [w('mise en demeure')], true)
+        ];
+
+        const { base, repartition } = repartitionRisque(properties);
+        const somme = Object.values(repartition).reduce((t, e) => t + e.nombre, 0);
+
+        expect(base).toBe(6);
+        expect(somme).toBe(base);
+    });
+
+    it('fait aussi la somme des parts et des capitaux', () => {
+        const properties = [
+            bien('a', [w('procédure judiciaire')]),
+            bien('b', [w('point de suivi')]),
+            bien('c')
+        ];
+
+        const { base, capitalBase, repartition } = repartitionRisque(properties);
+        const niveaux = Object.values(repartition);
+
+        expect(niveaux.reduce((t, e) => t + e.nombre, 0)).toBe(base);
+        expect(niveaux.reduce((t, e) => t + e.capital, 0)).toBeCloseTo(capitalBase, 10);
+        expect(niveaux.reduce((t, e) => t + e.part, 0)).toBeCloseTo(100, 10);
+    });
+
+    it('expose les quatre niveaux, même vides', () => {
+        // Un niveau absent de la sortie disparaîtrait de l'écran sans bruit
+        const { repartition } = repartitionRisque([bien('a')]);
+
+        expect(Object.keys(repartition).sort())
+            .toEqual(['impaye', 'procedure', 'sain', 'signale']);
+    });
+});

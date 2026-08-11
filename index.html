@@ -11,11 +11,19 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="./src/styles/main.css">
 
-    <!-- Chart.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Chart.js et son plugin treemap.
+         Les empreintes SRI sont obligatoires ici : cette page manipule un
+         cookie de session Bricks, un CDN compromis y exécuterait du code
+         arbitraire. Le navigateur refuse le script si le contenu a changé.
+         Régénérer après toute montée de version :
+           curl -sfL <url> | openssl dgst -sha384 -binary | openssl base64 -A -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"
+            integrity="sha384-9MhbyIRcBVQiiC7FSd7T38oJNj2Zh+EfxS7/vjhBi4OOT78NlHSnzM31EZRWR1LZ"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <!-- Chart.js Treemap Plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"
+            integrity="sha384-nr2GTsyDh6Kjn1H+dqXUUJpoNTdiOr8swo074Cg0uOwPSRFx27UcVV98yi4LFw3H"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <!-- Main Application Module (ES6) -->
     <script type="module" src="./src/events/appInitializer.js"></script>
@@ -43,9 +51,12 @@
                        placeholder="cf_clearance=…; __Secure-better-auth.session_token=…"
                        autocomplete="off" spellcheck="false">
                 <button id="fetchApiDataBtn" class="bouton bouton-principal">Charger les données</button>
+                <button id="refreshStatusBtn" class="bouton bouton-secondaire">Vérifier les statuts</button>
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>
+            <p id="statusProgress" class="chargement hidden" role="status"></p>
             <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
+            <p id="dataAge" class="age-donnees hidden"></p>
         </section>
 
         <div id="results" class="hidden">
@@ -72,7 +83,8 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="monthlyRevenue">0€</div>
-                    <div class="stat-label">Revenus nets mensuels</div>
+                    <div class="stat-label">Revenus nets mensuels attendus</div>
+                    <div class="stat-detail" id="detailRevenusMensuels"></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalNetRevenueSinceBeginning">0€</div>
@@ -103,12 +115,19 @@
                 </div>
             </section>
 
-            <!-- Ces deux chiffres sont déduits du texte des warnings, pas d'un
-                 statut officiel : cliquer filtre le registre pour vérifier. -->
-            <section class="stats-grid stats-risque" aria-label="Suivi des incidents">
+            <!-- Les quatre niveaux forment une partition des propriétés détenues :
+                 leur somme doit retomber sur ce total, sans quoi il manque une
+                 catégorie à l'écran. Ils sont déduits du texte des warnings, l'API
+                 ne publiant aucun statut ; cliquer filtre le registre pour vérifier. -->
+            <div class="risque-entete">
+                <h2 id="titreRisque">Suivi des incidents</h2>
+                <p class="risque-resume" id="risqueResume"></p>
+            </div>
+
+            <section class="stats-grid stats-risque" aria-labelledby="titreRisque">
                 <button type="button" class="stat-card stat-cliquable" data-risque="procedure">
                     <div class="stat-value stat-alerte" id="procedureCount">0</div>
-                    <div class="stat-label">En procédure</div>
+                    <div class="stat-label">En défaut, échéances dues</div>
                     <div class="stat-detail" id="detailProcedure"></div>
                 </button>
                 <button type="button" class="stat-card stat-cliquable" data-risque="impaye">
@@ -116,16 +135,41 @@
                     <div class="stat-label">Impayé ou retard</div>
                     <div class="stat-detail" id="detailImpaye"></div>
                 </button>
-                <div class="stat-card">
-                    <div class="stat-value" id="difficulteCapital">0€</div>
-                    <div class="stat-label">Capital exposé</div>
-                    <div class="stat-detail" id="detailDifficulte"></div>
-                </div>
-                <div class="stat-card">
+                <button type="button" class="stat-card stat-cliquable" data-risque="signale">
+                    <div class="stat-value" id="signaleCount">0</div>
+                    <div class="stat-label">Signalé, sans incident</div>
+                    <div class="stat-detail" id="detailSignale"></div>
+                </button>
+                <button type="button" class="stat-card stat-cliquable" data-risque="sain">
                     <div class="stat-value" id="sainCount">0</div>
                     <div class="stat-label">Sans signalement</div>
                     <div class="stat-detail" id="detailSain"></div>
+                </button>
+            </section>
+
+            <p class="note note-partition" id="risqueNote"></p>
+
+            <!-- Bricks prélève sur les coupons, pas sur le parrainage ni sur le
+                 solde boosté : ces deux-là arrivent bruts et restent à déclarer. -->
+            <section class="revenus-annuels hidden" id="revenusAnnuels" aria-labelledby="titreRevenusAnnuels">
+                <h3 id="titreRevenusAnnuels">Revenus par année</h3>
+                <p class="note" id="revenusAnnuelsResume"></p>
+                <div class="tableau-defilant">
+                    <table class="tableau-revenus">
+                        <thead>
+                            <tr>
+                                <th scope="col">Année</th>
+                                <th scope="col">Coupons <span class="entete-note">versés</span></th>
+                                <th scope="col">Prélèvement <span class="entete-note">retenu</span></th>
+                                <th scope="col" class="colonne-brute">Parrainage <span class="entete-note">brut</span></th>
+                                <th scope="col" class="colonne-brute">Solde boosté <span class="entete-note">brut</span></th>
+                                <th scope="col" class="colonne-capital hidden">Capital <span class="entete-note">rendu</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="revenusAnnuelsCorps"></tbody>
+                    </table>
                 </div>
+                <p class="note">Le capital remboursé est votre mise qui revient : il n'est pas imposable, et Bricks le range pourtant avec les coupons dans son état de compte. Les colonnes teintées n'ont subi aucune retenue à la source : Bricks les verse bruts. La colonne des coupons mêle intérêts et remboursements de capital — d'où un prélèvement effectif inférieur au barème — et ne vaut donc pas montant imposable. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
             </section>
 
             <section class="projections-section" aria-labelledby="titreProjections">
@@ -202,20 +246,36 @@
                 <p class="note" id="simHypotheses"></p>
             </section>
 
+            <!-- Une seule fenêtre pour les trois courbes datées : les lire sur
+                 des périodes différentes rendrait la comparaison trompeuse. -->
+            <div class="periode-graphiques">
+                <label class="champ" for="periodeGraphiques">
+                    Période des courbes
+                    <select id="periodeGraphiques">
+                        <option value="3">3 derniers mois</option>
+                        <option value="6">6 derniers mois</option>
+                        <option value="12">12 derniers mois</option>
+                        <option value="24">24 derniers mois</option>
+                        <option value="all">Tout l'historique</option>
+                        <option value="custom">Mois de début et de fin…</option>
+                    </select>
+                </label>
+                <div class="periode-bornes hidden" id="periodeBornes">
+                    <label class="champ" for="periodeDebut">
+                        Du
+                        <input type="month" id="periodeDebut">
+                    </label>
+                    <label class="champ" for="periodeFin">
+                        Au
+                        <input type="month" id="periodeFin">
+                    </label>
+                </div>
+                <p class="note">S'applique à l'investissement, aux revenus et à l'impôt. La répartition et le portefeuille en surface sont des états d'aujourd'hui, sans axe temporel.</p>
+            </div>
+
             <div class="charts-section">
                 <div class="chart-container">
                     <h3 class="chart-title">Évolution de l'investissement</h3>
-                    <div class="chart-outils">
-                        <label class="champ" for="investmentRangeFilter">
-                            Période
-                            <select id="investmentRangeFilter">
-                                <option value="3">3 derniers mois</option>
-                                <option value="6">6 derniers mois</option>
-                                <option value="12">12 derniers mois</option>
-                                <option value="all">Tout l'historique</option>
-                            </select>
-                        </label>
-                    </div>
                     <canvas id="investmentChart" width="400" height="300"></canvas>
                 </div>
 
@@ -228,6 +288,7 @@
                 <div class="chart-container">
                     <h3 class="chart-title">Évolution des revenus nets</h3>
                     <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
+                    <p class="chart-note" id="revenusSourceNote"></p>
                 </div>
 
                 <div class="chart-container">
@@ -296,8 +357,10 @@
                             <option value="warning-current-month">Alerte ce mois-ci</option>
                             <option value="has-warning">Avec alerte</option>
                             <option value="no-warning">Sans alerte</option>
-                            <option value="risk-procedure">En procédure</option>
+                            <option value="risk-procedure">En défaut, échéances dues</option>
                             <option value="risk-impaye">Impayé ou retard</option>
+                            <option value="risk-signale">Signalé, sans incident</option>
+                            <option value="risk-sain">Sans signalement</option>
                             <option value="warning-last-month">Alerte sous 30 jours</option>
                             <option value="warning-month-before">Alerte le mois d'avant</option>
                         </select>

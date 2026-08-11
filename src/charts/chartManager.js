@@ -9,6 +9,11 @@ import { createDistributionChart } from './distributionChart.js';
 import { createRevenueChart } from './revenueChart.js';
 import { createTaxChart } from './taxChart.js';
 import { createTreemapChart } from './treemapChart.js';
+import { filtrerPeriode, periodeCourante, bornerAuxDonnees } from '../ui/periodeGraphiques.js';
+import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
+
+// Derniers résultats reçus : changer de période redessine sans recalculer.
+let derniersResultats = null;
 
 /**
  * Aligne Chart.js sur le système visuel de l'application
@@ -46,13 +51,83 @@ export function createCharts(results) {
 
     applyChartTheme();
 
-    createInvestmentChart(results.investmentEvolution);
+    derniersResultats = results;
+
+    // Les bornes saisissables se calent sur l'historique disponible : proposer
+    // un calendrier ouvert laisserait choisir des mois sans données.
+    bornerAuxDonnees(moisCouverts(results));
+
     createDistributionChart(results.properties);
-    createRevenueChart(results.netRevenueEvolutionData);
-    createTaxChart(results.taxAmountEvolutionData);
     createTreemapChart(results.properties);
+    dessinerSeriesDatees(results);
 
     logger.info(LOG_CATEGORIES.CHART, 'All charts created successfully');
+}
+
+/**
+ * Redessine les seuls graphiques datés, sur la période courante
+ * Le donut et la treemap sont des états du portefeuille, sans axe temporel :
+ * les redessiner à chaque changement de fenêtre ne ferait que clignoter.
+ */
+export function redessinerSeriesDatees() {
+    if (derniersResultats) {
+        dessinerSeriesDatees(derniersResultats);
+    }
+}
+
+/**
+ * Dessine les trois courbes datées en appliquant la fenêtre choisie
+ * @param {Object} results - Résultats des calculs
+ */
+function dessinerSeriesDatees(results) {
+    // L'état de compte Bricks fait foi quand on l'a : la série estimée depuis
+    // les taux affichés ne sert plus que de repli.
+    const reels = results.revenusReels;
+    const periode = periodeCourante();
+
+    // Une référence commune pour les trois découpes : sans elle, « les six
+    // derniers mois » ne désignent pas la même fenêtre d'une courbe à l'autre.
+    const reference = moisCouverts(results);
+
+    const revenus = filtrerPeriode(reels?.net || results.netRevenueEvolutionData, periode, reference);
+    const impots = filtrerPeriode(reels?.impot || results.taxAmountEvolutionData, periode, reference);
+    const investissement = filtrerPeriode(results.investmentEvolution, periode, reference);
+
+    const optionsRevenus = {
+        reel: Boolean(reels),
+        moisPartiel: reels?.moisPartiel || null
+    };
+
+    createInvestmentChart(investissement, periode.preset === 'all');
+    createRevenueChart(revenus, {
+        ...optionsRevenus,
+        attendu: reels?.attendu ? filtrerPeriode(reels.attendu, periode, reference) : null,
+        ecart: reels?.ecart || null
+    });
+    createTaxChart(impots, optionsRevenus);
+}
+
+/**
+ * Liste les mois écoulés que couvrent les données datées
+ *
+ * Les mois à venir sont écartés de la référence : la série estimée se prolonge
+ * de trois mois, et « les trois derniers mois » auraient alors désigné une
+ * fenêtre entièrement future, où l'investissement n'a rien à montrer — le
+ * graphique se serait vidé. Les points de projection restent tracés, ils
+ * tombent simplement après la borne de début.
+ *
+ * @param {Object} results - Résultats des calculs
+ * @returns {Array<string>} Mois triés, jusqu'au mois courant inclus
+ */
+function moisCouverts(results) {
+    const mois = new Set([
+        ...Object.keys(results.investmentEvolution || {}),
+        ...Object.keys(results.revenusReels?.net || results.netRevenueEvolutionData || {})
+    ]);
+
+    const courant = getCurrentMonthYYYYMM();
+
+    return [...mois].filter(m => /^\d{4}-\d{2}$/.test(m) && m <= courant).sort();
 }
 
 /**

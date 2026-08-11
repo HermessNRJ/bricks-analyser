@@ -6,70 +6,18 @@ import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
- * Périodes proposées par le filtre, en nombre de mois affichés
- * 'all' conserve l'intégralité de l'historique.
- */
-export const INVESTMENT_RANGES = {
-    '3': 3,
-    '6': 6,
-    '12': 12,
-    'all': Infinity
-};
-
-export const DEFAULT_INVESTMENT_RANGE = 'all';
-
-// Dernières données reçues : le filtre de période redessine sans recalculer.
-let lastEvolutionData = null;
-let currentRange = DEFAULT_INVESTMENT_RANGE;
-
-/**
- * Restreint les données d'évolution aux N derniers mois
- * La courbe étant cumulative, tronquer le début ne fausse pas les valeurs :
- * chaque point reste le cumul depuis l'origine.
- * @param {Object} evolutionData - Données d'évolution { 'YYYY-MM': montant }
- * @param {string} range - Clé de INVESTMENT_RANGES
- * @returns {{labels: string[], data: number[]}} Séries prêtes pour Chart.js
- */
-export function sliceEvolutionRange(evolutionData, range) {
-    const labels = Object.keys(evolutionData || {}).sort();
-    const months = INVESTMENT_RANGES[range] ?? INVESTMENT_RANGES[DEFAULT_INVESTMENT_RANGE];
-
-    const kept = Number.isFinite(months) ? labels.slice(-months) : labels;
-
-    return {
-        labels: kept,
-        data: kept.map(label => evolutionData[label])
-    };
-}
-
-/**
- * Change la période affichée et redessine le graphique
- * @param {string} range - Clé de INVESTMENT_RANGES
- */
-export function setInvestmentRange(range) {
-    currentRange = range in INVESTMENT_RANGES ? range : DEFAULT_INVESTMENT_RANGE;
-
-    logger.debug(LOG_CATEGORIES.CHART, 'Investment chart range changed', { range: currentRange });
-
-    if (lastEvolutionData) {
-        createInvestmentChart(lastEvolutionData, currentRange);
-    }
-}
-
-/**
  * Crée le graphique d'évolution de l'investissement
+ * La fenêtre temporelle est appliquée en amont, par le sélecteur commun aux
+ * graphiques datés : ce module dessine ce qu'on lui donne.
  * @param {Object} evolutionData - Données d'évolution { 'YYYY-MM': montant }
- * @param {string} [range] - Période à afficher (par défaut, la dernière choisie)
+ * @param {boolean} [historiqueComplet] - true si la fenêtre couvre tout
  */
-export function createInvestmentChart(evolutionData, range = currentRange) {
+export function createInvestmentChart(evolutionData, historiqueComplet = true) {
     const ctx = document.getElementById('investmentChart')?.getContext('2d');
     if (!ctx) {
         logger.error(LOG_CATEGORIES.CHART, 'Canvas investmentChart not found');
         return;
     }
-
-    lastEvolutionData = evolutionData;
-    currentRange = range in INVESTMENT_RANGES ? range : DEFAULT_INVESTMENT_RANGE;
 
     // Détruire l'instance existante
     const charts = state.get('charts');
@@ -89,11 +37,12 @@ export function createInvestmentChart(evolutionData, range = currentRange) {
 
     if (chartContainer) chartContainer.style.display = 'block';
 
-    const { labels, data } = sliceEvolutionRange(evolutionData, currentRange);
+    const labels = Object.keys(evolutionData).sort();
+    const data = labels.map(mois => evolutionData[mois]);
 
     // Sur l'historique complet, partir de zéro donne l'échelle réelle du portefeuille.
     // Sur une fenêtre courte, cela écraserait la courbe : on laisse Chart.js cadrer.
-    const beginAtZero = currentRange === 'all';
+    const beginAtZero = historiqueComplet;
 
     try {
         const chart = new Chart(ctx, {
@@ -149,7 +98,7 @@ export function createInvestmentChart(evolutionData, range = currentRange) {
 
         logger.info(LOG_CATEGORIES.CHART, 'Investment chart created', {
             dataPoints: labels.length,
-            range: currentRange
+            fullHistory: historiqueComplet
         });
 
     } catch (err) {

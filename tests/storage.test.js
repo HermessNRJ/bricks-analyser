@@ -20,7 +20,8 @@ describe('saveToLocalStorage', () => {
         const warnings = [{ propertyId: 'a', date: '2024-01-01' }];
 
         expect(saveToLocalStorage(data, warnings)).toBe(true);
-        expect(JSON.parse(localStorage.getItem(KEY))).toEqual({ data, warnings });
+        expect(JSON.parse(localStorage.getItem(KEY)))
+            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null, capital: null });
     });
 
     it('accepte un appel sans warnings', () => {
@@ -55,20 +56,23 @@ describe('loadFromLocalStorage', () => {
         const warnings = [{ propertyId: 'a' }];
         saveToLocalStorage(data, warnings);
 
-        expect(loadFromLocalStorage()).toEqual({ data, warnings });
+        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null, capital: null });
     });
 
     it('migre l\'ancien format (tableau nu)', () => {
         const legacy = [{ yearMonthDate: '2024-01', projects: [] }];
         localStorage.setItem(KEY, JSON.stringify(legacy));
 
-        expect(loadFromLocalStorage()).toEqual({ data: legacy, warnings: [] });
+        // L'ancien format est un tableau nu : aucune date n'y figure
+        expect(loadFromLocalStorage())
+            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null });
     });
 
     it('complète les warnings absents du nouveau format', () => {
         localStorage.setItem(KEY, JSON.stringify({ data: [] }));
 
-        expect(loadFromLocalStorage()).toEqual({ data: [], warnings: [] });
+        expect(loadFromLocalStorage())
+            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null });
     });
 
     it('purge un JSON corrompu', () => {
@@ -98,5 +102,95 @@ describe('clearLocalStorage / hasStoredData', () => {
 
         expect(clearLocalStorage()).toBe(true);
         expect(hasStoredData()).toBe(false);
+    });
+});
+
+describe('saveToLocalStorage — horodatage', () => {
+    it('enregistre la date de récupération', () => {
+        saveToLocalStorage([{ yearMonthDate: '2024-01', projects: [] }]);
+
+        const savedAt = JSON.parse(localStorage.getItem(KEY)).savedAt;
+
+        expect(Number.isNaN(new Date(savedAt).getTime())).toBe(false);
+    });
+
+    it('relit la date écrite', () => {
+        saveToLocalStorage([{ yearMonthDate: '2024-01', projects: [] }]);
+
+        expect(loadFromLocalStorage().savedAt).toBeTruthy();
+    });
+});
+
+describe('saveToLocalStorage — la date ne rajeunit pas toute seule', () => {
+    it('conserve la date existante quand aucune récupération n\'est signalée', () => {
+        // Chaque ouverture de page réécrit le cache : sans cette garde,
+        // les données afficheraient éternellement « aujourd'hui ».
+        const jadis = '2024-01-15T10:00:00.000Z';
+        saveToLocalStorage([], [], { dateRecuperation: jadis });
+
+        saveToLocalStorage([{ yearMonthDate: '2024-02', projects: [] }]);
+
+        expect(loadFromLocalStorage().savedAt).toBe(jadis);
+    });
+
+    it('adopte la date fournie lors d\'une récupération', () => {
+        saveToLocalStorage([], [], { dateRecuperation: '2024-01-15T10:00:00.000Z' });
+        saveToLocalStorage([], [], { dateRecuperation: '2024-03-01T08:00:00.000Z' });
+
+        expect(loadFromLocalStorage().savedAt).toBe('2024-03-01T08:00:00.000Z');
+    });
+
+    it('horodate la toute première sauvegarde', () => {
+        expect(saveToLocalStorage([])).toBe(true);
+        expect(loadFromLocalStorage().savedAt).toBeTruthy();
+    });
+});
+
+describe('saveToLocalStorage — suivis officiels de projet', () => {
+    it('conserve les statuts déjà enregistrés quand aucun n\'est fourni', () => {
+        const statuts = { p1: { id: 'p1', suivi: true, statut: 'defaulted', impayees: 4 } };
+        saveToLocalStorage([], [], { statuts });
+
+        saveToLocalStorage([{ yearMonthDate: '2024-02', projects: [] }]);
+
+        expect(loadFromLocalStorage().statuts).toEqual(statuts);
+    });
+
+    it('remplace les statuts quand de nouveaux sont fournis', () => {
+        saveToLocalStorage([], [], { statuts: { p1: { suivi: false } } });
+        saveToLocalStorage([], [], { statuts: { p2: { suivi: true } } });
+
+        expect(loadFromLocalStorage().statuts).toEqual({ p2: { suivi: true } });
+    });
+});
+
+describe('persistance de l\'historique des revenus', () => {
+    it('enregistre et relit l\'état de compte', () => {
+        const revenus = {
+            mensuel: { '2026-07': { brut: 60.17, net: 44.76, impot: 15.41 } },
+            premierMois: '2026-07',
+            dernierMois: '2026-07',
+            total: { brut: 60.17, net: 44.76, impot: 15.41 }
+        };
+
+        saveToLocalStorage([], [], { revenus });
+
+        expect(loadFromLocalStorage().revenus).toEqual(revenus);
+    });
+
+    it('conserve l\'historique quand la sauvegarde ne le fournit pas', () => {
+        const revenus = {
+            mensuel: { '2026-07': { net: 44.76 } },
+            premierMois: '2026-07',
+            dernierMois: '2026-07',
+            total: { brut: 60.17, net: 44.76, impot: 15.41 }
+        };
+
+        saveToLocalStorage([], [], { revenus });
+        // Un rechargement de page réécrit le cache sans repasser par l'API :
+        // l'historique ne doit pas disparaître à cette occasion.
+        saveToLocalStorage([{ yearMonthDate: '2026-07', projects: [] }], []);
+
+        expect(loadFromLocalStorage().revenus.total.net).toBe(44.76);
     });
 });

@@ -9,12 +9,15 @@ import { loadFromLocalStorage } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
 import { showDeletionModal } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
-import { setInvestmentRange, INVESTMENT_RANGES, DEFAULT_INVESTMENT_RANGE } from '../charts/investmentChart.js';
+import { initPeriodeGraphiques } from '../ui/periodeGraphiques.js';
+import { redessinerSeriesDatees } from '../charts/chartManager.js';
 import { setupForecastHandler } from './forecastHandler.js';
+import { setupStatusHandler } from './statusHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
 import { updatePropertySortAndFilter, showResults, setSearch, changePage } from '../ui/uiUpdater.js';
+import { afficherAgeDonnees } from '../ui/dataAge.js';
 
 /**
  * Initialise l'application au chargement de la page
@@ -29,8 +32,9 @@ function initializeApp() {
     setupPropertyControls();
     setupSearchControl();
     setupPaginationControls();
-    setupInvestmentRangeControl();
+    setupPeriodeControl();
     setupForecastHandler();
+    setupStatusHandler();
     setupRiskShortcuts();
 
     // S'abonner aux changements d'état pour mettre à jour l'UI
@@ -200,30 +204,12 @@ function setupPaginationControls() {
 }
 
 /**
- * Configure le filtre de période du graphique d'évolution de l'investissement
- * Appelé avant le chargement des données : la période retenue est donc déjà
- * connue quand le graphique est dessiné pour la première fois.
+ * Configure le sélecteur de période commun aux graphiques datés
+ * Appelé avant le chargement des données : la fenêtre retenue est donc déjà
+ * connue quand les courbes sont dessinées pour la première fois.
  */
-function setupInvestmentRangeControl() {
-    const rangeSelect = document.getElementById('investmentRangeFilter');
-
-    if (!rangeSelect) {
-        return;
-    }
-
-    const saved = localStorage.getItem('investmentRange');
-    const initial = saved && saved in INVESTMENT_RANGES ? saved : DEFAULT_INVESTMENT_RANGE;
-
-    rangeSelect.value = initial;
-    setInvestmentRange(initial);
-
-    rangeSelect.addEventListener('change', (e) => {
-        const range = e.target.value;
-        localStorage.setItem('investmentRange', range);
-        setInvestmentRange(range);
-    });
-
-    logger.debug(LOG_CATEGORIES.EVENT, 'Investment range control configured', { range: initial });
+function setupPeriodeControl() {
+    initPeriodeGraphiques(redessinerSeriesDatees);
 }
 
 /**
@@ -237,6 +223,8 @@ async function loadInitialData() {
             entries: cachedStorage.data.length,
             warnings: cachedStorage.warnings.length
         });
+
+        afficherAgeDonnees(cachedStorage.savedAt);
 
         try {
             // Utiliser finalizeProcessing pour traiter les données (avec warnings)

@@ -5,7 +5,8 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { saveToLocalStorage } from '../data/storage.js';
+import { saveToLocalStorage, loadFromLocalStorage } from '../data/storage.js';
+import { afficherAgeDonnees } from '../ui/dataAge.js';
 import { validateBricksData } from '../data/fileParser.js';
 import { mergeDatasets, identifyMissingProjects, removeProjectsById } from './dataProcessor.js';
 import { calculateInvestmentStats } from './calculations.js';
@@ -18,9 +19,16 @@ import { updateForecastContext } from '../events/forecastHandler.js';
  * Gère la fusion avec les données existantes et la modal de suppression
  * @param {Array} fileData - Données brutes importées
  * @param {Array} warnings - Liste des warnings (optionnel)
+ * @param {Object} [options]
+ * @param {Object} [options.revenus] - Historique des revenus réellement versés
+ * @param {Object} [options.capital] - Remboursements de capital
  * @returns {Promise<void>}
  */
-export async function processData(fileData, warnings = []) {
+export async function processData(fileData, warnings = [], { revenus, capital } = {}) {
+    // Ce point d'entrée n'est atteint que depuis un appel à l'API : c'est ici
+    // que naît la date de récupération.
+    const dateRecuperation = new Date().toISOString();
+
     try {
         logger.info(LOG_CATEGORIES.DATA_MERGE, 'Processing imported data', {
             entries: fileData.length
@@ -57,14 +65,17 @@ export async function processData(fileData, warnings = []) {
                 isOpen: true,
                 projectIdsToRemove: missingProjectIds,
                 dataContext: mergedData,
-                warnings: warnings
+                warnings: warnings,
+                dateRecuperation,
+                revenus,
+                capital
             });
 
             // La modal s'occupera d'appeler finalizeProcessing ou handleConfirmDelete
             // On ne fait rien de plus ici, la modal gère la suite
         } else {
             logger.info(LOG_CATEGORIES.DATA_MERGE, 'No missing projects, proceeding to finalize');
-            await finalizeProcessing(mergedData, warnings);
+            await finalizeProcessing(mergedData, warnings, { dateRecuperation, revenus, capital });
         }
 
     } catch (err) {
@@ -78,9 +89,17 @@ export async function processData(fileData, warnings = []) {
  * Calcule les stats, met à jour l'UI, sauvegarde dans localStorage
  * @param {Array} finalData - Données finales à traiter
  * @param {Array} warnings - Liste des warnings (optionnel)
+ * @param {Object} [options]
+ * @param {string} [options.dateRecuperation] - Date ISO si les données viennent
+ *   d'être récupérées ; omise, l'âge affiché reste celui du dernier appel API
+ * @param {Object} [options.statuts] - Suivis officiels de projet
+ * @param {Object} [options.revenus] - Historique des revenus réellement versés ;
+ *   omis, celui du cache est réutilisé
+ * @param {Object} [options.capital] - Remboursements de capital ; omis, celui
+ *   du cache est réutilisé
  * @returns {Promise<Object>} Résultats des calculs
  */
-export async function finalizeProcessing(finalData, warnings = []) {
+export async function finalizeProcessing(finalData, warnings = [], options = {}) {
     logger.info(LOG_CATEGORIES.DATA_MERGE, 'Finalizing data processing', {
         entries: finalData.length
     });
@@ -89,8 +108,21 @@ export async function finalizeProcessing(finalData, warnings = []) {
         // Mettre à jour l'état global
         state.set('allData', finalData);
 
-        // Calculer les statistiques (avec warnings)
-        const results = calculateInvestmentStats(finalData, warnings);
+        const cache = loadFromLocalStorage();
+
+        // Le suivi officiel des projets prime sur la lecture des alertes
+        const statuts = options.statuts || cache?.statuts || {};
+
+        // L'état de compte Bricks prime sur les revenus estimés depuis les taux
+        const revenus = options.revenus || cache?.revenus || null;
+
+        // Le journal des mouvements dit ce qui relève du capital rendu
+        const capital = options.capital || cache?.capital || null;
+
+        const results = calculateInvestmentStats(finalData, warnings, statuts, revenus, capital);
+
+        // Le rafraîchissement des statuts a besoin de la liste des propriétés
+        state.set('lastResults', results);
 
         logger.info(LOG_CATEGORIES.CALC_STATS, 'Statistics calculated successfully', {
             totalInvestment: results.totalInvestment,
@@ -99,8 +131,11 @@ export async function finalizeProcessing(finalData, warnings = []) {
         });
 
         // Sauvegarder dans localStorage (avec warnings)
-        const saved = saveToLocalStorage(finalData, warnings);
-        if (!saved) {
+        const saved = saveToLocalStorage(finalData, warnings, options);
+
+        if (saved) {
+            afficherAgeDonnees(loadFromLocalStorage()?.savedAt || null);
+        } else {
             logger.warn(LOG_CATEGORIES.STORAGE, 'Failed to save to localStorage, but continuing');
         }
 
@@ -158,7 +193,11 @@ export async function handleConfirmDelete(projectIdsToRemove) {
     const cleanedData = removeProjectsById(dataContext, projectIdsToRemove);
 
     // Finaliser avec les données nettoyées (et les warnings)
-    return await finalizeProcessing(cleanedData, warnings);
+    return await finalizeProcessing(cleanedData, warnings, {
+        dateRecuperation: modalState.dateRecuperation,
+        revenus: modalState.revenus,
+        capital: modalState.capital
+    });
 }
 
 /**
@@ -179,5 +218,9 @@ export async function handleKeepAllItems() {
     }
 
     // Finaliser avec toutes les données (aucune suppression et les warnings)
-    return await finalizeProcessing(dataContext, warnings);
+    return await finalizeProcessing(dataContext, warnings, {
+        dateRecuperation: modalState.dateRecuperation,
+        revenus: modalState.revenus,
+        capital: modalState.capital
+    });
 }

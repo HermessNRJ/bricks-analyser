@@ -3,11 +3,12 @@
  */
 
 import { formatCurrency, formatNumber, truncate, formatMonthName, formatPercentage } from '../utils/formatters.js';
+import { afficherRevenusParAnnee } from './revenuAnnuel.js';
 import { getCurrentMonthYYYYMM, addMonthsToYYYYMM, subtractMonths } from '../utils/dateHelpers.js';
 import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { niveauRisque, NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
+import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
 
 // Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
 const TAILLE_PAGE = 24;
@@ -34,7 +35,8 @@ const LIBELLES_FILTRES = {
     warningFilter: {
         'warning-current-month': 'Alerte ce mois-ci',
         'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
-        'risk-procedure': 'En procédure', 'risk-impaye': 'Impayé ou retard',
+        'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'Impayé ou retard',
+        'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
         'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
     }
 };
@@ -63,6 +65,7 @@ export function updateUI(results) {
 
     renderMur(allProperties);
     updatePropertyList(allProperties);
+    afficherRevenusParAnnee(results);
     updateProjections(results.netRevenueEvolutionData);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');
@@ -209,9 +212,43 @@ function updateStatCards(results) {
     document.getElementById('refundedProjectsCountValue').textContent = formatNumber(results.refundedProjectsCount || 0);
     document.getElementById('fundingProjectsCountValue').textContent = formatNumber(results.fundingOrUpcomingProjectsCount || 0);
 
+    majDetailRevenus(results);
     updateRiskCards(results);
 
     logger.debug(LOG_CATEGORIES.UI, 'Stat cards updated');
+}
+
+/**
+ * Confronte les revenus attendus au dernier mois réellement encaissé
+ *
+ * La tuile affiche une espérance : chaque projet détenu est censé verser son
+ * coupon. Les échéances impayées font que le versement réel s'en écarte, et
+ * c'est précisément cet écart qu'on veut voir sans avoir à ouvrir Bricks. Le
+ * mois courant est écarté tant qu'il n'est pas terminé.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majDetailRevenus(results) {
+    const reels = results.revenusReels;
+
+    if (!reels?.mensuel) {
+        setDetail('detailRevenusMensuels', 'Estimation : les impayés y sont comptés comme versés.');
+        return;
+    }
+
+    const complets = Object.keys(reels.mensuel)
+        .sort()
+        .filter(mois => mois !== reels.moisPartiel);
+
+    const dernier = complets[complets.length - 1];
+
+    if (!dernier) {
+        setDetail('detailRevenusMensuels', 'Aucun mois complet encaissé pour le moment.');
+        return;
+    }
+
+    const percu = reels.mensuel[dernier].net;
+    setDetail('detailRevenusMensuels', `Perçu en ${formatMonthName(dernier)} : ${formatCurrency(percu)}`);
 }
 
 /**
@@ -251,26 +288,50 @@ function updateRiskCards(results) {
         return;
     }
 
-    const procedure = risque.repartition[NIVEAUX_RISQUE.PROCEDURE];
-    const impaye = risque.repartition[NIVEAUX_RISQUE.IMPAYE];
-    const sain = risque.repartition[NIVEAUX_RISQUE.SAIN];
-
     const ecrire = (id, valeur) => {
         const element = document.getElementById(id);
         if (element) element.textContent = valeur;
     };
 
-    ecrire('procedureCount', formatNumber(procedure.nombre));
-    setDetail('detailProcedure', `${formatPercentage(procedure.part)} · ${formatCurrency(procedure.capital, 0)}`);
+    // Les quatre niveaux forment une partition : afficher trois d'entre eux
+    // donnait des chiffres qui semblaient devoir s'additionner sans y arriver.
+    const niveaux = [
+        [NIVEAUX_RISQUE.PROCEDURE, 'procedureCount', 'detailProcedure'],
+        [NIVEAUX_RISQUE.IMPAYE, 'impayeCount', 'detailImpaye'],
+        [NIVEAUX_RISQUE.SIGNALE, 'signaleCount', 'detailSignale'],
+        [NIVEAUX_RISQUE.SAIN, 'sainCount', 'detailSain']
+    ];
 
-    ecrire('impayeCount', formatNumber(impaye.nombre));
-    setDetail('detailImpaye', `${formatPercentage(impaye.part)} · ${formatCurrency(impaye.capital, 0)}`);
+    niveaux.forEach(([niveau, idValeur, idDetail]) => {
+        const entree = risque.repartition[niveau];
+        ecrire(idValeur, formatNumber(entree.nombre));
+        setDetail(idDetail, `${formatPercentage(entree.part)} · ${formatCurrency(entree.capital, 0)}`);
+    });
 
-    ecrire('difficulteCapital', formatCurrency(risque.enDifficulte.capital, 0));
-    setDetail('detailDifficulte', `${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu`);
+    const resume = document.getElementById('risqueResume');
+    if (resume) {
+        const regularises = risque.defautsRegularises
+            ? ` · ${formatNumber(risque.defautsRegularises)} défauts passés, aujourd'hui régularisés`
+            : '';
 
-    ecrire('sainCount', formatNumber(sain.nombre));
-    setDetail('detailSain', `${formatPercentage(sain.part)} des détenues`);
+        resume.textContent = risque.enDifficulte.nombre > 0
+            ? `${formatCurrency(risque.enDifficulte.capital, 0)} exposés, soit ${formatPercentage(risque.enDifficulte.partCapital)} du capital détenu${regularises}`
+            : `Aucune échéance due aujourd'hui${regularises}`;
+    }
+
+    // Le total est rappelé pour que la somme des tuiles soit vérifiable d'un coup d'œil
+    const note = document.getElementById('risqueNote');
+    if (note) {
+        const source = risque.statutsConnus > 0
+            ? `d'après le suivi officiel de ${formatNumber(risque.statutsConnus)} projets`
+            : `d'après le texte des alertes`;
+
+        note.textContent = `Répartition des ${formatNumber(detenues)} propriétés détenues, ${source} :`
+            + ` chaque propriété compte dans une seule case, et les quatre totalisent ${formatNumber(detenues)}.`
+            + (risque.statutsConnus > 0
+                ? ''
+                : ` Cette lecture n'est qu'une approximation : cliquez sur « Vérifier les statuts » pour interroger la source qui fait foi.`);
+    }
 }
 
 /**
@@ -628,10 +689,16 @@ function filterProperties(properties, filterType = currentFilter, warningFilterT
         // projet soldé ne porte plus de risque, et le raccourci « Voir » doit
         // montrer exactement les fiches derrière le chiffre annoncé.
         case 'risk-procedure':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.PROCEDURE);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.PROCEDURE);
             break;
         case 'risk-impaye':
-            filtered = filtered.filter(p => !p.isRefunded && niveauRisque(p) === NIVEAUX_RISQUE.IMPAYE);
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.IMPAYE);
+            break;
+        case 'risk-signale':
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SIGNALE);
+            break;
+        case 'risk-sain':
+            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SAIN);
             break;
     }
 
@@ -808,6 +875,98 @@ export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, cou
 }
 
 /**
+ * Construit le bandeau du suivi officiel d'une propriété
+ *
+ * Échéances dues, pénalités, contentieux : ce que le texte des alertes ne dit
+ * pas toujours. Absent tant que les statuts n'ont pas été récupérés.
+ *
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML du bandeau, vide s'il n'y a rien à signaler
+ */
+function createSuiviSection(property) {
+    const suivi = property.suivi;
+
+    if (!suivi || !suivi.suivi) {
+        return '';
+    }
+
+    const faits = [];
+
+    if (suivi.contentieux) {
+        faits.push('contentieux ouvert');
+    }
+
+    if (suivi.impayees > 0) {
+        faits.push(`${suivi.impayees} échéance${suivi.impayees > 1 ? 's' : ''} due${suivi.impayees > 1 ? 's' : ''}`);
+    }
+
+    if (suivi.penalites > 0) {
+        faits.push(`${formatCurrency(suivi.penalites, 0)} de pénalités`);
+    }
+
+    if (faits.length === 0) {
+        // Un dossier existe mais plus rien n'est dû : le dire évite de laisser
+        // croire à un incident en cours.
+        faits.push('incident passé, plus rien de dû');
+    }
+
+    const grave = suivi.contentieux || suivi.impayees > 0;
+    // formatMonthName capitalise le mois : en incise, il se lit en minuscule
+    const mois = suivi.derniereEcheanceImpayee
+        ? formatMonthName(String(suivi.derniereEcheanceImpayee).slice(0, 7))
+        : '';
+    const depuis = mois
+        ? ` · dernière échéance due en ${mois.charAt(0).toLowerCase()}${mois.slice(1)}`
+        : '';
+
+    return `
+        <div class="suivi-officiel${grave ? ' est-grave' : ''}">
+            ${escapeHtml(faits.join(' · '))}${escapeHtml(depuis)}
+        </div>
+    `;
+}
+
+/**
+ * Construit le bloc des actualités officielles d'une propriété
+ *
+ * Le flux du projet est bien plus circonstancié que les alertes du
+ * portefeuille : il détaille démarches, retards et relances.
+ *
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML des actualités, vide s'il n'y en a pas
+ */
+function createActualitesSection(property) {
+    const actualites = property.suivi?.actualites;
+
+    if (!Array.isArray(actualites) || actualites.length === 0) {
+        return '';
+    }
+
+    const liste = actualites.map(a => {
+        const date = a.date ? new Date(a.date) : null;
+        const dateLisible = date && !Number.isNaN(date.getTime())
+            ? date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+            : 'Date inconnue';
+
+        return `
+            <div class="actualite-item">
+                <div class="alerte-date">${escapeHtml(dateLisible)}</div>
+                <div class="alerte-texte">${escapeHtml(a.texte)}${a.tronquee ? '…' : ''}</div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="alertes">
+            <div class="actualites-entete">
+                ${actualites.length} actualité${actualites.length > 1 ? 's' : ''} du projet
+            </div>
+            <div class="alertes-liste">${liste}</div>
+        </div>
+    `;
+}
+
+/**
  * Construit le bloc des alertes d'une propriété
  * @param {Object} property - Données de la propriété
  * @returns {string} HTML des alertes, vide s'il n'y en a pas
@@ -863,6 +1022,7 @@ function createPropertyCard(property) {
         : '';
 
     let cardClasses = 'property-card';
+    if (property.niveauRisque === NIVEAUX_RISQUE.PROCEDURE) cardClasses += ' property-en-defaut';
     if (property.isRefunded) cardClasses += ' property-refunded';
     if (property.projectStatus === 'ongoing') cardClasses += ' property-ongoing';
     if (property.projectStatus === 'upcoming') cardClasses += ' property-upcoming';
@@ -920,7 +1080,8 @@ function createPropertyCard(property) {
                     <dd>${escapeHtml(refundDateDisplay)}</dd>
                 </div>
             </dl>
-            ${createAlertesSection(property)}
+            ${createSuiviSection(property)}
+            ${createActualitesSection(property) || createAlertesSection(property)}
         </div>
     `;
 }

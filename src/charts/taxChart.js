@@ -9,22 +9,33 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
  * Met le taux courant dans le titre de la section
- * Le barème peut changer : aucun taux ne doit rester figé dans le HTML.
+ *
+ * Le barème peut changer : aucun taux ne doit rester figé dans le HTML. Et le
+ * prélèvement réellement retenu par Bricks ne tombe pas sur le taux affiché —
+ * un remboursement de capital glissé dans un coupon n'est pas imposable —, donc
+ * le taux ne s'annonce que tant qu'on en est réduit à l'estimer.
+ *
+ * @param {boolean} reel - true si les montants viennent de l'état de compte
  */
-function majTitreImpot() {
+function majTitreImpot(reel) {
     const titre = document.getElementById('titreImpot');
 
     if (titre) {
-        titre.textContent = `Impôt mensuel estimé (${formatPercentage(CONFIG.TAX_RATE * 100)})`;
+        titre.textContent = reel
+            ? 'Impôt mensuel prélevé'
+            : `Impôt mensuel estimé (${formatPercentage(CONFIG.TAX_RATE * 100)})`;
     }
 }
 
 /**
  * Crée le graphique d'évolution des taxes
  * @param {Object} taxData - Données de taxes { 'YYYY-MM': montant }
+ * @param {Object} [options]
+ * @param {boolean} [options.reel] - true si les montants viennent de l'état de
+ *   compte Bricks, false s'ils sont estimés depuis les taux affichés
  */
-export function createTaxChart(taxData) {
-    majTitreImpot();
+export function createTaxChart(taxData, { reel = false } = {}) {
+    majTitreImpot(reel);
 
     const ctx = document.getElementById('taxAmountChart')?.getContext('2d');
     if (!ctx) {
@@ -59,7 +70,9 @@ export function createTaxChart(taxData) {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: `Montant de l'impôt (est. ${formatPercentage(CONFIG.TAX_RATE * 100)})`,
+                    label: reel
+                        ? 'Prélèvement retenu par Bricks (€)'
+                        : `Montant de l'impôt (est. ${formatPercentage(CONFIG.TAX_RATE * 100)})`,
                     data: data,
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                     borderColor: 'rgba(255, 99, 132, 1)',
