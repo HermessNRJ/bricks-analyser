@@ -21,7 +21,7 @@ describe('saveToLocalStorage', () => {
 
         expect(saveToLocalStorage(data, warnings)).toBe(true);
         expect(JSON.parse(localStorage.getItem(KEY)))
-            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {} });
+            .toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null });
     });
 
     it('accepte un appel sans warnings', () => {
@@ -56,7 +56,7 @@ describe('loadFromLocalStorage', () => {
         const warnings = [{ propertyId: 'a' }];
         saveToLocalStorage(data, warnings);
 
-        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {} });
+        expect(loadFromLocalStorage()).toEqual({ data, warnings, savedAt: expect.any(String), statuts: {}, revenus: null });
     });
 
     it('migre l\'ancien format (tableau nu)', () => {
@@ -65,14 +65,14 @@ describe('loadFromLocalStorage', () => {
 
         // L'ancien format est un tableau nu : aucune date n'y figure
         expect(loadFromLocalStorage())
-            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {} });
+            .toEqual({ data: legacy, warnings: [], savedAt: null, statuts: {}, revenus: null });
     });
 
     it('complète les warnings absents du nouveau format', () => {
         localStorage.setItem(KEY, JSON.stringify({ data: [] }));
 
         expect(loadFromLocalStorage())
-            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {} });
+            .toEqual({ data: [], warnings: [], savedAt: null, statuts: {}, revenus: null });
     });
 
     it('purge un JSON corrompu', () => {
@@ -161,5 +161,36 @@ describe('saveToLocalStorage — suivis officiels de projet', () => {
         saveToLocalStorage([], [], { statuts: { p2: { suivi: true } } });
 
         expect(loadFromLocalStorage().statuts).toEqual({ p2: { suivi: true } });
+    });
+});
+
+describe('persistance de l\'historique des revenus', () => {
+    it('enregistre et relit l\'état de compte', () => {
+        const revenus = {
+            mensuel: { '2026-07': { brut: 60.17, net: 44.76, impot: 15.41 } },
+            premierMois: '2026-07',
+            dernierMois: '2026-07',
+            total: { brut: 60.17, net: 44.76, impot: 15.41 }
+        };
+
+        saveToLocalStorage([], [], { revenus });
+
+        expect(loadFromLocalStorage().revenus).toEqual(revenus);
+    });
+
+    it('conserve l\'historique quand la sauvegarde ne le fournit pas', () => {
+        const revenus = {
+            mensuel: { '2026-07': { net: 44.76 } },
+            premierMois: '2026-07',
+            dernierMois: '2026-07',
+            total: { brut: 60.17, net: 44.76, impot: 15.41 }
+        };
+
+        saveToLocalStorage([], [], { revenus });
+        // Un rechargement de page réécrit le cache sans repasser par l'API :
+        // l'historique ne doit pas disparaître à cette occasion.
+        saveToLocalStorage([{ yearMonthDate: '2026-07', projects: [] }], []);
+
+        expect(loadFromLocalStorage().revenus.total.net).toBe(44.76);
     });
 });

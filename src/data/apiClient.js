@@ -4,6 +4,8 @@
 
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
+import { normaliserHistoriqueRevenus } from '../business/revenueHistory.js';
 
 /**
  * Nom du cookie de session posé par better-auth après le SSO Google
@@ -143,6 +145,45 @@ export async function fetchWarnings(session) {
     } catch {
         // Erreur déjà loguée par requestJSON : on ne bloque pas l'application
         return [];
+    }
+}
+
+/**
+ * Récupère l'historique des revenus réellement versés
+ *
+ * C'est l'état de compte de Bricks : ce qui a été encaissé mois par mois, avec
+ * le prélèvement effectivement retenu. Il remplace l'estimation déduite des
+ * taux affichés, qui compte les échéances impayées comme si elles avaient été
+ * versées.
+ *
+ * Ne rejette jamais : sans historique l'application retombe sur l'estimation,
+ * ce qui vaut mieux qu'un écran vide.
+ *
+ * @param {string} session - En-tête Cookie contenant la session Bricks
+ * @param {Object} [options]
+ * @param {string} [options.debut] - Premier mois demandé (YYYY-MM)
+ * @param {string} [options.fin] - Dernier mois demandé (YYYY-MM)
+ * @returns {Promise<Object|null>} Historique normalisé, null en cas d'échec
+ */
+export async function fetchHistoriqueRevenus(session, { debut, fin } = {}) {
+    const startDate = debut || CONFIG.REVENUE_HISTORY_START;
+    const endDate = fin || getCurrentMonthYYYYMM();
+
+    try {
+        const data = await requestJSON(
+            `${CONFIG.API_ENDPOINTS.REVENUE}?startDate=${startDate}&endDate=${endDate}`,
+            session,
+            {
+                label: 'revenue history',
+                context: 'récupération historique des revenus'
+            }
+        );
+
+        return normaliserHistoriqueRevenus(data);
+
+    } catch {
+        // Erreur déjà loguée par requestJSON : on ne bloque pas l'application
+        return null;
     }
 }
 

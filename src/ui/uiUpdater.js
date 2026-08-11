@@ -210,9 +210,43 @@ function updateStatCards(results) {
     document.getElementById('refundedProjectsCountValue').textContent = formatNumber(results.refundedProjectsCount || 0);
     document.getElementById('fundingProjectsCountValue').textContent = formatNumber(results.fundingOrUpcomingProjectsCount || 0);
 
+    majDetailRevenus(results);
     updateRiskCards(results);
 
     logger.debug(LOG_CATEGORIES.UI, 'Stat cards updated');
+}
+
+/**
+ * Confronte les revenus attendus au dernier mois réellement encaissé
+ *
+ * La tuile affiche une espérance : chaque projet détenu est censé verser son
+ * coupon. Les échéances impayées font que le versement réel s'en écarte, et
+ * c'est précisément cet écart qu'on veut voir sans avoir à ouvrir Bricks. Le
+ * mois courant est écarté tant qu'il n'est pas terminé.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majDetailRevenus(results) {
+    const reels = results.revenusReels;
+
+    if (!reels?.mensuel) {
+        setDetail('detailRevenusMensuels', 'Estimation : les impayés y sont comptés comme versés.');
+        return;
+    }
+
+    const complets = Object.keys(reels.mensuel)
+        .sort()
+        .filter(mois => mois !== reels.moisPartiel);
+
+    const dernier = complets[complets.length - 1];
+
+    if (!dernier) {
+        setDetail('detailRevenusMensuels', 'Aucun mois complet encaissé pour le moment.');
+        return;
+    }
+
+    const percu = reels.mensuel[dernier].net;
+    setDetail('detailRevenusMensuels', `Perçu en ${formatMonthName(dernier)} : ${formatCurrency(percu)}`);
 }
 
 /**

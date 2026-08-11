@@ -46,10 +46,15 @@ export function createCharts(results) {
 
     applyChartTheme();
 
+    // L'état de compte Bricks fait foi quand on l'a : la série estimée depuis
+    // les taux affichés ne sert plus que de repli.
+    const reels = results.revenusReels;
+    const optionsRevenus = { reel: Boolean(reels), moisPartiel: reels?.moisPartiel || null };
+
     createInvestmentChart(results.investmentEvolution);
     createDistributionChart(results.properties);
-    createRevenueChart(results.netRevenueEvolutionData);
-    createTaxChart(results.taxAmountEvolutionData);
+    createRevenueChart(reels?.net || results.netRevenueEvolutionData, optionsRevenus);
+    createTaxChart(reels?.impot || results.taxAmountEvolutionData, optionsRevenus);
     createTreemapChart(results.properties);
 
     logger.info(LOG_CATEGORIES.CHART, 'All charts created successfully');

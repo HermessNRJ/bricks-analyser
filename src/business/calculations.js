@@ -7,6 +7,7 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
 import { repartitionRisque, niveauRisque } from './riskAnalysis.js';
+import { serieMensuelle } from './revenueHistory.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -52,9 +53,10 @@ function resolveFirstSeenMonth(knownMonth, candidateMonth) {
  * @param {Array} data - Données mensuelles des projets
  * @param {Array} warnings - Liste des warnings (optionnel)
  * @param {Object} [statuts] - Suivis officiels de projet, indexés par identifiant
+ * @param {Object} [revenus] - Historique des revenus réellement versés (optionnel)
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data, warnings = [], statuts = {}) {
+export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -323,6 +325,38 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}) {
     );
 
     // ========================================================================
+    // REVENUS RÉELLEMENT PERÇUS
+    // ========================================================================
+    // Les séries ci-dessus restent des ESPÉRANCES : elles supposent que chaque
+    // projet détenu verse son coupon au taux affiché. Quand Bricks nous donne
+    // son état de compte, c'est lui qui fait foi pour le passé — l'estimation
+    // ne sert plus qu'aux mois à venir, où rien n'a encore été versé.
+    const historiqueDisponible = Boolean(revenus?.mensuel && Object.keys(revenus.mensuel).length > 0);
+
+    const revenusReels = historiqueDisponible
+        ? {
+            mensuel: revenus.mensuel,
+            premierMois: revenus.premierMois,
+            dernierMois: revenus.dernierMois,
+            total: revenus.total,
+            net: serieMensuelle(revenus, 'net'),
+            brut: serieMensuelle(revenus, 'brut'),
+            impot: serieMensuelle(revenus, 'impot'),
+            // Le mois courant n'est pas terminé : son montant n'est pas comparable
+            // aux précédents et doit être signalé comme tel à l'écran.
+            moisPartiel: revenus.dernierMois === getCurrentMonthYYYYMM() ? revenus.dernierMois : null
+        }
+        : null;
+
+    if (historiqueDisponible) {
+        logger.info(LOG_CATEGORIES.CALC_STATS, 'Using Bricks statement for realised revenue', {
+            months: Object.keys(revenus.mensuel).length,
+            netEstime: totalNetRevenueSinceBeginning,
+            netReel: revenus.total.net
+        });
+    }
+
+    // ========================================================================
     // RETOUR DES RÉSULTATS
     // ========================================================================
     // Les pourcentages se rapportent aux propriétés encore détenues : un projet
@@ -346,8 +380,16 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}) {
         netRevenueEvolutionData,
         grossRevenueEvolutionData,
         taxAmountEvolutionData,
-        totalNetRevenueSinceBeginning,
-        totalTaxesSinceBeginning,
+        revenusReels,
+        // « Perçu » et « payé » se lisent sur l'état de compte quand on l'a ;
+        // l'estimation ne prend le relais que faute de mieux.
+        totalNetRevenueSinceBeginning: historiqueDisponible
+            ? revenus.total.net
+            : totalNetRevenueSinceBeginning,
+        totalTaxesSinceBeginning: historiqueDisponible
+            ? revenus.total.impot
+            : totalTaxesSinceBeginning,
+        totalNetRevenueEstime: totalNetRevenueSinceBeginning,
         refundedProjectsCount,
         activePropertiesCount,
         fundingOrUpcomingProjectsCount

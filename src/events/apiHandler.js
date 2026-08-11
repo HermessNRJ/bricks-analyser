@@ -2,7 +2,7 @@
  * Gestionnaire de récupération des données via API
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
+import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
@@ -72,8 +72,21 @@ export function setupAPIHandler() {
                 propertyIds: warningsData.map(w => w.propertyId)
             });
 
+            // L'état de compte dit ce qui a RÉELLEMENT été versé : sans lui on
+            // retombe sur l'estimation, qui compte les impayés comme encaissés.
+            const revenus = await fetchHistoriqueRevenus(session);
+
+            if (revenus) {
+                logger.info(LOG_CATEGORIES.EVENT, 'Revenue history retrieved', {
+                    months: Object.keys(revenus.mensuel).length,
+                    netTotal: revenus.total.net
+                });
+            } else {
+                logger.warn(LOG_CATEGORIES.EVENT, 'Revenue history unavailable, falling back to estimate');
+            }
+
             // Traiter les données avec les warnings
-            await processData(combinedData, warningsData);
+            await processData(combinedData, warningsData, { revenus });
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';

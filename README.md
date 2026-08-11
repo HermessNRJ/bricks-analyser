@@ -8,19 +8,24 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 
 *   **Chargement via API:**
     *   Récupérez vos données en temps réel depuis l'API Bricks.co, avec votre cookie de session.
-    *   Collecte automatique des projets financés, en cours de financement, à venir et des warnings (highlighted updates).
+    *   Collecte automatique des projets financés, en cours de financement, à venir, des warnings (highlighted updates) et de l'**état de compte** (`/investor/portfolio/revenue`), qui dit ce qui a réellement été versé mois par mois.
 
 *   **Tableau de Bord Complet:**
-    *   **Statistiques Clés:** Investissement total, revenus mensuels nets espérés, nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
-    *   **Cumulatifs:** Total des revenus nets perçus et total des impôts estimés depuis le début, chaque mois étant taxé au taux qui avait cours à l'époque (30 % jusqu'en décembre 2025, 31,4 % ensuite).
+    *   **Statistiques Clés:** Investissement total, revenus mensuels nets attendus (avec, en regard, ce qui a réellement été perçu le dernier mois complet), nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
+    *   **Cumulatifs:** Net perçu et prélèvement retenu depuis le début, lus sur l'état de compte Bricks.
+
+*   **Attendu et perçu:** deux chiffres différents, à ne pas confondre.
+    *   L'**attendu** se déduit des taux affichés : chaque projet détenu est supposé verser son coupon. C'est une espérance, utile pour les mois à venir.
+    *   Le **perçu** vient de l'état de compte. Il en diffère pour de bonnes raisons : les échéances impayées n'y figurent pas, les projets remboursés y ont laissé leur historique, le parrainage et le solde boosté s'y ajoutent, et le prélèvement réellement retenu n'est pas le taux forfaitaire — un remboursement de capital glissé dans un coupon n'étant pas imposable.
+    *   Faute d'état de compte (import de fichier, cache d'une version antérieure), l'application retombe sur l'estimation et le dit à l'écran.
     *   **Suivi des incidents:** Répartition des propriétés détenues entre défaut avec échéances dues, impayé, suivi à jour et sans signalement, avec le capital exposé. Les niveaux proviennent du **suivi officiel de chaque projet** (`projects.bricks.co`), qui porte le statut déclaré et le décompte des échéances impayées ; à défaut, ils retombent sur une lecture du texte des alertes, nettement moins fiable. Cliquer sur une tuile filtre le registre sur les fiches concernées.
 
 *   **Visualisations Graphiques:**
     *   **Évolution de l'Investissement:** Suivez la croissance de votre investissement total au fil du temps.
     *   **Répartition par Propriété:** Visualisez la distribution de votre investissement entre les différentes propriétés (graphique en donut interactif).
     *   **Treemap du Portefeuille:** Vue d'ensemble de vos propriétés actives avec taille proportionnelle à l'investissement et couleur basée sur le rendement annuel (gradient continu de rouge à vert).
-    *   **Évolution des Revenus Mensuels Nets:** Observez la progression de vos revenus nets mensuels attendus.
-    *   **Montant de l'Impôt Mensuel:** Suivez l'estimation de la flat tax sur vos revenus bruts mensuels.
+    *   **Évolution des Revenus Mensuels Nets:** Ce qui a réellement été encaissé, mois par mois. Le mois en cours, forcément incomplet, est tracé en pointillé avec un point creux.
+    *   **Montant de l'Impôt Mensuel:** Le prélèvement effectivement retenu par Bricks. À défaut d'état de compte, l'estimation au taux en vigueur (30 % jusqu'en décembre 2025, 31,4 % ensuite, chaque mois au taux de son époque).
     *   **Le mur:** Une brique par propriété, largeur proportionnelle à l'investissement et couleur selon le statut. Cliquer sur une brique amène à la fiche correspondante.
 
 *   **Projections de Revenus:**
@@ -232,6 +237,7 @@ src/
 ├── business/         # Logique métier
 │   ├── calculations.js      # Calculs financiers et statistiques
 │   ├── dataProcessor.js     # Fusion et traitement des données
+│   ├── revenueHistory.js    # État de compte : revenus réellement versés
 │   └── processor.js         # Orchestration du traitement
 ├── charts/           # Gestion des graphiques
 │   ├── chartManager.js      # Gestionnaire principal
