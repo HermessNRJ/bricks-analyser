@@ -336,6 +336,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     const revenusReels = historiqueDisponible
         ? {
             mensuel: revenus.mensuel,
+            parAnnee: revenus.parAnnee || {},
             premierMois: revenus.premierMois,
             dernierMois: revenus.dernierMois,
             total: revenus.total,

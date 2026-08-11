@@ -115,6 +115,7 @@ export function normaliserHistoriqueRevenus(payload) {
 
     return {
         mensuel,
+        parAnnee: grouperParAnnee(mensuel),
         premierMois: mois[0],
         dernierMois: mois[mois.length - 1],
         total: {
@@ -123,6 +124,48 @@ export function normaliserHistoriqueRevenus(payload) {
             impot: enEuros(impotCentimes)
         }
     };
+}
+
+/**
+ * Regroupe les revenus par année civile
+ *
+ * L'impôt se déclare par année, pas par mois. La ventilation distingue ce sur
+ * quoi Bricks a déjà prélevé — les coupons — de ce qu'il verse brut : le
+ * parrainage et le solde boosté ne subissent aucune retenue à la source.
+ * Vérifié sur l'ensemble de l'historique : mois après mois, le prélèvement
+ * retenu s'applique aux seuls coupons, et `taxedTotal` vaut exactement
+ * `coupons − prélèvement + parrainage + solde boosté`.
+ *
+ * @param {Object} mensuel - Revenus par mois, en euros
+ * @returns {Object} Années décroissantes { 2026: { coupons, impot, ... } }
+ */
+function grouperParAnnee(mensuel) {
+    const annees = {};
+
+    Object.keys(mensuel).sort().forEach(mois => {
+        const annee = mois.slice(0, 4);
+        const m = mensuel[mois];
+
+        const cumul = annees[annee] ||= {
+            brut: 0, net: 0, impot: 0, coupons: 0, parrainage: 0, boost: 0
+        };
+
+        cumul.brut += m.brut;
+        cumul.net += m.net;
+        cumul.impot += m.impot;
+        cumul.coupons += m.coupons;
+        cumul.parrainage += m.parrainage;
+        cumul.boost += m.boost;
+    });
+
+    // Les flottants cumulés dérivent : on rétablit le centime
+    Object.values(annees).forEach(cumul => {
+        Object.keys(cumul).forEach(champ => {
+            cumul[champ] = Math.round(cumul[champ] * 100) / 100;
+        });
+    });
+
+    return annees;
 }
 
 /**

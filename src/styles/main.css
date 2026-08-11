@@ -1382,3 +1382,77 @@ select:hover {
         scroll-behavior: auto !important;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Revenus par année
+   Un tableau plutôt que des tuiles : on y lit des colonnes comparables entre
+   elles, année après année, ce qu'une grille de cartes ne permet pas.
+   --------------------------------------------------------------------------- */
+
+.revenus-annuels {
+    background: #ffffff;
+    border: 1px solid #e4e9ed;
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 28px;
+}
+
+.revenus-annuels h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+}
+
+/* Les petits écrans font défiler le tableau sans étirer la page */
+.tableau-defilant {
+    overflow-x: auto;
+    margin: 14px 0 10px;
+}
+
+.tableau-revenus {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tableau-revenus th,
+.tableau-revenus td {
+    padding: 9px 14px;
+    text-align: right;
+    border-bottom: 1px solid #eef1f4;
+}
+
+.tableau-revenus thead th {
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5c6b77;
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+.tableau-revenus tbody th {
+    text-align: left;
+    font-weight: 600;
+}
+
+.entete-note {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+    color: #8a94a6;
+}
+
+/* Le versé sans retenue est ce qui reste à déclarer : il se distingue */
+.tableau-revenus .colonne-brute {
+    background: #fbf7ee;
+}
+
+.tableau-revenus .ligne-total th,
+.tableau-revenus .ligne-total td {
+    border-top: 2px solid #e4e9ed;
+    border-bottom: none;
+    font-weight: 600;
+}

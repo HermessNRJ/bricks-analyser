@@ -29,6 +29,11 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   **Montant de l'Impôt Mensuel:** Le prélèvement effectivement retenu par Bricks. À défaut d'état de compte, l'estimation au taux en vigueur (30 % jusqu'en décembre 2025, 31,4 % ensuite, chaque mois au taux de son époque).
     *   **Le mur:** Une brique par propriété, largeur proportionnelle à l'investissement et couleur selon le statut. Cliquer sur une brique amène à la fiche correspondante.
 
+*   **Revenus par année:**
+    *   Ventilation par année civile : coupons versés, prélèvement retenu, parrainage et solde boosté.
+    *   Bricks ne prélève **que sur les coupons**. Le parrainage et le solde boosté — ces centimes crédités jour après jour — arrivent bruts, sans retenue à la source, et restent donc à déclarer. Vérifié sur tout l'historique : mois après mois, `taxedTotal` vaut exactement `coupons − prélèvement + parrainage + solde boosté`.
+    *   La colonne des coupons mêle intérêts et remboursements de capital, d'où un prélèvement effectif inférieur au barème (22 % en 2024, 25 % en 2026 pour un barème à 30 puis 31,4 %). Elle ne vaut donc pas montant imposable : l'IFU transmis par Bricks reste la référence.
+
 *   **Projections de Revenus:**
     *   Affiche les revenus mensuels nets estimés jusqu'au dernier mois où le montant change réellement — répéter un montant identique n'apprend rien.
 

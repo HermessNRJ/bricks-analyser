@@ -149,6 +149,28 @@
 
             <p class="note note-partition" id="risqueNote"></p>
 
+            <!-- Bricks prélève sur les coupons, pas sur le parrainage ni sur le
+                 solde boosté : ces deux-là arrivent bruts et restent à déclarer. -->
+            <section class="revenus-annuels hidden" id="revenusAnnuels" aria-labelledby="titreRevenusAnnuels">
+                <h3 id="titreRevenusAnnuels">Revenus par année</h3>
+                <p class="note" id="revenusAnnuelsResume"></p>
+                <div class="tableau-defilant">
+                    <table class="tableau-revenus">
+                        <thead>
+                            <tr>
+                                <th scope="col">Année</th>
+                                <th scope="col">Coupons versés</th>
+                                <th scope="col">Prélèvement retenu</th>
+                                <th scope="col" class="colonne-brute">Parrainage <span class="entete-note">brut</span></th>
+                                <th scope="col" class="colonne-brute">Solde boosté <span class="entete-note">brut</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="revenusAnnuelsCorps"></tbody>
+                    </table>
+                </div>
+                <p class="note">Les deux dernières colonnes n'ont subi aucune retenue à la source : Bricks les verse bruts. La colonne des coupons mêle intérêts et remboursements de capital — d'où un prélèvement effectif inférieur au barème — et ne vaut donc pas montant imposable. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
+            </section>
+
             <section class="projections-section" aria-labelledby="titreProjections">
                 <h3 id="titreProjections">Prochains versements</h3>
                 <div id="projectedRevenuesDisplay"></div>

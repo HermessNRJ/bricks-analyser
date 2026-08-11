@@ -3,6 +3,7 @@
  */
 
 import { formatCurrency, formatNumber, truncate, formatMonthName, formatPercentage } from '../utils/formatters.js';
+import { afficherRevenusParAnnee } from './revenuAnnuel.js';
 import { getCurrentMonthYYYYMM, addMonthsToYYYYMM, subtractMonths } from '../utils/dateHelpers.js';
 import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
 import { CONFIG } from '../core/config.js';
@@ -64,6 +65,7 @@ export function updateUI(results) {
 
     renderMur(allProperties);
     updatePropertyList(allProperties);
+    afficherRevenusParAnnee(results);
     updateProjections(results.netRevenueEvolutionData);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');

@@ -121,6 +121,62 @@ describe('normaliserHistoriqueRevenus', () => {
     });
 });
 
+describe('ventilation par année', () => {
+    it('regroupe les mois par année civile', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+
+        expect(Object.keys(historique.parAnnee)).toEqual(['2026']);
+        expect(historique.parAnnee['2026']).toEqual({
+            brut: 111.08,
+            net: 81.11,
+            impot: 29.97,
+            coupons: 110.77,
+            parrainage: 0,
+            boost: 0.31
+        });
+    });
+
+    it('sépare les années sans les mélanger', () => {
+        const historique = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [
+                { year: 2024, month: 11, untaxedTotal: 1000, taxedTotal: 800,
+                  revenues: { referrals: { total: 100 }, obligationCoupons: { untaxedTotal: 900 },
+                              withholdingTax: { total: -200 } } },
+                { year: 2025, month: 0, untaxedTotal: 500, taxedTotal: 420,
+                  revenues: { boostedBalanceGain: { total: 20 }, obligationCoupons: { untaxedTotal: 480 },
+                              withholdingTax: { total: -80 } } }
+            ]
+        });
+
+        expect(historique.parAnnee['2024'].parrainage).toBe(1);
+        expect(historique.parAnnee['2024'].boost).toBe(0);
+        expect(historique.parAnnee['2025'].boost).toBe(0.2);
+        expect(historique.parAnnee['2025'].parrainage).toBe(0);
+    });
+
+    it('boucle : coupons moins prélèvement, plus le versé brut, vaut le net', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+
+        Object.values(historique.parAnnee).forEach(annee => {
+            const attendu = annee.coupons - annee.impot + annee.parrainage + annee.boost;
+            expect(attendu).toBeCloseTo(annee.net, 2);
+        });
+    });
+
+    it('rétablit le centime malgré le cumul de flottants', () => {
+        const historique = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: Array.from({ length: 12 }, (_, month) => ({
+                year: 2025, month, untaxedTotal: 10, taxedTotal: 7,
+                revenues: { boostedBalanceGain: { total: 1 }, obligationCoupons: { untaxedTotal: 9 },
+                            withholdingTax: { total: -3 } }
+            }))
+        });
+
+        expect(historique.parAnnee['2025'].boost).toBe(0.12);
+        expect(historique.parAnnee['2025'].brut).toBe(1.2);
+    });
+});
+
 describe('serieMensuelle', () => {
     it('projette un champ en série datée et triée', () => {
         const historique = normaliserHistoriqueRevenus(RELEVE);
@@ -158,6 +214,14 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         expect(resultats.totalNetRevenueSinceBeginning).toBeCloseTo(historique.total.net, 2);
         expect(resultats.totalTaxesSinceBeginning).toBeCloseTo(historique.total.impot, 2);
         expect(resultats.revenusReels.net['2026-07']).toBe(44.76);
+    });
+
+    it('transmet la ventilation annuelle jusqu\'à l\'écran', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
+
+        expect(resultats.revenusReels.parAnnee).toEqual(historique.parAnnee);
+        expect(resultats.revenusReels.parAnnee['2026'].boost).toBe(0.31);
     });
 
     it('conserve l\'estimation à part, pour comparaison', () => {
