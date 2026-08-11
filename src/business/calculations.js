@@ -344,7 +344,8 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
             impot: serieMensuelle(revenus, 'impot'),
             // Le mois courant n'est pas terminé : son montant n'est pas comparable
             // aux précédents et doit être signalé comme tel à l'écran.
-            moisPartiel: revenus.dernierMois === getCurrentMonthYYYYMM() ? revenus.dernierMois : null
+            moisPartiel: revenus.dernierMois === getCurrentMonthYYYYMM() ? revenus.dernierMois : null,
+            ...serieAttendue(revenus, netRevenueEvolutionData)
         }
         : null;
 
@@ -393,6 +394,69 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         refundedProjectsCount,
         activePropertiesCount,
         fundingOrUpcomingProjectsCount
+    };
+}
+
+/**
+ * Nombre de mois sur lesquels le perçu est confronté à l'attendu
+ *
+ * La confrontation ne vaut que sur une fenêtre récente. L'attendu se calcule
+ * sur les projets ENCORE détenus : plus on remonte, plus il manque de projets
+ * remboursés depuis, qui versaient pourtant à l'époque. En décembre 2024 il
+ * annonçait 13,59 € contre 36,41 € réellement perçus — l'attendu passait sous
+ * le perçu, ce qui se lit à l'envers de la vérité. Un an en arrière, l'écart
+ * dû aux remboursements reste de l'ordre de quelques euros ; au-delà il
+ * dépasse celui qu'on cherche à montrer.
+ */
+const MOIS_COMPARAISON = 12;
+
+/**
+ * Confronte le perçu à ce que le portefeuille aurait dû verser
+ *
+ * Reconstruire l'attendu sur tout l'historique a été tenté et écarté : rendre
+ * aux projets remboursés leur mise (10 € la brique) sur leur horizon annoncé
+ * recolle bien en 2024, mais dérive de 14 € en 2026, les remboursements
+ * arrivant plus tôt que l'horizon. Faute de date de remboursement réelle, la
+ * fenêtre récente reste le seul terrain sûr.
+ *
+ * @param {Object} revenus - Historique normalisé des revenus perçus
+ * @param {Object} netRevenueEvolutionData - Série nette attendue, par mois
+ * @returns {Object} { attendu, debutComparaison, ecart }
+ * @private
+ */
+function serieAttendue(revenus, netRevenueEvolutionData) {
+    const moisPerçus = Object.keys(revenus.mensuel).sort();
+    const fenetre = moisPerçus.slice(-MOIS_COMPARAISON);
+    const attendu = {};
+
+    fenetre.forEach(mois => {
+        const valeur = netRevenueEvolutionData?.[mois];
+
+        if (typeof valeur === 'number') {
+            attendu[mois] = valeur;
+        }
+    });
+
+    const moisAttendus = Object.keys(attendu).sort();
+
+    // L'écart se lit sur le dernier mois RÉVOLU : un mois entamé manque
+    // simplement de versements encore à venir, et son écart ne veut rien dire.
+    const moisCourant = getCurrentMonthYYYYMM();
+    const dernierComplet = moisAttendus.filter(mois => mois !== moisCourant).pop() || null;
+
+    const ecart = dernierComplet
+        ? {
+            mois: dernierComplet,
+            percu: revenus.mensuel[dernierComplet].net,
+            attendu: attendu[dernierComplet],
+            manque: attendu[dernierComplet] - revenus.mensuel[dernierComplet].net
+        }
+        : null;
+
+    return {
+        attendu,
+        debutComparaison: moisAttendus[0] || null,
+        ecart
     };
 }
 

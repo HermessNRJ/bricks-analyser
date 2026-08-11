@@ -53,7 +53,11 @@ export function createCharts(results) {
 
     createInvestmentChart(results.investmentEvolution);
     createDistributionChart(results.properties);
-    createRevenueChart(reels?.net || results.netRevenueEvolutionData, optionsRevenus);
+    createRevenueChart(reels?.net || results.netRevenueEvolutionData, {
+        ...optionsRevenus,
+        attendu: reels?.attendu || null,
+        ecart: reels?.ecart || null
+    });
     createTaxChart(reels?.impot || results.taxAmountEvolutionData, optionsRevenus);
     createTreemapChart(results.properties);
 

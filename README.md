@@ -24,7 +24,8 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   **Évolution de l'Investissement:** Suivez la croissance de votre investissement total au fil du temps.
     *   **Répartition par Propriété:** Visualisez la distribution de votre investissement entre les différentes propriétés (graphique en donut interactif).
     *   **Treemap du Portefeuille:** Vue d'ensemble de vos propriétés actives avec taille proportionnelle à l'investissement et couleur basée sur le rendement annuel (gradient continu de rouge à vert).
-    *   **Évolution des Revenus Mensuels Nets:** Ce qui a réellement été encaissé, mois par mois. Le mois en cours, forcément incomplet, est tracé en pointillé avec un point creux.
+    *   **Évolution des Revenus Mensuels Nets:** Deux courbes. En trait plein, ce qui a réellement été encaissé, mois par mois. En pointillé, ce que le portefeuille aurait dû verser au taux affiché — l'écart entre les deux, c'est le manque à gagner, chiffré au survol et sous le graphique. Le mois en cours, forcément incomplet, est tracé avec un point creux.
+        *   La comparaison ne couvre que les **douze derniers mois**. Plus tôt, l'attendu sous-estimerait : il se calcule sur les projets encore détenus, et ceux remboursés depuis n'y figurent plus alors qu'ils versaient à l'époque. En décembre 2024 il annonçait 13,59 € contre 36,41 € réellement perçus, soit une comparaison qui se lit à l'envers de la vérité.
     *   **Montant de l'Impôt Mensuel:** Le prélèvement effectivement retenu par Bricks. À défaut d'état de compte, l'estimation au taux en vigueur (30 % jusqu'en décembre 2025, 31,4 % ensuite, chaque mois au taux de son époque).
     *   **Le mur:** Une brique par propriété, largeur proportionnelle à l'investissement et couleur selon le statut. Cliquer sur une brique amène à la fiche correspondante.
 

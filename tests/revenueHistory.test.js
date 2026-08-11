@@ -197,6 +197,44 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         expect(resultats.revenusReels.moisPartiel).toBe(moisCourant);
     });
 
+    it('ne confronte l\'attendu que sur les douze derniers mois', () => {
+        // Quinze mois d'historique : la confrontation ne doit en retenir que douze,
+        // au-delà l'attendu sous-estime faute des projets remboursés depuis.
+        const mois = Array.from({ length: 15 }, (_, i) => ({
+            year: 2025, month: i - 3, untaxedTotal: 1000, taxedTotal: 686,
+            revenues: { withholdingTax: { total: -314 } }
+        })).map(m => m.month < 0
+            ? { ...m, year: 2024, month: m.month + 12 }
+            : m);
+
+        const historique = normaliserHistoriqueRevenus({ revenuesByYearAndMonth: mois });
+        const anciens = [{
+            yearMonthDate: '2024-10',
+            projects: [{
+                id: 'p1', name: { fr: 'Projet témoin' }, ownedBricks: 10, brickPrice: 1000,
+                yearlyTotalRentabilityPercentage: 10, funding: { revenueStartDate: '2024-10' }
+            }]
+        }];
+
+        const resultats = calculateInvestmentStats(anciens, [], {}, historique);
+
+        expect(Object.keys(resultats.revenusReels.attendu)).toHaveLength(12);
+        expect(resultats.revenusReels.debutComparaison).toBe('2025-01');
+        expect(resultats.revenusReels.mensuel['2024-10']).toBeDefined();
+        expect(resultats.revenusReels.attendu['2024-10']).toBeUndefined();
+    });
+
+    it('chiffre le manque à gagner sur le dernier mois révolu', () => {
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
+        const ecart = resultats.revenusReels.ecart;
+
+        // Août est le mois courant : l'écart doit porter sur juillet
+        expect(ecart.mois).toBe('2026-07');
+        expect(ecart.percu).toBe(44.76);
+        expect(ecart.manque).toBeCloseTo(ecart.attendu - ecart.percu, 6);
+    });
+
     it('ne signale rien quand l\'historique s\'arrête à un mois révolu', () => {
         const revolu = normaliserHistoriqueRevenus({
             revenuesByYearAndMonth: [{
