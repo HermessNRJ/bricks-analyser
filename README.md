@@ -1,10 +1,13 @@
-# Analyseur d'Investissements Bricks.co
+# Analyseur d'investissements Bricks.co
 
-## Description
+Tableau de bord local pour lire son portefeuille [Bricks.co](https://app.bricks.co) : ce
+qui est investi, ce qui a réellement été versé, ce qui manque à l'appel, et ce que ça
+donnerait sous d'autres hypothèses. Les données sont récupérées depuis l'API Bricks et ne
+quittent pas votre machine.
 
-Cet outil est un tableau de bord permettant d'analyser et de visualiser vos données d'investissement immobilier provenant de la plateforme Bricks.co. Il offre une vue d'ensemble de vos actifs, revenus, projections futures, warnings et plus encore, en récupérant vos données directement depuis l'API Bricks.co.
+## Démarrer
 
-## Fonctionnalités Principales
+### 1. Lancer l'application
 
 *   **Chargement via API:**
     *   Récupérez vos données en temps réel depuis l'API Bricks.co, avec votre cookie de session.
@@ -196,54 +199,16 @@ jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres
 pastilles de versement et le non-exécution du HTML venant de l'API.
 
 ```bash
-npx playwright install chromium   # une seule fois
-npm run serve                     # dans un autre terminal (port 8099)
-npm run test:e2e
+docker-compose up -d --build
 ```
 
-Chaque poussée et chaque pull request déclenchent la CI (`.github/workflows/tests.yml`) :
-tests unitaires sur la borne basse de `engines` et sur node 22 courant, plus un
-`npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc là,
-et non sur la machine de quelqu'un après la fusion.
+L'application répond sur <http://localhost:8080>. Le `--build` est nécessaire à chaque
+modification de `nginx.conf`, qui est copié dans l'image.
 
-Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:8099`),
-`CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
+### 2. Récupérer sa session Bricks
 
-Ce qui n'est pas couvert par les tests automatisés : les gestionnaires d'événements du DOM
-(`src/events/`), les modales et la configuration Chart.js (`src/charts/`), qui restent
-vérifiés par le smoke test et à la main.
-
-## Technologies Utilisées
-
-* **Frontend :** HTML5, CSS3, JavaScript ES6 (Modules)
-* **Visualisation :** Chart.js 3.9.1 avec plugin chartjs-chart-treemap 2.3.0
-* **Architecture :** Modulaire avec séparation des responsabilités (API, Business Logic, UI, Events)
-* **Stockage :** LocalStorage pour la persistance des données
-* **Serveur :** Nginx (via Docker)
-* **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
-
-### Sécurité
-
-* Toutes les données provenant de l'API sont échappées avant injection dans le DOM
-  (`src/utils/html.js`), et les URLs de miniatures sont restreintes à `http(s)`.
-* `nginx.conf` envoie une `Content-Security-Policy` qui limite les scripts au domaine
-  de l'application et aux deux CDN de Chart.js.
-* Les scripts Chart.js sont chargés depuis un CDN avec une empreinte `integrity` :
-  le navigateur refuse le script si son contenu change. À régénérer après toute
-  montée de version, puis à reporter dans `index.html` :
-  ```bash
-  curl -sfL <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
-  ```
-* `CONFIG.DEBUG` et `CONFIG.LOG_LEVEL` sont réglés pour la production : aux niveaux
-  `debug` et `info`, les journaux recopient identifiants de projets et montants dans
-  la console, et `DEBUG` expose `window.__appState__`.
-* Le cookie de session n'est jamais persisté : il est effacé du champ de saisie après usage,
-  et n'est écrit ni dans le localStorage ni dans les logs.
-* Le proxy `/api/` ne transporte que la session fournie par l'appelant : il ne détient aucun
-  identifiant. Exposer le port 8080 hors de la machine reste toutefois déconseillé.
-* Ce cookie donne un accès complet au compte Bricks (solde, IBAN, état civil). Le traiter
-  comme un mot de passe : ne jamais le committer, ni le coller dans un ticket ou un export
-  HAR partagé.
+L'authentification se fait par cookie de session (better-auth, posé après le SSO Google) —
+il n'y a plus de Bearer token.
 
 ## Architecture du Code
 
