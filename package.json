@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node tests/e2e/smoke.mjs",
-    "serve": "python3 -m http.server 8099"
+    "serve": "python3 -m http.server 8099",
+    "demo": "node tools/demo.mjs"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3.2.7",

@@ -406,8 +406,10 @@ function updateRiskCards(results) {
 
     const resume = document.getElementById('risqueResume');
     if (resume) {
-        const regularises = risque.defautsRegularises
-            ? ` · ${formatNumber(risque.defautsRegularises)} défauts passés, aujourd'hui régularisés`
+        const nombreRegularises = risque.defautsRegularises;
+        const regularises = nombreRegularises
+            ? ` · ${formatNumber(nombreRegularises)} défaut${pluriel(nombreRegularises)} passé${pluriel(nombreRegularises)},`
+              + ` aujourd'hui régularisé${pluriel(nombreRegularises)}`
             : '';
 
         resume.textContent = risque.enDifficulte.nombre > 0
