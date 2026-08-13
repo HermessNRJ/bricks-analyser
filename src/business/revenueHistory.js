@@ -52,7 +52,7 @@ export function moisDepuisIndex(annee, indexMois) {
  * ventilation mensuelle venaient à diverger.
  *
  * @param {Object} payload - Corps de la réponse /investor/portfolio/revenue
- * @returns {Object|null} { mensuel, total, premierMois, dernierMois } ou null
+ * @returns {Object|null} { mensuel, versements, total, premierMois, dernierMois }
  */
 export function normaliserHistoriqueRevenus(payload) {
     if (!payload || typeof payload !== 'object') {
@@ -64,6 +64,7 @@ export function normaliserHistoriqueRevenus(payload) {
         : [];
 
     const mensuel = {};
+    const versements = {};
     let brutCentimes = 0;
     let netCentimes = 0;
     let impotCentimes = 0;
@@ -95,6 +96,8 @@ export function normaliserHistoriqueRevenus(payload) {
             boost: enEuros(revenus.boostedBalanceGain?.total ?? 0)
         };
 
+        releverVersements(versements, mois, revenus);
+
         brutCentimes += Number.isFinite(brut) ? brut : 0;
         netCentimes += Number.isFinite(net) ? net : 0;
         impotCentimes += impot;
@@ -119,6 +122,7 @@ export function normaliserHistoriqueRevenus(payload) {
 
     return {
         mensuel,
+        versements,
         parAnnee: grouperParAnnee(mensuel),
         premierMois: mois[0],
         dernierMois: mois[mois.length - 1],
@@ -128,6 +132,40 @@ export function normaliserHistoriqueRevenus(payload) {
             impot: enEuros(impotCentimes)
         }
     };
+}
+
+/**
+ * Ventile les coupons d'un mois entre les propriétés qui les ont versés
+ *
+ * Seuls les coupons obligataires sont rattachés à un projet : le parrainage et
+ * le solde boosté ne viennent d'aucune propriété.
+ *
+ * Une propriété absente du mois n'a rien versé : elle n'apparaît pas dans la
+ * ventilation plutôt que d'y figurer à zéro, pour que « n'a rien versé » et
+ * « n'était pas encore détenue » restent deux choses distinctes.
+ *
+ * @param {Object} versements - Accumulateur { propriété: { mois: euros } }
+ * @param {string} mois - Mois au format YYYY-MM
+ * @param {Object} revenus - Bloc `revenues` de l'entrée mensuelle
+ */
+function releverVersements(versements, mois, revenus) {
+    const parPropriete = revenus.obligationCoupons?.byProperty;
+
+    if (!Array.isArray(parPropriete)) {
+        return;
+    }
+
+    parPropriete.forEach(ligne => {
+        const id = ligne?.propertyId;
+        const valeur = Number.isFinite(ligne?.value) ? ligne.value : 0;
+
+        if (typeof id !== 'string' || !id || valeur === 0) {
+            return;
+        }
+
+        const propriete = versements[id] ||= {};
+        propriete[mois] = Math.round((propriete[mois] || 0) * 100 + valeur) / 100;
+    });
 }
 
 /**

@@ -8,6 +8,7 @@ import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculate
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
 import { repartitionRisque, niveauRisque } from './riskAnalysis.js';
 import { serieMensuelle } from './revenueHistory.js';
+import { annoterVersements } from './versements.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
@@ -253,6 +254,11 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         p.niveauRisque = niveauRisque(p, p.suivi);
     });
 
+    // Ce que chaque projet a réellement versé le mois dernier, d'après l'état
+    // de compte. Sans relevé, aucune fiche n'est annotée : mieux vaut ne rien
+    // dire que de peindre en rouge un portefeuille dont on ignore les recettes.
+    const versements = annoterVersements(properties, revenus?.versements);
+
     // Recalculer totalBricks en excluant les projets remboursés
     totalBricks = 0;
     for (const prop of properties) {
@@ -380,6 +386,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         partRemboursees,
         partFinancement,
         risque: repartitionRisque(properties, statuts),
+        versements,
         investmentEvolution,
         netRevenueEvolutionData,
         grossRevenueEvolutionData,

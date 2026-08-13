@@ -804,9 +804,12 @@ select:hover {
     }
 }
 
+/* Cinq critères tiennent sur une rangée : à quatre colonnes, le cinquième
+   restait seul sur une seconde ligne pour lui tout seul. Sans état de compte,
+   le filtre de versement est masqué et les quatre autres s'étalent. */
 @media (min-width: 900px) {
     .properties-controls {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 }
 
@@ -1497,4 +1500,131 @@ select:hover {
 .tableau-revenus .colonne-capital {
     background: #f4f6f8;
     color: #5c6b77;
+}
+
+/* ---------------------------------------------------------------------------
+   Carnet de versements
+   ---------------------------------------------------------------------------
+   Ce que chaque projet a versé le mois dernier, sur le modèle du carnet de
+   quittances : une marque par mois, pleine quand l'argent est tombé. La
+   pastille dit l'état du mois, le carnet donne le rythme qui le rend lisible —
+   douze mois pleins suivis d'un blanc ne se lisent pas comme un silence d'un an.
+   --------------------------------------------------------------------------- */
+
+.versements-bilan {
+    margin-bottom: 16px;
+}
+
+.versements-compte {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.versements-mois {
+    font-family: var(--font-display);
+    font-size: 1rem;
+}
+
+.versements-part {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--ink-muted);
+}
+
+.versements-part::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex: none;
+}
+
+.versements-part.est-verse::before { background: var(--statut-actif); }
+.versements-part.est-manquant::before { background: var(--alerte); }
+.versements-part.est-attendu::before { background: var(--statut-avenir); }
+
+.versements-reserve {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    max-width: 62ch;
+}
+
+/* Le bloc s'accroche au bas de la fiche, sous les chiffres */
+.versement-bloc {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: var(--rule-width) solid var(--rule);
+}
+
+.versement-ligne {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.versement-pastille {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.versement-pastille.est-verse { background: #e7f0ea; color: var(--statut-actif); }
+.versement-pastille.est-manquant { background: var(--alerte-fond); color: var(--alerte); }
+.versement-pastille.est-attendu { background: #faf3e3; color: var(--statut-avenir); }
+.versement-pastille.est-solde { background: var(--surface-sunken); color: var(--statut-rembourse); }
+
+.versement-montant {
+    font-family: var(--font-data);
+    font-size: 0.8rem;
+    color: var(--ink);
+}
+
+/* Les marques s'alignent sur une ligne de base commune : les mois sans
+   versement attendu n'y laissent qu'un trait, et le rythme se lit d'un coup */
+.carnet {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    margin-left: auto;
+    height: 14px;
+    flex: none;
+}
+
+.carnet-mois {
+    width: 4px;
+    height: 14px;
+    border-radius: 1px;
+    flex: none;
+}
+
+.carnet-mois.est-verse {
+    background: var(--statut-actif);
+}
+
+/* Un mois dû et non versé garde sa case, vide : c'est une ligne restée blanche
+   dans le carnet, pas une marque de plus */
+.carnet-mois.est-manquant {
+    background: var(--alerte-fond);
+    box-shadow: inset 0 0 0 1px var(--alerte);
+}
+
+.carnet-mois.est-attendu {
+    height: 3px;
+    background: var(--rule-strong);
+}
+
+.versement-legende {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
 }
