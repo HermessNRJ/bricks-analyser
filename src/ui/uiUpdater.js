@@ -9,6 +9,7 @@ import { escapeHtml, safeUrl, stripTags } from '../utils/html.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
+import { ETATS, carnetVersements } from '../business/versements.js';
 
 // Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
 const TAILLE_PAGE = 24;
@@ -19,9 +20,15 @@ let currentSortBy = 'investment-desc';
 let currentFilter = 'all';
 let currentWarningFilter = 'all';
 let currentCountryFilter = 'all';
+let currentVersementFilter = 'all';
 let currentSearch = '';
 let currentPage = 1;
 let idCible = null;
+
+// Ventilation des versements par propriété et mois de référence : les fiches en
+// ont besoin bien après le calcul, à chaque changement de page ou de filtre.
+let versementsParPropriete = null;
+let moisVersements = null;
 
 /**
  * Libellés des filtres, pour les puces de rappel
@@ -38,7 +45,20 @@ const LIBELLES_FILTRES = {
         'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'Impayé ou retard',
         'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
         'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
+    },
+    versementFilter: {
+        verse: 'Versé', manquant: 'Rien reçu', attendu: 'Pas encore dû'
     }
+};
+
+/**
+ * Libellé de la pastille d'état de versement portée par chaque fiche
+ */
+const LIBELLES_VERSEMENT = {
+    [ETATS.VERSE]: 'Versé',
+    [ETATS.MANQUANT]: 'Rien reçu',
+    [ETATS.ATTENDU]: 'Pas encore',
+    [ETATS.SOLDE]: 'Soldé'
 };
 
 /**
@@ -58,7 +78,12 @@ export function updateUI(results) {
     currentFilter = localStorage.getItem('propertyFilter') || 'all';
     currentWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
     currentCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
+    currentVersementFilter = localStorage.getItem('propertyVersementFilter') || 'all';
     currentPage = 1;
+
+    versementsParPropriete = results.versements?.parPropriete || null;
+    moisVersements = results.versements?.moisReference || null;
+    renderBilanVersements(results.versements);
 
     // Remplir le dropdown des pays disponibles
     populateCountryFilter(allProperties);
@@ -69,6 +94,77 @@ export function updateUI(results) {
     updateProjections(results.netRevenueEvolutionData);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');
+}
+
+/**
+ * Affiche le bilan des versements du mois et ouvre le filtre correspondant
+ *
+ * Tout reste caché sans état de compte : sans lui, aucune fiche ne porte de
+ * pastille, et un filtre qui ne trierait rien n'aurait pas de sens.
+ *
+ * @param {Object|null} versements - { moisReference, comptes } issus du calcul
+ */
+function renderBilanVersements(versements) {
+    const bilan = document.getElementById('versementsBilan');
+    const compte = document.getElementById('versementsCompte');
+    const filtre = document.getElementById('versementFilterLabel');
+
+    const disponible = Boolean(versements?.moisReference);
+
+    bilan?.classList.toggle('hidden', !disponible);
+    filtre?.classList.toggle('hidden', !disponible);
+
+    if (!disponible) {
+        // Le filtre mémorisé survivrait à la disparition du relevé et viderait
+        // le registre sans laisser de quoi le rouvrir, puisque le menu est caché.
+        if (currentVersementFilter !== 'all') {
+            currentVersementFilter = 'all';
+            localStorage.setItem('propertyVersementFilter', 'all');
+        }
+        return;
+    }
+
+    if (!compte) {
+        return;
+    }
+
+    const { verse, manquant, attendu } = versements.comptes;
+
+    compte.innerHTML = `
+        <span class="versements-mois">Versements ${escapeHtml(deMois(versements.moisReference))}</span>
+        <span class="versements-part est-verse">${formatNumber(verse)} versée${pluriel(verse)}</span>
+        <span class="versements-part est-manquant">${formatNumber(manquant)} sans versement</span>
+        <span class="versements-part est-attendu">${formatNumber(attendu)} pas encore due${pluriel(attendu)}</span>
+    `;
+}
+
+/**
+ * Marque du pluriel : en français, zéro et un restent au singulier
+ * @param {number} nombre - Quantité décrite
+ * @returns {string} « s » au-delà de un, chaîne vide sinon
+ */
+function pluriel(nombre) {
+    return nombre > 1 ? 's' : '';
+}
+
+/**
+ * Écrit un mois en incise, sans la majuscule de début de phrase
+ * @param {string} mois - Mois au format YYYY-MM
+ * @returns {string} Par exemple « août 2026 »
+ */
+function moisEnIncise(mois) {
+    const nom = formatMonthName(mois);
+    return `${nom.charAt(0).toLowerCase()}${nom.slice(1)}`;
+}
+
+/**
+ * Introduit un mois par « de », élidé devant avril, août et octobre
+ * @param {string} mois - Mois au format YYYY-MM
+ * @returns {string} Par exemple « d'août 2026 » ou « de juillet 2026 »
+ */
+function deMois(mois) {
+    const nom = moisEnIncise(mois);
+    return /^[aeiouâéèêîôûy]/.test(nom) ? `d'${nom}` : `de ${nom}`;
 }
 
 /**
@@ -429,6 +525,9 @@ function renderFiltresActifs() {
     if (currentCountryFilter !== 'all') {
         puces.push({ cle: 'countryFilter', texte: currentCountryFilter });
     }
+    if (currentVersementFilter !== 'all') {
+        puces.push({ cle: 'versementFilter', texte: LIBELLES_FILTRES.versementFilter[currentVersementFilter] || currentVersementFilter });
+    }
 
     if (puces.length === 0) {
         zone.innerHTML = '';
@@ -479,6 +578,7 @@ function clearFiltre(cle) {
     if (cle === 'filter') currentFilter = 'all';
     if (cle === 'warningFilter') currentWarningFilter = 'all';
     if (cle === 'countryFilter') currentCountryFilter = 'all';
+    if (cle === 'versementFilter') currentVersementFilter = 'all';
 
     currentPage = 1;
     idCible = null;
@@ -494,6 +594,7 @@ export function resetFilters() {
     currentFilter = 'all';
     currentWarningFilter = 'all';
     currentCountryFilter = 'all';
+    currentVersementFilter = 'all';
     currentSearch = '';
     currentPage = 1;
     idCible = null;
@@ -512,6 +613,7 @@ function persistFilters() {
     localStorage.setItem('propertyFilter', currentFilter);
     localStorage.setItem('propertyWarningFilter', currentWarningFilter);
     localStorage.setItem('propertyCountryFilter', currentCountryFilter);
+    localStorage.setItem('propertyVersementFilter', currentVersementFilter);
 }
 
 /**
@@ -522,6 +624,7 @@ function syncControls() {
         propertyFilter: currentFilter,
         propertyWarningFilter: currentWarningFilter,
         propertyCountryFilter: currentCountryFilter,
+        propertyVersementFilter: currentVersementFilter,
         propertySearch: currentSearch,
         propertySortBy: currentSortBy
     };
@@ -702,6 +805,11 @@ function filterProperties(properties, filterType = currentFilter, warningFilterT
             break;
     }
 
+    // Filtre par état de versement du mois de référence
+    if (currentVersementFilter !== 'all') {
+        filtered = filtered.filter(p => p.versement?.etat === currentVersementFilter);
+    }
+
     // Filtre par pays
     if (countryFilterType !== 'all') {
         filtered = filtered.filter(p => p.country === countryFilterType);
@@ -839,8 +947,9 @@ function sortProperties(properties, sortBy) {
  * @param {string} [changements.filter] - Nouveau filtre de statut
  * @param {string} [changements.warningFilter] - Nouveau filtre d'alerte
  * @param {string} [changements.countryFilter] - Nouveau filtre de pays
+ * @param {string} [changements.versementFilter] - Nouveau filtre de versement
  */
-export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, countryFilter } = {}) {
+export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, countryFilter, versementFilter } = {}) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
         localStorage.setItem('propertySortBy', sortBy);
@@ -859,6 +968,11 @@ export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, cou
     if (countryFilter !== undefined) {
         currentCountryFilter = countryFilter;
         localStorage.setItem('propertyCountryFilter', countryFilter);
+    }
+
+    if (versementFilter !== undefined) {
+        currentVersementFilter = versementFilter;
+        localStorage.setItem('propertyVersementFilter', versementFilter);
     }
 
     // Tout changement de critère renvoie au début de la liste
@@ -1011,6 +1125,94 @@ function createAlertesSection(property) {
 }
 
 /**
+ * Construit le carnet de versements d'une propriété
+ *
+ * Une pastille dit l'état du mois, un carnet dit le rythme. Les deux ensemble :
+ * douze mois pleins suivis d'un blanc ne se lisent pas comme un silence d'un an,
+ * et c'est cette différence qui rend un « rien reçu » exploitable.
+ *
+ * @param {Object} property - Données de la propriété
+ * @returns {string} HTML du bloc, vide sans état de compte
+ */
+function createVersementSection(property) {
+    const versement = property.versement;
+
+    if (!versement || versement.etat === ETATS.INCONNU || !moisVersements) {
+        return '';
+    }
+
+    const libelle = LIBELLES_VERSEMENT[versement.etat] || '';
+    const montant = versement.etat === ETATS.VERSE
+        ? `<span class="versement-montant">${formatCurrency(versement.montant)}</span>`
+        : '';
+
+    const carnet = carnetVersements(property, versementsParPropriete, moisVersements);
+    const verses = carnet.filter(c => c.etat === ETATS.VERSE).length;
+    const sans = carnet.filter(c => c.etat === ETATS.MANQUANT).length;
+
+    const marques = carnet.map(c => `<span class="carnet-mois est-${c.etat}"
+            title="${escapeHtml(titreMoisCarnet(c))}"></span>`).join('');
+
+    const resume = `${carnet.length} derniers mois : ${verses} versement${pluriel(verses)}`
+        + (sans > 0 ? `, ${sans} mois sans versement` : '');
+
+    return `
+        <div class="versement-bloc">
+            <div class="versement-ligne">
+                <span class="versement-pastille est-${versement.etat}">${escapeHtml(libelle)}</span>
+                ${montant}
+                <span class="carnet" role="img" aria-label="${escapeHtml(resume)}">${marques}</span>
+            </div>
+            ${legendeVersement(versement)}
+        </div>
+    `;
+}
+
+/**
+ * Rédige l'infobulle d'un mois du carnet
+ * @param {Object} case_ - Case du carnet { mois, etat, montant }
+ * @returns {string} Texte de l'infobulle
+ */
+function titreMoisCarnet({ mois, etat, montant }) {
+    const nom = formatMonthName(mois);
+
+    if (etat === ETATS.VERSE) {
+        return `${nom} : ${formatCurrency(montant)}`;
+    }
+
+    return etat === ETATS.MANQUANT
+        ? `${nom} : rien reçu`
+        : `${nom} : aucun versement attendu`;
+}
+
+/**
+ * Précise ce que la pastille laisse ouvert
+ * @param {Object} versement - État de versement de la propriété
+ * @returns {string} HTML de la légende, vide quand la pastille se suffit
+ */
+function legendeVersement(versement) {
+    let texte = '';
+
+    if (versement.etat === ETATS.MANQUANT) {
+        texte = versement.dernierMois
+            ? `Dernier versement en ${moisEnIncise(versement.dernierMois)}`
+            : 'Aucun versement à ce jour';
+    }
+
+    if (versement.etat === ETATS.ATTENDU) {
+        if (versement.motif === 'financement') {
+            texte = 'Projet encore en financement';
+        } else if (versement.motif === 'inconnu') {
+            texte = 'Aucune date de versement annoncée';
+        } else {
+            texte = `Premier versement annoncé en ${moisEnIncise(versement.debut)}`;
+        }
+    }
+
+    return texte ? `<p class="versement-legende">${escapeHtml(texte)}</p>` : '';
+}
+
+/**
  * Crée le HTML pour une carte de propriété
  * @param {Object} property - Données de la propriété
  * @returns {string} HTML de la carte
@@ -1080,6 +1282,7 @@ function createPropertyCard(property) {
                     <dd>${escapeHtml(refundDateDisplay)}</dd>
                 </div>
             </dl>
+            ${createVersementSection(property)}
             ${createSuiviSection(property)}
             ${createActualitesSection(property) || createAlertesSection(property)}
         </div>

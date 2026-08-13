@@ -313,6 +313,14 @@
             <section class="properties-list" aria-labelledby="titreRegistre">
                 <h2 id="titreRegistre">Registre des propriétés</h2>
 
+                <div class="versements-bilan hidden" id="versementsBilan">
+                    <p class="versements-compte" id="versementsCompte"></p>
+                    <p class="versements-reserve">
+                        Bricks règle autour du 8 du mois. Sur un relevé récupéré plus tôt,
+                        les versements absents sont peut-être encore en route.
+                    </p>
+                </div>
+
                 <div class="properties-controls">
                     <label class="champ-recherche" for="propertySearch">
                         Rechercher
@@ -349,6 +357,16 @@
                         </select>
                     </label>
 
+
+                    <label class="hidden" for="propertyVersementFilter" id="versementFilterLabel">
+                        Versement
+                        <select id="propertyVersementFilter">
+                            <option value="all">Tous</option>
+                            <option value="verse">Versé</option>
+                            <option value="manquant">Rien reçu</option>
+                            <option value="attendu">Pas encore dû</option>
+                        </select>
+                    </label>
 
                     <label for="propertyWarningFilter">
                         Alertes

@@ -58,7 +58,24 @@ const fixture = {
     }],
     warnings: [
         { propertyId: 'proj-1', date: '2024-06-01', description: '<p>Retard&nbsp;de travaux</p>' }
-    ]
+    ],
+    // État de compte réduit : proj-1 verse tous les mois, proj-2 s'est tu en juin,
+    // proj-xss n'a jamais rien versé. De quoi voir les trois pastilles à l'écran.
+    revenus: {
+        mensuel: {
+            '2024-04': { brut: 6, net: 4.2, impot: 1.8, coupons: 6, parrainage: 0, boost: 0 },
+            '2024-05': { brut: 6, net: 4.2, impot: 1.8, coupons: 6, parrainage: 0, boost: 0 },
+            '2024-06': { brut: 2, net: 1.4, impot: 0.6, coupons: 2, parrainage: 0, boost: 0 }
+        },
+        versements: {
+            'proj-1': { '2024-04': 4, '2024-05': 4, '2024-06': 2 },
+            'proj-2': { '2024-04': 2, '2024-05': 2 }
+        },
+        parAnnee: { 2024: { brut: 14, net: 9.8, impot: 4.2, coupons: 14, parrainage: 0, boost: 0 } },
+        premierMois: '2024-04',
+        dernierMois: '2024-06',
+        total: { brut: 14, net: 9.8, impot: 4.2 }
+    }
 };
 
 const checks = [];
@@ -90,22 +107,41 @@ const snapshot = await page.evaluate(() => ({
     activeProperties: document.getElementById('totalProperties').textContent,
     cardCount: document.querySelectorAll('#propertiesList .property-card').length,
     projectionCount: document.querySelectorAll('#projectedRevenuesDisplay .stat-card').length,
+    projectionNote: document.getElementById('projectionsNote').textContent.trim(),
     countries: [...document.getElementById('propertyCountryFilter').options].map(o => o.value),
     warningRendered: document.getElementById('propertiesList').textContent.includes('Retard de travaux'),
     xssExecuted: Boolean(window.__XSS__),
     injectedNodes: document.querySelectorAll('#propertiesList img[onerror], #propertiesList script').length,
-    inlineHandlers: document.querySelectorAll('#propertiesList [onclick]').length
+    inlineHandlers: document.querySelectorAll('#propertiesList [onclick]').length,
+    bilanVersements: document.getElementById('versementsCompte').textContent.replace(/\s+/g, ' ').trim(),
+    pastilles: [...document.querySelectorAll('.versement-pastille')].map(e => e.textContent.trim()),
+    carnets: document.querySelectorAll('.carnet').length,
+    marquesVersees: document.querySelectorAll('.carnet-mois.est-verse').length
 }));
 
 check('la section résultats est affichée', snapshot.resultsVisible);
 check('les 3 propriétés sont rendues', snapshot.cardCount === 3, `${snapshot.cardCount} cartes`);
 check('le total de briques est correct', snapshot.totalBricks === '70', snapshot.totalBricks);
 check('l\'investissement total est correct', /700/.test(snapshot.totalInvestment), snapshot.totalInvestment);
-check('les 4 mois de projection sont affichés', snapshot.projectionCount === 4);
+// La série s'arrête au dernier mois qui change de montant : tant qu'aucun projet
+// ne commence à verser, répéter le même chiffre trois fois n'apprendrait rien.
+check('les projections s\'arrêtent au dernier changement de montant',
+    snapshot.projectionCount >= 1 && snapshot.projectionCount <= 4, `${snapshot.projectionCount} mois`);
+check('la note dit à partir de quand le montant est stable',
+    /stable/i.test(snapshot.projectionNote), snapshot.projectionNote);
 check('le filtre pays détecte le Portugal', snapshot.countries.includes('Portugal'), snapshot.countries.join(','));
 check('la description du warning est nettoyée et affichée', snapshot.warningRendered);
 check('aucun HTML de l\'API n\'est exécuté', !snapshot.xssExecuted && snapshot.injectedNodes === 0);
 check('aucun handler onclick inline', snapshot.inlineHandlers === 0);
+check('le bilan des versements nomme le mois jugé',
+    snapshot.bilanVersements.includes('Versements de juin 2024'), snapshot.bilanVersements);
+check('chaque fiche porte sa pastille de versement',
+    snapshot.pastilles.length === 3 && snapshot.carnets === 3, snapshot.pastilles.join(' / '));
+check('les trois états de versement sont distingués',
+    snapshot.pastilles.filter(p => p === 'Versé').length === 1
+    && snapshot.pastilles.filter(p => p === 'Rien reçu').length === 2,
+    snapshot.pastilles.join(' / '));
+check('le carnet marque les mois versés', snapshot.marquesVersees === 5, `${snapshot.marquesVersees} marques`);
 
 // Interactions réelles : filtre puis tri
 await page.selectOption('#propertyCountryFilter', 'Portugal');
@@ -115,6 +151,14 @@ await page.waitForFunction(() =>
     .catch(() => check('le filtre pays réduit la liste à 1 propriété', false));
 
 await page.selectOption('#propertyCountryFilter', 'all');
+
+await page.selectOption('#propertyVersementFilter', 'manquant');
+await page.waitForFunction(() =>
+    document.querySelectorAll('#propertiesList .property-card').length === 2, null, { timeout: 5000 })
+    .then(() => check('le filtre « rien reçu » retient les 2 propriétés muettes', true))
+    .catch(() => check('le filtre « rien reçu » retient les 2 propriétés muettes', false));
+
+await page.selectOption('#propertyVersementFilter', 'all');
 await page.selectOption('#propertySortBy', 'bricks-desc');
 const firstCard = await page.locator('#propertiesList .property-name').first().textContent();
 check('le tri par briques place Porto en tête', firstCard.includes('Porto'), firstCard.trim());

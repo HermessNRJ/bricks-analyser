@@ -370,3 +370,104 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         expect(resultats.revenusReels.moisPartiel).toBeNull();
     });
 });
+
+describe('ventilation des versements par propriété', () => {
+    const releve = {
+        revenuesByYearAndMonth: [
+            {
+                year: 2026, month: 5, untaxedTotal: 900, taxedTotal: 630,
+                revenues: {
+                    withholdingTax: { total: -270 },
+                    obligationCoupons: {
+                        untaxedTotal: 900,
+                        byProperty: [
+                            { propertyId: 'a', propertyName: { fr: 'A' }, value: 600 },
+                            { propertyId: 'b', propertyName: { fr: 'B' }, value: 300 }
+                        ]
+                    }
+                }
+            },
+            {
+                year: 2026, month: 6, untaxedTotal: 750, taxedTotal: 525,
+                revenues: {
+                    withholdingTax: { total: -225 },
+                    obligationCoupons: {
+                        untaxedTotal: 750,
+                        byProperty: [{ propertyId: 'a', propertyName: { fr: 'A' }, value: 750 }]
+                    }
+                }
+            }
+        ]
+    };
+
+    it('rattache chaque versement à sa propriété et à son mois, en euros', () => {
+        const { versements } = normaliserHistoriqueRevenus(releve);
+
+        expect(versements).toEqual({
+            a: { '2026-06': 6, '2026-07': 7.5 },
+            b: { '2026-06': 3 }
+        });
+    });
+
+    // Une propriété absente d'un mois n'a rien versé ; l'inscrire à zéro
+    // effacerait la différence avec « pas encore détenue ».
+    it('n\'inscrit pas les mois sans versement', () => {
+        const { versements } = normaliserHistoriqueRevenus(releve);
+
+        expect(versements.b['2026-07']).toBeUndefined();
+        expect(Object.keys(versements.b)).toEqual(['2026-06']);
+    });
+
+    // Bricks n'écrit qu'une ligne par projet et par mois ; s'il venait à en
+    // couper une en deux, le mois doit porter la somme et non la dernière part.
+    it('cumule deux lignes qui visent la même propriété le même mois', () => {
+        const { versements } = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [{
+                year: 2026, month: 0, untaxedTotal: 250, taxedTotal: 175,
+                revenues: {
+                    withholdingTax: { total: -75 },
+                    obligationCoupons: {
+                        byProperty: [
+                            { propertyId: 'a', value: 100 },
+                            { propertyId: 'a', value: 150 }
+                        ]
+                    }
+                }
+            }]
+        });
+
+        expect(versements.a).toEqual({ '2026-01': 2.5 });
+    });
+
+    it('ignore les lignes sans identifiant ou sans montant', () => {
+        const { versements } = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [{
+                year: 2026, month: 0, untaxedTotal: 100, taxedTotal: 70,
+                revenues: {
+                    withholdingTax: { total: -30 },
+                    obligationCoupons: {
+                        byProperty: [
+                            { propertyId: 'a', value: 100 },
+                            { propertyId: '', value: 50 },
+                            { propertyId: 'z', value: 0 },
+                            { value: 20 }
+                        ]
+                    }
+                }
+            }]
+        });
+
+        expect(Object.keys(versements)).toEqual(['a']);
+    });
+
+    it('rend une ventilation vide pour un relevé sans détail par propriété', () => {
+        const { versements } = normaliserHistoriqueRevenus({
+            revenuesByYearAndMonth: [{
+                year: 2026, month: 0, untaxedTotal: 100, taxedTotal: 70,
+                revenues: { withholdingTax: { total: -30 } }
+            }]
+        });
+
+        expect(versements).toEqual({});
+    });
+});

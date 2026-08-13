@@ -123,6 +123,22 @@ function setupPropertyControls() {
         logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
     }
 
+    const versementFilterSelect = document.getElementById('propertyVersementFilter');
+    if (versementFilterSelect) {
+        // Charger l'état depuis localStorage
+        const savedVersementFilter = localStorage.getItem('propertyVersementFilter') || 'all';
+        versementFilterSelect.value = savedVersementFilter;
+
+        // Écouter les changements
+        versementFilterSelect.addEventListener('change', (e) => {
+            updatePropertySortAndFilter({ versementFilter: e.target.value });
+        });
+
+        logger.debug(LOG_CATEGORIES.EVENT, 'Property payment filter control configured', {
+            versementFilter: savedVersementFilter
+        });
+    }
+
     const countryFilterSelect = document.getElementById('propertyCountryFilter');
     if (countryFilterSelect) {
         // Charger l'état depuis localStorage

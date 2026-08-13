@@ -9,6 +9,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
 *   **Chargement via API:**
     *   Récupérez vos données en temps réel depuis l'API Bricks.co, avec votre cookie de session.
     *   Collecte automatique des projets financés, en cours de financement, à venir, des warnings (highlighted updates), de l'**état de compte** (`/investor/portfolio/revenue`) et du **journal des mouvements** (`/wallet-transactions`, paginé), qui nomme chaque versement.
+    *   L'état de compte ventile chaque mois par projet : cette ventilation est conservée telle quelle (une quarantaine de kilo-octets pour trois ans et deux cents projets), et c'est elle qui dit, propriété par propriété, ce qui est tombé et ce qui manque.
 
 *   **Tableau de Bord Complet:**
     *   **Statistiques Clés:** Investissement total, revenus mensuels nets attendus (avec, en regard, ce qui a réellement été perçu le dernier mois complet), nombre total de briques (actives), nombre de propriétés (actives), projets remboursés, projets en cours de financement/à venir.
@@ -18,6 +19,7 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   L'**attendu** se déduit des taux affichés : chaque projet détenu est supposé verser son coupon. C'est une espérance, utile pour les mois à venir.
     *   Le **perçu** vient de l'état de compte. Il en diffère pour de bonnes raisons : les échéances impayées n'y figurent pas, les projets remboursés y ont laissé leur historique, le parrainage et le solde boosté s'y ajoutent, et le prélèvement réellement retenu n'est pas le taux forfaitaire — un remboursement de capital glissé dans un coupon n'étant pas imposable.
     *   Faute d'état de compte (import de fichier, cache d'une version antérieure), l'application retombe sur l'estimation et le dit à l'écran.
+    *   **Bilan des versements:** En tête du registre, le mois jugé et le décompte des propriétés versées, muettes et pas encore dues. Bricks règle autour du 8 : sur un relevé récupéré plus tôt, les versements absents sont peut-être encore en route, et la réserve est écrite à l'écran.
     *   **Suivi des incidents:** Répartition des propriétés détenues entre défaut avec échéances dues, impayé, suivi à jour et sans signalement, avec le capital exposé. Les niveaux proviennent du **suivi officiel de chaque projet** (`projects.bricks.co`), qui porte le statut déclaré et le décompte des échéances impayées ; à défaut, ils retombent sur une lecture du texte des alertes, nettement moins fiable. Cliquer sur une tuile filtre le registre sur les fiches concernées.
 
 *   **Période des courbes:**
@@ -51,11 +53,14 @@ Cet outil est un tableau de bord permettant d'analyser et de visualiser vos donn
     *   **Identification visuelle:** Projets **remboursés**, **en cours de financement**, ou **à venir**.
     *   **Cartes cliquables:** Cliquez sur une propriété pour l'ouvrir directement sur Bricks.co.
     *   **Système de warnings:** Affichage des warnings avec badge coloré (rouge pour récents, orange pour anciens), détail des dates et descriptions.
+    *   **Carnet de versements:** Chaque fiche dit ce que le projet a versé sur le dernier mois de l'état de compte — **Versé** (avec le montant), **Rien reçu**, **Pas encore**, ou **Soldé** pour un projet remboursé — suivi d'une marque par mois sur treize mois, pleine quand l'argent est tombé. C'est le rythme qui rend le rouge lisible : douze mois pleins suivis d'un blanc ne se lisent pas comme un silence d'un an. Rien ne s'affiche sans état de compte : une pastille posée sans relevé serait une accusation sans pièce au dossier.
+    *   Un projet muet mais sans date de versement annoncée ni versement passé reste en **Pas encore** : rien ne prouve qu'un coupon était dû.
 
 *   **Filtrage et Tri Avancés:**
     *   **Tri:** Par investissement, nombre de briques, rendement, revenus mensuels, nom, date de premier versement (croissant/décroissant).
     *   **Filtres par statut:** Toutes, actives uniquement, remboursées, en financement, à venir.
     *   **Recherche libre:** Par nom ou adresse.
+    *   **Filtre par versement:** Versé, rien reçu, pas encore dû. Masqué tant que l'état de compte n'a pas été lu, et neutralisé s'il disparaît — un filtre mémorisé viderait sinon le registre sans laisser de quoi le rouvrir.
     *   **Filtres par warning:** Alerte du mois en cours, avec/sans alerte, en procédure, impayé ou retard, alerte sous 30 jours, alerte du mois d'avant.
     *   **Filtres actifs rappelés:** Chaque filtre en vigueur s'affiche en puce, avec une remise à zéro — un compteur amputé ne reste jamais inexpliqué.
     *   **Pagination:** 24 fiches par page.
@@ -181,14 +186,14 @@ Node 22 ou plus est requis (voir le champ `engines` de `package.json`).
 
 ```bash
 npm install          # une seule fois
-npm test             # ~300 tests unitaires (Vitest + jsdom)
+npm test             # ~400 tests unitaires (Vitest + jsdom)
 npm run test:watch   # mode watch pendant le développement
 npm run test:coverage
 ```
 
 **Smoke test de bout en bout** (optionnel) : ouvre `index.html` dans un vrai Chromium avec un
-jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri et le
-non-exécution du HTML venant de l'API.
+jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri, les
+pastilles de versement et le non-exécution du HTML venant de l'API.
 
 ```bash
 npx playwright install chromium   # une seule fois
@@ -250,6 +255,8 @@ src/
 │   ├── calculations.js      # Calculs financiers et statistiques
 │   ├── dataProcessor.js     # Fusion et traitement des données
 │   ├── revenueHistory.js    # État de compte : revenus réellement versés
+│   ├── versements.js        # Qui a versé ce mois-ci, qui s'est tu
+│   ├── walletHistory.js     # Journal des mouvements : capital remboursé
 │   └── processor.js         # Orchestration du traitement
 ├── charts/           # Gestion des graphiques
 │   ├── chartManager.js      # Gestionnaire principal
@@ -270,7 +277,10 @@ src/
 │   ├── cacheHandler.js      # Réinitialisation cache
 │   └── scrollHandler.js     # Scroll to top
 ├── ui/               # Interface utilisateur
+│   ├── dataAge.js           # Âge des données affichées
 │   ├── modals.js            # Modales et erreurs
+│   ├── periodeGraphiques.js # Fenêtre temporelle commune aux courbes
+│   ├── revenuAnnuel.js      # Tableau des revenus par année
 │   └── uiUpdater.js         # Mise à jour de l'interface
 ├── utils/            # Utilitaires
 │   ├── countryHelpers.js    # Détection du pays (drapeaux)
