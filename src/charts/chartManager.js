@@ -118,8 +118,7 @@ function dessinerSeriesDatees(results) {
     });
     createTaxChart(impots, optionsRevenus);
     createOrigineFondsChart(origine, {
-        apportsConnus: Boolean(results.origineFonds?.apportsConnus),
-        moyenneApports: results.origineFonds?.moyenneApports || 0
+        apportsConnus: Boolean(results.origineFonds?.apportsConnus)
     });
 }
 

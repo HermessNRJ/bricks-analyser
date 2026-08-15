@@ -18,6 +18,11 @@ function setupDOM() {
             <div class="stat-value" id="fundingProjectsCountValue"></div>
             <div id="projectionsNote"></div>
             <div id="projectedRevenuesDisplay"></div>
+            <section class="rendement-section hidden" id="rendementSection">
+                <p id="rendementResume"></p>
+                <div id="rendementFenetres"></div>
+                <p id="rendementNote"></p>
+            </section>
             <select id="propertyCountryFilter"><option value="all">Tous les pays</option></select>
             <span id="propertyCount">0</span>
             <div id="activeFilters"></div>
@@ -297,7 +302,7 @@ describe('updateUI — projections', () => {
 
         const projections = document.querySelectorAll('#projectedRevenuesDisplay .stat-card');
         expect(projections).toHaveLength(4);
-        expect(projections[0].textContent).toContain('Ce Mois-ci');
+        expect(projections[0].textContent).toContain('Ce mois-ci');
         expect(projections[1].textContent).toMatch(/20/);
     });
 
@@ -336,6 +341,99 @@ describe('updateUI — projections', () => {
         updateUI(results([property()], { '2024-06': 10 }));
 
         expect(document.querySelectorAll('#projectedRevenuesDisplay .stat-card')).toHaveLength(1);
+    });
+});
+
+describe('updateUI — rendement annualisé', () => {
+    function fenetre(overrides = {}) {
+        return {
+            fenetre: 12,
+            libelle: '12 mois',
+            mois: ['2023-07', '2023-08', '2023-09', '2023-10', '2023-11', '2023-12',
+                '2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06'],
+            net: 120,
+            brut: 180,
+            horsCoupons: 0,
+            capitalRendu: 0,
+            capitalMoyen: 2000,
+            taux: 6,
+            tauxBrut: 9,
+            ...overrides
+        };
+    }
+
+    function avecRendements(rendements) {
+        return { ...results([property()]), rendements };
+    }
+
+    const tuiles = () => [...document.querySelectorAll('.rendement-fenetre')];
+
+    it('reste caché faute de fenêtre mesurable', () => {
+        updateUI(avecRendements(null));
+
+        expect(document.getElementById('rendementSection').classList.contains('hidden')).toBe(true);
+    });
+
+    it('affiche le net en grand et le brut juste dessous', () => {
+        updateUI(avecRendements({ fenetres: [fenetre()], dernierMois: '2024-06', journalLu: true }));
+
+        const tuile = tuiles()[0];
+        expect(tuile.querySelector('.rendement-taux').textContent).toMatch(/6,0/);
+        expect(tuile.querySelector('.rendement-taux-brut').textContent).toMatch(/9,0/);
+        expect(tuile.querySelector('.rendement-taux-brut').textContent).toContain('brut');
+    });
+
+    // Le brut du simulateur et le net d'ici prétendaient tous deux dire ce que
+    // rapporte le portefeuille, sans que rien à l'écran ne les distingue.
+    it('mensualise les montants, nets et bruts', () => {
+        updateUI(avecRendements({ fenetres: [fenetre()], dernierMois: '2024-06', journalLu: true }));
+
+        const montants = tuiles()[0].querySelectorAll('.rendement-montants span');
+        expect(montants).toHaveLength(2);
+        expect(montants[0].textContent).toMatch(/10,00/);      // 120 € sur 12 mois
+        expect(montants[0].textContent).toContain('nets par mois');
+        expect(montants[1].textContent).toMatch(/15,00/);      // 180 € sur 12 mois
+        expect(montants[1].textContent).toContain('bruts');
+    });
+
+    it('divise par le nombre de mois de la fenêtre, pas par douze', () => {
+        const trois = fenetre({
+            fenetre: 3, libelle: '3 mois', mois: ['2024-04', '2024-05', '2024-06'],
+            net: 30, brut: 45
+        });
+
+        updateUI(avecRendements({ fenetres: [trois], dernierMois: '2024-06', journalLu: true }));
+
+        expect(tuiles()[0].querySelector('.rendement-montants span').textContent).toMatch(/10,00/);
+    });
+
+    it('qualifie le taux du résumé de net', () => {
+        updateUI(avecRendements({
+            fenetres: [fenetre({ fenetre: 1, libelle: '1 mois', mois: ['2024-06'], taux: 4 }), fenetre()],
+            dernierMois: '2024-06',
+            journalLu: true
+        }));
+
+        expect(document.getElementById('rendementResume').textContent).toContain('net');
+    });
+
+    it('renvoie à la ligne brute pour la comparaison avec la promesse Bricks', () => {
+        updateUI(avecRendements({
+            fenetres: [fenetre()], dernierMois: '2024-06', journalLu: true, tauxPromis: 10
+        }));
+
+        const note = document.getElementById('rendementNote').textContent;
+        expect(note).toContain('ligne brute');
+        expect(note).toMatch(/10,0/);
+    });
+
+    it('ne cumule pas les tuiles entre deux rendus', () => {
+        const rendements = { fenetres: [fenetre()], dernierMois: '2024-06', journalLu: true };
+
+        updateUI(avecRendements(rendements));
+        updateUI(avecRendements(rendements));
+
+        expect(tuiles()).toHaveLength(1);
     });
 });
 

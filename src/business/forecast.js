@@ -150,37 +150,6 @@ export function rendementsNets(tauxBrut, tauxImpaye = 0, tauxImposition = CONFIG
 }
 
 /**
- * Apport mensuel moyen constaté sur les derniers mois
- *
- * Se lit dans la courbe d'investissement cumulé : l'écart entre deux mois est
- * ce qui a été mis pendant l'intervalle. Sert de repère au simulateur, pour que
- * l'hypothèse d'apport se compare à ce que vous faites réellement.
- *
- * @param {Object} investmentEvolution - Investissement cumulé { 'YYYY-MM': montant }
- * @param {number} [nbMois] - Profondeur d'observation
- * @returns {number} Apport moyen par mois (€)
- */
-export function apportMensuelMoyen(investmentEvolution, nbMois = 12) {
-    const mois = Object.keys(investmentEvolution || {}).sort();
-
-    if (mois.length < 2) {
-        return 0;
-    }
-
-    const indexFin = mois.length - 1;
-    const indexDebut = Math.max(0, indexFin - nbMois);
-    const intervalle = indexFin - indexDebut;
-
-    if (intervalle <= 0) {
-        return 0;
-    }
-
-    const ecart = investmentEvolution[mois[indexFin]] - investmentEvolution[mois[indexDebut]];
-
-    return Math.max(0, ecart / intervalle);
-}
-
-/**
  * Durée d'investissement moyenne du portefeuille, pondérée par le capital
  * @param {Array} properties - Liste des propriétés
  * @returns {number} Horizon moyen en mois

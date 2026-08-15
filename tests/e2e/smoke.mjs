@@ -132,6 +132,24 @@ const snapshot = await page.evaluate(() => ({
     rendementFenetres: [...document.querySelectorAll('.rendement-fenetre')]
         .map(e => e.querySelector('.rendement-libelle').textContent.trim()),
     rendementTaux: [...document.querySelectorAll('.rendement-taux')].map(e => e.textContent.trim()),
+    rendementTauxBrut: [...document.querySelectorAll('.rendement-taux-brut')].map(e => e.textContent.trim()),
+    rendementMontants: [...document.querySelectorAll('.rendement-fenetre')]
+        .map(e => [...e.querySelectorAll('.rendement-montants span')].map(s => s.textContent.trim())),
+    repereRendement: document.getElementById('repereRendement').textContent.trim(),
+    correspondanceRendement: document.getElementById('correspondanceRendement').textContent.trim(),
+    repereApport: document.getElementById('repereApport').textContent.trim(),
+    // Le repère du graphique se lit dans les options du plugin : c'est la valeur
+    // que le trait pointillé vient dessiner.
+    repereGraphique: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'origineFondsChart');
+        return chart?.options.plugins.repereMoyenne.valeur ?? null;
+    })(),
+    moisOrigine: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'origineFondsChart');
+        return chart?.data.labels.length ?? 0;
+    })(),
     detailInvestissement: document.getElementById('detailInvestissement').textContent.trim(),
     colonneApportCachee: document.querySelector('th.colonne-apport').classList.contains('hidden'),
     apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
@@ -172,12 +190,58 @@ check('les fenêtres se limitent à l\'historique disponible',
 // L'espace avant le signe est une espace fine insécable, posée par Intl
 check('le taux du dernier mois révolu est annualisé',
     /^2,4\s*%$/.test(snapshot.rendementTaux[0]), snapshot.rendementTaux.join(' / '));
+// Le simulateur raisonne en brut : sans cette ligne, les deux blocs affichaient
+// deux pourcentages sans que rien ne dise lequel était lequel.
+check('chaque fenêtre porte aussi son taux brut',
+    snapshot.rendementTauxBrut.length === snapshot.rendementTaux.length
+    && snapshot.rendementTauxBrut.every(t => /brut/.test(t)),
+    snapshot.rendementTauxBrut.join(' / '));
+check('chaque fenêtre donne le net et le brut au mois',
+    snapshot.rendementMontants.every(([net, brut]) =>
+        /nets par mois/.test(net || '') && /bruts/.test(brut || '')),
+    JSON.stringify(snapshot.rendementMontants));
+// Le repère du simulateur doit reprendre, au chiffre près, ce que la fenêtre la
+// plus longue affiche : c'est tout l'objet du rapprochement.
+check('le repère du simulateur rejoint la tuile de rendement',
+    snapshot.repereRendement.includes(`${snapshot.rendementTaux.at(-1)} net`)
+    && snapshot.repereRendement.includes(snapshot.rendementTauxBrut.at(-1)),
+    `${snapshot.repereRendement} — tuile : ${snapshot.rendementTaux.at(-1)} net,`
+    + ` ${snapshot.rendementTauxBrut.at(-1)}`);
+// « soit 4,8 % net » s'enchaînait au repère et paraissait qualifier le taux
+// annoncé par Bricks, alors qu'il découle du champ.
+check('la correspondance nette nomme le taux dont elle part',
+    /saisis\s*→/.test(snapshot.correspondanceRendement), snapshot.correspondanceRendement);
+check('le repère ne dit pas « sur depuis le début »',
+    !/sur depuis/.test(snapshot.repereRendement), snapshot.repereRendement);
 // Aucune part n'est annoncée : ce serait comparer un flux — tout ce qui est
 // entré depuis l'ouverture — à l'état du capital encore engagé aujourd'hui.
 check('la tuile du capital dit ce qui a été versé depuis l\'ouverture',
     /600/.test(snapshot.detailInvestissement)
     && /depuis l'ouverture/.test(snapshot.detailInvestissement),
     snapshot.detailInvestissement);
+// Le simulateur lisait ce repère dans la courbe d'investissement, qui amortit et
+// compte les briques payées avec les coupons réinvestis : il annonçait presque le
+// double de ce que le graphique montrait sur la même période.
+check('le repère d\'apport se lit dans le journal, pas dans l\'investissement',
+    /versés de votre poche/.test(snapshot.repereApport), snapshot.repereApport);
+// Trois mois d'historique : annoncer « vos 12 derniers mois » ferait dire au
+// repère le contraire de ce qu'il calcule.
+check('le repère annonce la fenêtre qu\'il mesure vraiment',
+    snapshot.repereApport.startsWith(`vos ${snapshot.moisOrigine} derniers mois`),
+    `${snapshot.repereApport} — ${snapshot.moisOrigine} mois dessinés`);
+// Le trait restait calé sur tout l'historique quand les barres n'en montraient
+// qu'une fenêtre : moyenne × mois dessinés doit retomber sur les 600 € versés.
+check('le trait moyen du graphique porte sur les mois dessinés',
+    Math.abs(snapshot.repereGraphique * snapshot.moisOrigine - 600) < 0.01,
+    `${snapshot.repereGraphique} € × ${snapshot.moisOrigine} mois`);
+// Les deux blocs répondent à la même question et doivent donc, sur la même
+// fenêtre, donner le même chiffre.
+// Intl sépare le montant du symbole par une espace fine insécable : comparer à
+// une espace ordinaire échouerait sur deux chiffres pourtant identiques.
+check('le graphique et le simulateur donnent le même rythme',
+    snapshot.repereApport.replace(/\s/g, ' ')
+        .includes(`${Math.round(snapshot.repereGraphique)} €`),
+    `${snapshot.repereApport} — trait à ${snapshot.repereGraphique} €`);
 check('la colonne des versements personnels est ouverte', !snapshot.colonneApportCachee);
 check('le tableau annuel porte les versements personnels',
     snapshot.apportsAnnuels.every(v => /600/.test(v)), snapshot.apportsAnnuels.join(' / '));

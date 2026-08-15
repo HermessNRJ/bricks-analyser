@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
     simulerProjection,
     rendementMoyenPondere,
-    apportMensuelMoyen,
     horizonMoyenPondere,
     rendementsNets,
     BORNES
@@ -187,34 +186,6 @@ describe('libelleMois', () => {
         expect(libelleMois(24, 120)).toBe('2 ans');
         expect(libelleMois(12, 120)).toBe('1 an');
         expect(libelleMois(7, 120)).toBe('');
-    });
-});
-
-describe('apportMensuelMoyen', () => {
-    it('lit dans la courbe cumulée ce qui a été ajouté chaque mois', () => {
-        // +100 € par mois sur 3 intervalles
-        const evolution = { '2024-01': 100, '2024-02': 200, '2024-03': 300, '2024-04': 400 };
-
-        expect(apportMensuelMoyen(evolution)).toBeCloseTo(100, 10);
-    });
-
-    it('ne remonte pas au-delà de la profondeur demandée', () => {
-        const evolution = { '2023-01': 0, '2024-01': 1200, '2024-02': 1300 };
-
-        // Sur 1 mois de profondeur, seul le dernier intervalle compte
-        expect(apportMensuelMoyen(evolution, 1)).toBeCloseTo(100, 10);
-    });
-
-    it('renvoie zéro sur un historique trop court', () => {
-        expect(apportMensuelMoyen({ '2024-01': 100 })).toBe(0);
-        expect(apportMensuelMoyen({})).toBe(0);
-        expect(apportMensuelMoyen(null)).toBe(0);
-    });
-
-    it('ne renvoie jamais un apport négatif', () => {
-        const evolution = { '2024-01': 500, '2024-02': 300 };
-
-        expect(apportMensuelMoyen(evolution)).toBe(0);
     });
 });
 

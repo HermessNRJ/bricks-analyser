@@ -5,10 +5,10 @@
 import {
     simulerProjection,
     rendementMoyenPondere,
-    apportMensuelMoyen,
     horizonMoyenPondere,
     rendementsNets
 } from '../business/forecast.js';
+import { moyenneVersements } from '../business/apports.js';
 import { createForecastChart } from '../charts/forecastChart.js';
 import { formatCurrency, formatPercentage } from '../utils/formatters.js';
 import { CONFIG } from '../core/config.js';
@@ -18,8 +18,13 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 let contexte = {
     capitalInitial: 0,
     rendementMoyen: 0,
+    rendementConstate: 0,
+    rendementConstateNet: 0,
+    fenetreConstatee: null,
     tauxImpayeObserve: 0,
     apportMoyen: 0,
+    moisObserves: 0,
+    apportsConnus: false,
     horizonMoyen: 0
 };
 
@@ -121,6 +126,11 @@ function rejouer() {
  * aussi l'effet des impayés lorsqu'ils sont non nuls, sans quoi on croirait
  * toucher le net d'impôt alors que la simulation retient moins.
  *
+ * Elle rappelle d'abord le taux saisi. Écrite « soit 4,8 % net », elle
+ * s'enchaînait au repère juste au-dessus et paraissait qualifier le dernier
+ * chiffre qu'on venait d'y lire — celui de Bricks — alors qu'elle découle de la
+ * saisie.
+ *
  * @param {Object} hypotheses - Hypothèses courantes du simulateur
  */
 function afficherCorrespondanceRendement(hypotheses) {
@@ -135,14 +145,83 @@ function afficherCorrespondanceRendement(hypotheses) {
         hypotheses.tauxImpaye
     );
 
+    const saisi = formatPercentage(hypotheses.tauxAnnuelBrut || 0);
     const prelevement = formatPercentage(CONFIG.TAX_RATE * 100);
-    let texte = `soit ${formatPercentage(apresImpot)} net après ${prelevement} de prélèvement`;
+    let texte = `${saisi} saisis → ${formatPercentage(apresImpot)} net`
+        + ` après ${prelevement} de prélèvement`;
 
     if (hypotheses.tauxImpaye > 0) {
-        texte += ` · ${formatPercentage(apresTout)} en tenant compte des impayés`;
+        texte += ` · ${formatPercentage(apresTout)} une fois les impayés déduits`;
     }
 
     ligne.textContent = texte;
+}
+
+/**
+ * Ce que vous versez réellement de votre poche, par mois
+ *
+ * Se lisait auparavant dans la courbe d'investissement cumulé, ce qui était
+ * faux deux fois. Cette courbe additionne `briques × prix de la brique`, un prix
+ * qui baisse à mesure que le principal est remboursé : son écart sur douze mois
+ * mêle les achats nouveaux à l'érosion des anciens. Et elle compte les briques
+ * achetées avec les coupons réinvestis, que la case « Réinvestir les revenus
+ * nets » ajoute déjà par ailleurs — le même argent entrait donc deux fois dans
+ * la projection.
+ *
+ * Le journal des mouvements, lui, sait ce qui est venu de votre banque. C'est
+ * la seule source, et c'est celle du graphique « D'où vient l'argent » : les
+ * deux chiffres s'accordent désormais par construction.
+ *
+ * @param {Object|null} origineFonds - Séries d'origine des fonds
+ * @returns {Object} { apportMoyen, moisObserves, apportsConnus }
+ */
+function rythmeDeVersement(origineFonds) {
+    const apportsConnus = Boolean(origineFonds?.apportsConnus);
+    const serie = apportsConnus ? origineFonds.apports : null;
+    const mois = Object.keys(serie || {}).sort().slice(-12);
+
+    return {
+        apportMoyen: moyenneVersements(serie, mois),
+        moisObserves: mois.length,
+        apportsConnus
+    };
+}
+
+/**
+ * Introduit la fenêtre de mesure par la bonne préposition
+ *
+ * Coller « sur » devant le libellé donnait « constaté sur depuis le début » dès
+ * que le portefeuille avait moins de douze mois révolus.
+ *
+ * @param {number|null} fenetre - Nombre de mois, null pour tout l'historique
+ * @returns {string} Par exemple « sur 12 mois » ou « depuis le début »
+ */
+function surLaFenetre(fenetre) {
+    return fenetre ? `sur ${fenetre} mois` : 'depuis le début';
+}
+
+/**
+ * Rédige le repère du champ « apport mensuel »
+ *
+ * La fenêtre annoncée est celle réellement mesurée : un portefeuille de cinq
+ * mois n'a pas douze mois à moyenner, et écrire « vos 12 derniers mois » lui
+ * aurait fait dire le contraire de ce qu'il calcule.
+ *
+ * @returns {string} Repère à afficher, vide si rien ne peut être dit
+ */
+function repereApport() {
+    if (!contexte.apportsConnus) {
+        return 'vos versements se lisent dans le journal des mouvements :'
+            + ' rechargez depuis l\'API';
+    }
+
+    const fenetre = contexte.moisObserves > 1
+        ? `vos ${contexte.moisObserves} derniers mois`
+        : 'votre dernier mois';
+
+    return contexte.apportMoyen > 0
+        ? `${fenetre} : ${formatCurrency(contexte.apportMoyen, 0)} / mois versés de votre poche`
+        : `${fenetre} : rien versé de votre poche`;
 }
 
 /**
@@ -155,17 +234,25 @@ function afficherReperes() {
         if (element) element.textContent = texte;
     };
 
-    ecrire('repereApport', contexte.apportMoyen > 0
-        ? `vos 12 derniers mois : ${formatCurrency(contexte.apportMoyen, 0)} / mois`
-        : 'aucun apport constaté sur 12 mois');
+    // Trois cas, et non deux : ne rien avoir versé et ne pas savoir ce qui a été
+    // versé se lisaient pareil, alors que le second n'autorise aucune conclusion.
+    ecrire('repereApport', repereApport());
 
     ecrire('repereHorizon', contexte.horizonMoyen > 0
         ? `durée moyenne de vos projets : ${(contexte.horizonMoyen / 12).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans`
         : '');
 
+    // Le net du constaté est rappelé ici parce que c'est lui, et non le brut,
+    // que la section « Rendement annualisé » met en grand : sans le pont, les
+    // deux blocs affichaient deux chiffres qui semblaient se contredire.
+    const constateNet = contexte.rendementConstateNet > 0
+        ? `, ${formatPercentage(contexte.rendementConstateNet)} net`
+        : '';
+
     ecrire('repereRendement', contexte.rendementConstate > 0
-        ? `constaté sur ${contexte.fenetreConstatee.toLowerCase()} : ${formatPercentage(contexte.rendementConstate)} brut`
-          + ` · annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)}`
+        ? `constaté ${surLaFenetre(contexte.fenetreConstatee)} :`
+          + ` ${formatPercentage(contexte.rendementConstate)} brut${constateNet}`
+          + ` · annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`
         : (contexte.rendementMoyen > 0
             ? `annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`
             : ''));
@@ -225,11 +312,12 @@ export function updateForecastContext(results) {
         capitalInitial: results.totalInvestment || 0,
         rendementMoyen: rendementMoyenPondere(results.properties),
         rendementConstate: douzeMois?.tauxBrut || 0,
-        fenetreConstatee: douzeMois?.libelle || '',
+        rendementConstateNet: douzeMois?.taux || 0,
+        fenetreConstatee: douzeMois?.fenetre ?? null,
         // Part du capital détenu actuellement en difficulté : une hypothèse
         // d'impayés ancrée sur les faits plutôt que sur un chiffre rond
         tauxImpayeObserve: results.risque?.enDifficulte?.partCapital || 0,
-        apportMoyen: apportMensuelMoyen(results.investmentEvolution),
+        ...rythmeDeVersement(results.origineFonds),
         horizonMoyen: horizonMoyenPondere(results.properties)
     };
 

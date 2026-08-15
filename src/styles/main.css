@@ -548,18 +548,33 @@ input {
     overflow-x: auto;
 }
 
+/* La tuile se lit comme un bulletin de paie : la fenêtre en en-tête, puis le
+   net, puis le brut dont il est issu, puis les mêmes deux montants au mois. Le
+   filet horizontal sépare les taux des euros — c'est le seul endroit de la page
+   où deux unités cohabitent dans un même bloc. */
 .rendement-fenetre {
     flex: 1 0 auto;
-    min-width: 118px;
+    min-width: 152px;
     display: flex;
     flex-direction: column;
-    padding: 0 18px;
+    padding: 0 14px;
     border-left: var(--rule-width) solid var(--rule);
 }
 
 .rendement-fenetre:first-child {
     padding-left: 0;
     border-left: none;
+}
+
+.rendement-fenetre:last-child {
+    padding-right: 0;
+}
+
+.rendement-libelle {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
 }
 
 .rendement-taux {
@@ -569,22 +584,28 @@ input {
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
-}
-
-.rendement-libelle {
-    font-size: 0.72rem;
-    color: var(--ink-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
     margin-top: 6px;
 }
 
-.rendement-detail {
+.rendement-taux-brut {
     font-family: var(--font-data);
     font-variant-numeric: tabular-nums;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    margin-top: 1px;
+}
+
+.rendement-montants {
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.74rem;
     color: var(--ink-faint);
-    margin-top: 4px;
+    line-height: 1.45;
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: var(--rule-width) solid var(--rule);
 }
 
 /* La dernière fenêtre couvre tout l'historique : c'est la référence à laquelle
