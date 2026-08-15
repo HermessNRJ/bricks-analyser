@@ -45,6 +45,11 @@ export const CONFIG = {
     // UI
     PROJECTIONS_MONTHS: 4, // Nombre de mois de projection à afficher
 
+    // Jour du mois où Bricks règle les coupons. Passé cette date, le mois en
+    // cours cesse d'être une demi-mesure : il a reçu ses versements, même si le
+    // calendrier ne l'a pas encore refermé.
+    JOUR_REGLEMENT: 8,
+
     // Journalisation
     //
     // Aux niveaux « debug » et « info », les journaux recopient dans la console
@@ -52,8 +57,36 @@ export const CONFIG = {
     // portefeuille. « warn » ne laisse passer que ce qui signale un problème.
     // DEBUG expose en plus window.__appState__ : à réserver au développement.
     DEBUG: false,
-    LOG_LEVEL: 'warn' // 'debug', 'info', 'warn', 'error', 'off'
+    LOG_LEVEL: niveauJournalisation()
 };
+
+/**
+ * Niveau de journalisation, relevable le temps d'un diagnostic
+ *
+ * « warn » par défaut, pour la raison dite ci-dessus. Mais quand deux sources se
+ * contredisent — le journal des mouvements et l'état de compte sur le capital
+ * rendu, par exemple — le détail n'est visible qu'en « info », et le seul moyen
+ * de l'obtenir était de recompiler. D'où cet interrupteur, à poser sciemment :
+ *
+ *   localStorage.setItem('bricksLogLevel', 'info'); location.reload();
+ *
+ * et à retirer ensuite avec `localStorage.removeItem('bricksLogLevel')`, la
+ * console gardant sinon vos montants et vos identifiants de projets en clair.
+ *
+ * @returns {string} Niveau retenu
+ */
+function niveauJournalisation() {
+    const NIVEAUX = ['debug', 'info', 'warn', 'error', 'off'];
+
+    try {
+        // Absent hors navigateur : les outils en ligne de commande importent
+        // cette configuration eux aussi.
+        const demande = globalThis.localStorage?.getItem('bricksLogLevel');
+        return NIVEAUX.includes(demande) ? demande : 'warn';
+    } catch {
+        return 'warn';
+    }
+}
 
 /**
  * Taux d'imposition en vigueur pour un mois donné

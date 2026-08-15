@@ -22,9 +22,10 @@ import { updateForecastContext } from '../events/forecastHandler.js';
  * @param {Object} [options]
  * @param {Object} [options.revenus] - Historique des revenus réellement versés
  * @param {Object} [options.capital] - Remboursements de capital
+ * @param {Object} [options.apports] - Versements personnels
  * @returns {Promise<void>}
  */
-export async function processData(fileData, warnings = [], { revenus, capital } = {}) {
+export async function processData(fileData, warnings = [], { revenus, capital, apports } = {}) {
     // Ce point d'entrée n'est atteint que depuis un appel à l'API : c'est ici
     // que naît la date de récupération.
     const dateRecuperation = new Date().toISOString();
@@ -68,14 +69,15 @@ export async function processData(fileData, warnings = [], { revenus, capital } 
                 warnings: warnings,
                 dateRecuperation,
                 revenus,
-                capital
+                capital,
+                apports
             });
 
             // La modal s'occupera d'appeler finalizeProcessing ou handleConfirmDelete
             // On ne fait rien de plus ici, la modal gère la suite
         } else {
             logger.info(LOG_CATEGORIES.DATA_MERGE, 'No missing projects, proceeding to finalize');
-            await finalizeProcessing(mergedData, warnings, { dateRecuperation, revenus, capital });
+            await finalizeProcessing(mergedData, warnings, { dateRecuperation, revenus, capital, apports });
         }
 
     } catch (err) {
@@ -97,6 +99,8 @@ export async function processData(fileData, warnings = [], { revenus, capital } 
  *   omis, celui du cache est réutilisé
  * @param {Object} [options.capital] - Remboursements de capital ; omis, celui
  *   du cache est réutilisé
+ * @param {Object} [options.apports] - Versements personnels ; omis, ceux du
+ *   cache sont réutilisés
  * @returns {Promise<Object>} Résultats des calculs
  */
 export async function finalizeProcessing(finalData, warnings = [], options = {}) {
@@ -119,7 +123,10 @@ export async function finalizeProcessing(finalData, warnings = [], options = {})
         // Le journal des mouvements dit ce qui relève du capital rendu
         const capital = options.capital || cache?.capital || null;
 
-        const results = calculateInvestmentStats(finalData, warnings, statuts, revenus, capital);
+        // Le même journal dit ce qui vient de votre poche
+        const apports = options.apports || cache?.apports || null;
+
+        const results = calculateInvestmentStats(finalData, warnings, statuts, revenus, capital, apports);
 
         // Le rafraîchissement des statuts a besoin de la liste des propriétés
         state.set('lastResults', results);
@@ -196,7 +203,8 @@ export async function handleConfirmDelete(projectIdsToRemove) {
     return await finalizeProcessing(cleanedData, warnings, {
         dateRecuperation: modalState.dateRecuperation,
         revenus: modalState.revenus,
-        capital: modalState.capital
+        capital: modalState.capital,
+        apports: modalState.apports
     });
 }
 
@@ -221,6 +229,7 @@ export async function handleKeepAllItems() {
     return await finalizeProcessing(dataContext, warnings, {
         dateRecuperation: modalState.dateRecuperation,
         revenus: modalState.revenus,
-        capital: modalState.capital
+        capital: modalState.capital,
+        apports: modalState.apports
     });
 }

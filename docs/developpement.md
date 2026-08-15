@@ -66,10 +66,13 @@ Architecture modulaire ES6 avec séparation des responsabilités.
 ```
 src/
 ├── business/         # Logique métier
+│   ├── apports.js           # Ce qui vient de votre poche, et non de Bricks
 │   ├── calculations.js      # Calculs financiers et statistiques
 │   ├── dataProcessor.js     # Fusion et traitement des données
+│   ├── fiscalite.js         # Ce que Bricks n'a pas prélevé, et qu'il faudra payer
 │   ├── forecast.js          # Simulateur
 │   ├── processor.js         # Orchestration du traitement
+│   ├── rendement.js         # Rendement constaté, annualisé par fenêtre
 │   ├── revenueHistory.js    # État de compte : revenus réellement versés
 │   ├── riskAnalysis.js      # Niveaux de risque par propriété
 │   ├── versements.js        # Qui a versé ce mois-ci, qui s'est tu
@@ -79,6 +82,7 @@ src/
 │   ├── distributionChart.js # Donut de répartition
 │   ├── forecastChart.js     # Projection du simulateur
 │   ├── investmentChart.js   # Évolution de l'investissement
+│   ├── origineFondsChart.js # Versements, parrainage et solde boosté
 │   ├── revenueChart.js      # Revenus perçus et attendus
 │   ├── taxChart.js          # Impôt prélevé
 │   └── treemapChart.js      # Portefeuille en surface

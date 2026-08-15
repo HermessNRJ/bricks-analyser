@@ -13,11 +13,11 @@
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /**
- * Statuts qui annulent un mouvement
- * Tout autre statut est compté : « confirmed » et « waiting » désignent tous
- * deux de l'argent dû, seul le calendrier les sépare.
+ * Statuts qui valent argent réellement passé sur le compte
+ * Liste blanche : voir le raisonnement dans apports.js, où un `declined` non
+ * listé comptait un rechargement refusé comme un versement reçu.
  */
-const STATUTS_ANNULES = ['cancelled', 'canceled', 'failed', 'refused', 'rejected'];
+const STATUTS_RETENUS = ['confirmed', 'waiting'];
 
 /**
  * Reconnaît un remboursement de capital
@@ -45,13 +45,23 @@ export function normaliserTransactions(transactions) {
     let totalCentimes = 0;
     let nombre = 0;
     let ignorees = 0;
+    // La racine `principal_repayment` peut attraper plusieurs natures — un
+    // remboursement et son écriture miroir au crédit du portefeuille se
+    // ressembleraient assez pour compter deux fois le même argent. Le détail
+    // par nature et par statut est journalisé pour qu'on puisse le vérifier.
+    const parNature = {};
 
     transactions.forEach(transaction => {
         if (!estRemboursementCapital(transaction?.kind)) {
             return;
         }
 
-        if (STATUTS_ANNULES.includes(transaction.status)) {
+        const signature = `${transaction.kind} (${transaction.status})`;
+        const releve = parNature[signature] ||= { lignes: 0, centimes: 0 };
+        releve.lignes++;
+        releve.centimes += Number.isFinite(transaction.value) ? transaction.value : 0;
+
+        if (!STATUTS_RETENUS.includes(transaction.status)) {
             ignorees++;
             return;
         }
@@ -80,7 +90,12 @@ export function normaliserTransactions(transactions) {
     logger.info(LOG_CATEGORIES.API, 'Capital repayments extracted', {
         transactions: nombre,
         months: Object.keys(parMois).length,
-        cancelled: ignorees
+        cancelled: ignorees,
+        total: totalCentimes / 100,
+        byKind: Object.fromEntries(
+            Object.entries(parNature).map(([nature, releve]) =>
+                [nature, `${releve.lignes} lignes, ${(releve.centimes / 100).toFixed(2)} €`])
+        )
     });
 
     return {

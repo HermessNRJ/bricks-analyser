@@ -54,8 +54,15 @@
                 <button id="refreshStatusBtn" class="bouton bouton-secondaire">Vérifier les statuts</button>
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>
-            <p id="statusProgress" class="chargement hidden" role="status"></p>
-            <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
+            <!-- Le chargement complet enchaîne cinq appels et peut durer une
+                 minute. Annoncé au fil du texte, il défilait hors de l'écran dès
+                 que l'utilisateur descendait, et le tableau à moitié rempli
+                 passait pour le résultat final. Le bandeau reste donc en haut de
+                 la fenêtre tant que ce n'est pas terminé. -->
+            <div class="bandeau-chargement" id="bandeauChargement">
+                <p id="statusProgress" class="chargement hidden" role="status"></p>
+                <p id="apiLoadingMessage" class="chargement hidden" role="status">Chargement des données…</p>
+            </div>
             <p id="dataAge" class="age-donnees hidden"></p>
         </section>
 
@@ -72,6 +79,7 @@
                     <span><i class="pastille-financement"></i>En financement</span>
                     <span><i class="pastille-avenir"></i>À venir</span>
                     <span><i class="pastille-rembourse"></i>Remboursé</span>
+                    <span><i class="pastille-defaut"></i>En défaut</span>
                     <span><i class="pastille-alerte"></i>Alerte en cours</span>
                 </div>
             </section>
@@ -79,7 +87,8 @@
             <section class="stats-grid" aria-label="Chiffres clés">
                 <div class="stat-card">
                     <div class="stat-value" id="totalInvestment">0€</div>
-                    <div class="stat-label">Investissement total</div>
+                    <div class="stat-label">Capital encore engagé</div>
+                    <div class="stat-detail" id="detailInvestissement"></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="monthlyRevenue">0€</div>
@@ -89,6 +98,7 @@
                 <div class="stat-card">
                     <div class="stat-value" id="totalNetRevenueSinceBeginning">0€</div>
                     <div class="stat-label">Net cumulé perçu</div>
+                    <div class="stat-detail" id="detailNetCumule"></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="totalTaxesSinceBeginning">0€</div>
@@ -113,6 +123,19 @@
                     <div class="stat-label">En financement ou à venir</div>
                     <div class="stat-detail" id="detailFinancement"></div>
                 </div>
+            </section>
+
+            <!-- Le taux affiché par Bricks est promis ; celui-ci est constaté.
+                 Plusieurs fenêtres plutôt qu'un chiffre unique : un mois seul est
+                 bruyant, douze mois lissent une dégradation récente, et c'est
+                 l'écart entre les deux qui dit dans quel sens ça va. -->
+            <section class="rendement-section hidden" id="rendementSection" aria-labelledby="titreRendement">
+                <div class="rendement-entete">
+                    <h3 id="titreRendement">Rendement annualisé</h3>
+                    <p class="rendement-resume" id="rendementResume"></p>
+                </div>
+                <div class="rendement-fenetres" id="rendementFenetres"></div>
+                <p class="note" id="rendementNote"></p>
             </section>
 
             <!-- Les quatre niveaux forment une partition des propriétés détenues :
@@ -161,9 +184,11 @@
                                 <th scope="col">Année</th>
                                 <th scope="col">Coupons <span class="entete-note">versés</span></th>
                                 <th scope="col">Prélèvement <span class="entete-note">retenu</span></th>
+                                <th scope="col" class="colonne-brute colonne-avenir hidden">Impôt <span class="entete-note">à venir</span></th>
                                 <th scope="col" class="colonne-brute">Parrainage <span class="entete-note">brut</span></th>
                                 <th scope="col" class="colonne-brute">Solde boosté <span class="entete-note">brut</span></th>
                                 <th scope="col" class="colonne-capital hidden">Capital <span class="entete-note">rendu</span></th>
+                                <th scope="col" class="colonne-apport hidden">De votre poche <span class="entete-note">versé</span></th>
                             </tr>
                         </thead>
                         <tbody id="revenusAnnuelsCorps"></tbody>
@@ -277,6 +302,12 @@
                 <div class="chart-container">
                     <h3 class="chart-title">Évolution de l'investissement</h3>
                     <canvas id="investmentChart" width="400" height="300"></canvas>
+                </div>
+
+                <div class="chart-container" id="origineFondsContainer">
+                    <h3 class="chart-title">D'où vient l'argent</h3>
+                    <canvas id="origineFondsChart" width="400" height="300"></canvas>
+                    <p class="chart-note" id="origineFondsNote"></p>
                 </div>
 
                 <div class="chart-container">

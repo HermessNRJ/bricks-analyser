@@ -26,6 +26,8 @@ export function afficherRevenusParAnnee(results) {
 
     const parAnnee = results.revenusReels?.parAnnee;
     const capitalConnu = Boolean(results.revenusReels?.capital);
+    const apportsConnus = Boolean(results.revenusReels?.apports);
+    const impotAVenir = results.revenusReels?.impotAVenir || null;
 
     // Sans état de compte, aucune ventilation fiable : mieux vaut ne rien
     // montrer qu'un tableau déduit des taux affichés.
@@ -37,7 +39,10 @@ export function afficherRevenusParAnnee(results) {
     section.classList.remove('hidden');
 
     const annees = Object.keys(parAnnee).sort().reverse();
-    const cumul = { coupons: 0, impot: 0, parrainage: 0, boost: 0, capital: 0 };
+    const cumul = {
+        coupons: 0, impot: 0, parrainage: 0, boost: 0,
+        capital: 0, apport: 0, etranger: 0, impotAVenir: 0
+    };
 
     const lignes = annees.map(annee => {
         const a = parAnnee[annee];
@@ -46,22 +51,35 @@ export function afficherRevenusParAnnee(results) {
         cumul.parrainage += a.parrainage;
         cumul.boost += a.boost;
         cumul.capital += a.capital || 0;
+        cumul.apport += a.apport || 0;
+        cumul.etranger += a.etranger || 0;
+        cumul.impotAVenir += a.impotAVenir || 0;
 
         return ligne(escapeHtml(annee), a);
     });
 
     corps.innerHTML = lignes.join('') + ligne('Total', cumul, 'ligne-total');
 
-    majColonneCapital(capitalConnu);
+    majColonne('colonne-avenir', Boolean(impotAVenir));
+    majColonne('colonne-capital', capitalConnu);
+    majColonne('colonne-apport', apportsConnus);
 
     if (resume) {
-        const aDeclarer = cumul.parrainage + cumul.boost;
-        const phrases = [aDeclarer > 0
-            ? `${formatCurrency(aDeclarer)} reçus sans retenue à la source depuis le début — ${formatCurrency(cumul.parrainage)} de parrainage et ${formatCurrency(cumul.boost)} de solde boosté.`
+        const phrases = [impotAVenir
+            ? `${formatCurrency(impotAVenir.total.base)} reçus sans retenue à la source depuis le début`
+              + ` — ${formatCurrency(cumul.etranger)} de coupons étrangers,`
+              + ` ${formatCurrency(cumul.parrainage)} de parrainage,`
+              + ` ${formatCurrency(cumul.boost)} de solde boosté. Bricks n'a rien prélevé dessus :`
+              + ` environ ${formatCurrency(impotAVenir.total.impot)} d'impôt restent à payer,`
+              + ' au barème en vigueur le mois de l\'encaissement.'
             : 'Aucun revenu versé sans retenue à la source pour le moment.'];
 
         if (capitalConnu) {
             phrases.push(`${formatCurrency(cumul.capital)} de capital vous ont par ailleurs été rendus : c'est votre mise qui revient, pas un gain.`);
+        }
+
+        if (apportsConnus) {
+            phrases.push(`Vous avez versé ${formatCurrency(cumul.apport)} de votre poche sur la période — un mouvement de trésorerie, qui ne se déclare pas.`);
         }
 
         resume.textContent = phrases.join(' ');
@@ -71,13 +89,14 @@ export function afficherRevenusParAnnee(results) {
 }
 
 /**
- * Masque la colonne du capital tant que le journal n'a pas été lu
- * Une colonne de zéros se lirait comme « aucun remboursement », alors qu'elle
- * ne dirait que l'absence de la source.
- * @param {boolean} connu - true si le journal des mouvements a été récupéré
+ * Masque une colonne tant que le journal n'a pas été lu
+ * Une colonne de zéros se lirait comme « aucun remboursement » ou « je n'ai
+ * jamais rien déposé », alors qu'elle ne dirait que l'absence de la source.
+ * @param {string} classe - Classe portée par les cellules de la colonne
+ * @param {boolean} connu - true si la source a été récupérée
  */
-function majColonneCapital(connu) {
-    document.querySelectorAll('.colonne-capital').forEach(cellule => {
+function majColonne(classe, connu) {
+    document.querySelectorAll(`.${classe}`).forEach(cellule => {
         cellule.classList.toggle('hidden', !connu);
     });
 }
@@ -95,9 +114,11 @@ function ligne(libelle, montants, classe = '') {
             <th scope="row">${libelle}</th>
             <td>${formatCurrency(montants.coupons)}</td>
             <td>${formatCurrency(montants.impot)}</td>
+            <td class="colonne-brute colonne-avenir">${formatCurrency(montants.impotAVenir || 0)}</td>
             <td class="colonne-brute">${formatCurrency(montants.parrainage)}</td>
             <td class="colonne-brute">${formatCurrency(montants.boost)}</td>
             <td class="colonne-capital">${formatCurrency(montants.capital || 0)}</td>
+            <td class="colonne-apport">${formatCurrency(montants.apport || 0)}</td>
         </tr>
     `;
 }

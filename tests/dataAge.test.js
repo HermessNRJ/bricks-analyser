@@ -17,17 +17,24 @@ describe('decrireAge', () => {
     it('dit « aujourd\'hui » pour des données du jour', () => {
         const age = decrireAge('2024-06-15T09:00:00Z', LE_15_JUIN);
 
-        expect(age.texte).toContain("aujourd'hui");
-        expect(age.texte).toContain('15 juin 2024');
+        // La date complète n'apprendrait rien si elle est du jour : l'heure,
+        // elle, dit si le relevé précède ou suit le règlement du mois.
+        expect(age.texte).toContain("aujourd'hui à ");
+        expect(age.texte).not.toContain('15 juin 2024');
+        expect(age.texte).toMatch(/\d{2}:\d{2}/);
         expect(age.estPerime).toBe(false);
     });
 
     it('dit « hier » au singulier', () => {
-        expect(decrireAge('2024-06-14T09:00:00Z', LE_15_JUIN).texte).toContain('hier');
+        expect(decrireAge('2024-06-14T09:00:00Z', LE_15_JUIN).texte).toContain('hier à ');
     });
 
     it('compte les jours au-delà', () => {
-        expect(decrireAge('2024-06-10T12:00:00Z', LE_15_JUIN).texte).toContain('il y a 5 jours');
+        const texte = decrireAge('2024-06-10T12:00:00Z', LE_15_JUIN).texte;
+
+        expect(texte).toContain('il y a 5 jours');
+        // Au-delà d'hier, la date complète revient, l'heure avec elle
+        expect(texte).toContain('10 juin 2024 à ');
     });
 
     it('signale des données périmées au-delà de deux semaines', () => {
@@ -61,7 +68,7 @@ describe('afficherAgeDonnees', () => {
 
         const el = document.getElementById('dataAge');
         expect(el.classList.contains('hidden')).toBe(false);
-        expect(el.textContent).toContain('Données récupérées le');
+        expect(el.textContent).toContain('Données récupérées');
     });
 
     it('invite à recharger quand les données sont périmées', () => {

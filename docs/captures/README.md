@@ -39,16 +39,20 @@ autres viennent en complément si vous voulez étoffer la documentation.
 
 | Fichier | Cadrage | Où l'insérer |
 | --- | --- | --- |
-| `vue-ensemble.png` | Du titre jusqu'au bas des tuiles de suivi des incidents — le mur, les huit chiffres clés, la répartition du risque | En tête du **README**, juste au-dessus de « Démarrer » |
-| `registre.png` | Le registre : bilan des versements, barre de filtres, deux rangées de fiches avec leurs pastilles et leurs carnets | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#carnet-de-versements) |
+| `vue-ensemble.png` | Du titre jusqu'au bas des tuiles de suivi des incidents — le mur, les huit chiffres clés, la bande de rendement, la répartition du risque | En tête du **README**, juste au-dessus de « Démarrer » |
+| `rendement.png` | La seule bande « Rendement annualisé », des cinq fenêtres à la note. Environ 1 130 × 220 px | [revenus.md](../revenus.md#rendement-annualisé) |
+| `registre.png` | La section « Registre des propriétés » : le titre, le bilan des versements, la barre de filtres, le compteur, puis **deux rangées de fiches** — pas plus, les 24 de la page feraient 5 900 px de haut. Compter environ 1 150 × 1 800 px | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#carnet-de-versements) |
 | `revenus.png` | Le graphique « Évolution des revenus nets », les deux courbes et la note d'écart en dessous | [revenus.md](../revenus.md#attendu-et-perçu) |
 | `revenus-annuels.png` | Le tableau des revenus par année, avec les colonnes brutes et le capital rendu | [revenus.md](../revenus.md#revenus-par-année) |
+| `origine-fonds.png` | Le graphique « D'où vient l'argent », sa légende et sa note. Environ 560 × 550 px | [revenus.md](../revenus.md#doù-vient-largent) |
 | `periode.png` | Le sélecteur de période et les trois courbes datées en dessous | [revenus.md](../revenus.md#période-des-courbes) |
 | `simulateur.png` | Le formulaire d'hypothèses et sa courbe | [revenus.md](../revenus.md#simulateur) |
 
-Pour le registre, réglez le filtre **Versement** sur « Rien reçu » avant la capture si vous
-voulez montrer ce que la fonctionnalité sert à trouver ; sinon laissez « Tous », qui donne
-un mélange plus représentatif de pastilles.
+Pour le registre, laissez les filtres sur « Tous » et le tri par défaut : les six premières
+fiches donnent cinq **Versé** et un **Rien reçu**, ce qui est exactement ce que la
+fonctionnalité montre — la plupart paient, un ne paie pas. Régler le filtre **Versement**
+sur « Rien reçu » donnerait une grille entièrement rouge, plus spectaculaire mais moins
+juste.
 
 ## 3. Insérer une image
 

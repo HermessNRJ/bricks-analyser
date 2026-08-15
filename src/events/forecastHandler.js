@@ -163,11 +163,27 @@ function afficherReperes() {
         ? `durée moyenne de vos projets : ${(contexte.horizonMoyen / 12).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans`
         : '');
 
-    ecrire('repereRendement', contexte.rendementMoyen > 0
-        ? `votre moyenne pondérée : ${formatPercentage(contexte.rendementMoyen)} brut`
-        : '');
+    ecrire('repereRendement', contexte.rendementConstate > 0
+        ? `constaté sur ${contexte.fenetreConstatee.toLowerCase()} : ${formatPercentage(contexte.rendementConstate)} brut`
+          + ` · annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)}`
+        : (contexte.rendementMoyen > 0
+            ? `annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`
+            : ''));
 
     ecrire('repereImpaye', `constaté aujourd'hui : ${formatPercentage(contexte.tauxImpayeObserve)} du capital en difficulté`);
+}
+
+/**
+ * Taux dont part la simulation
+ *
+ * Le constaté quand on l'a : partir du taux promis faisait dérouler une
+ * projection que le portefeuille n'a jamais tenue, et l'écart se retrouvait
+ * intégralement dans le résultat final.
+ *
+ * @returns {number} Rendement annuel brut, en pourcentage
+ */
+function tauxDeDepart() {
+    return contexte.rendementConstate > 0 ? contexte.rendementConstate : contexte.rendementMoyen;
 }
 
 /**
@@ -179,7 +195,7 @@ function repartirDuPortefeuille() {
         if (champ) champ.value = valeur;
     };
 
-    appliquer('simRendement', contexte.rendementMoyen.toFixed(1));
+    appliquer('simRendement', tauxDeDepart().toFixed(1));
     appliquer('simImpaye', contexte.tauxImpayeObserve.toFixed(1));
 
     if (contexte.apportMoyen > 0) {
@@ -199,9 +215,17 @@ function repartirDuPortefeuille() {
  * @param {Object} results - Résultats des calculs
  */
 export function updateForecastContext(results) {
+    // Le taux constaté sur douze mois prime sur celui qu'annonce Bricks : les
+    // hypothèses du simulateur doivent partir de ce que le portefeuille fait,
+    // non de ce qu'il promet. Le second reste affiché en repère.
+    const douzeMois = (results.rendements?.fenetres || []).find(f => f.fenetre === 12)
+        || (results.rendements?.fenetres || []).find(f => f.fenetre === null);
+
     contexte = {
         capitalInitial: results.totalInvestment || 0,
         rendementMoyen: rendementMoyenPondere(results.properties),
+        rendementConstate: douzeMois?.tauxBrut || 0,
+        fenetreConstatee: douzeMois?.libelle || '',
         // Part du capital détenu actuellement en difficulté : une hypothèse
         // d'impayés ancrée sur les faits plutôt que sur un chiffre rond
         tauxImpayeObserve: results.risque?.enDifficulte?.partCapital || 0,
@@ -219,7 +243,7 @@ export function updateForecastContext(results) {
         }
     };
 
-    preremplir('simRendement', contexte.rendementMoyen.toFixed(1));
+    preremplir('simRendement', tauxDeDepart().toFixed(1));
     preremplir('simImpaye', contexte.tauxImpayeObserve.toFixed(1));
 
     if (contexte.apportMoyen > 0) {

@@ -285,3 +285,57 @@ export function repartitionRisque(properties, statuts = {}) {
         statutsConnus: Object.keys(statuts || {}).length
     };
 }
+
+/**
+ * Chiffre ce qu'un projet en défaut ne vous a pas versé
+ *
+ * Deux montants, et deux sources qu'il ne faut pas confondre.
+ *
+ * Les **coupons manqués** se déduisent du projet lui-même : autant d'échéances
+ * impayées que de coupons non tombés, au taux annoncé. Le montant dû par
+ * l'emprunteur, que porte le suivi officiel, ne convient pas — c'est sa dette à
+ * lui, échéancier et commission de plateforme compris, sans rapport fixe avec
+ * le coupon versé. Vérifié sur deux projets réels : Villa Cap d'Antibes annonce
+ * 11 % mais son échéance revient à 9,1 % du capital, quand Mas de Souvignargues
+ * en fait 12,45 % pour le même taux affiché. La part de l'un donnait 1,90 €
+ * quand le coupon mensuel valait 2,29 €, celle de l'autre l'inverse.
+ *
+ * Les **pénalités**, elles, sont explicitement celles des investisseurs :
+ * `investors_penalties_summary`. Elles se répartissent au prorata des briques,
+ * seule clé d'une émission obligataire — chacune porte la même fraction du
+ * droit. Sur un Château de Chicamour à 175 000 briques et 4 471 investisseurs,
+ * les afficher brutes reviendrait à annoncer la dette de tout le monde.
+ *
+ * @param {Object} property - Propriété détenue
+ * @param {Object} [suivi] - Suivi officiel du projet
+ * @returns {Object|null} { montant, echeances, penalites, part } ou null
+ */
+export function arrieresInvestisseur(property, suivi) {
+    if (!suivi?.suivi) {
+        return null;
+    }
+
+    const impayees = suivi.impayees || 0;
+    const coupon = (property?.investment || 0) * (property?.yearlyReturn || 0) / 100 / 12;
+    const montant = impayees * coupon;
+
+    // Sans le nombre total de briques, aucun prorata : un statut récupéré par
+    // une version antérieure ne le porte pas, et mieux vaut taire la pénalité
+    // qu'annoncer celle du projet entier comme étant la sienne.
+    const briquesProjet = suivi.briquesProjet || 0;
+    const detenues = property?.ownedBricks || 0;
+    const part = briquesProjet > 0 && detenues > 0 ? detenues / briquesProjet : null;
+    const penalites = part === null ? 0 : (suivi.penalites || 0) * part;
+
+    if (montant <= 0 && penalites <= 0) {
+        return null;
+    }
+
+    return {
+        montant: Math.round(montant * 100) / 100,
+        echeances: impayees,
+        penalites: Math.round(penalites * 100) / 100,
+        penalitesConnues: part !== null,
+        part
+    };
+}

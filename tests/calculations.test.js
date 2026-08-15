@@ -356,3 +356,27 @@ describe('calculateInvestmentStats — évolution des revenus et taxes', () => {
             .toBe(true);
     });
 });
+
+describe('calculateMonthlyRevenue selon le pays', () => {
+    it('retient le prélèvement forfaitaire sur un projet français', () => {
+        const revenu = calculateMonthlyRevenue(250, 11, 'France');
+
+        expect(revenu.gross).toBeCloseTo(2.29, 2);
+        expect(revenu.net).toBeCloseTo(2.29 * (1 - CONFIG.TAX_RATE), 2);
+        expect(revenu.tax).toBeGreaterThan(0);
+    });
+
+    it('ne retient rien à la source hors de France', () => {
+        // Le coupon arrive brut ; l'impôt viendra sur la déclaration, et la
+        // fiche affiche par ailleurs le même montant en net et en brut.
+        const revenu = calculateMonthlyRevenue(250, 11, 'Portugal');
+
+        expect(revenu.net).toBeCloseTo(revenu.gross, 6);
+        expect(revenu.tax).toBe(0);
+    });
+
+    it('suppose la France quand le pays n\'est pas précisé', () => {
+        expect(calculateMonthlyRevenue(250, 11).net)
+            .toBeCloseTo(calculateMonthlyRevenue(250, 11, 'France').net, 6);
+    });
+});

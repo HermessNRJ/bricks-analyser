@@ -52,17 +52,27 @@ export function decrireAge(savedAt, maintenant = new Date()) {
         year: 'numeric'
     });
 
+    // L'heure vaut surtout pour la journée en cours : Bricks règle autour du 8
+    // du mois, et savoir qu'un relevé a été pris à 7 h plutôt qu'à 19 h dit si
+    // les versements du jour avaient eu le temps d'y figurer.
+    const heure = date.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    // Répéter la date complète quand elle est du jour n'apprend rien : le
+    // repère utile est alors l'heure seule.
     let quand;
     if (anciennete === 0) {
-        quand = "aujourd'hui";
+        quand = `aujourd'hui à ${heure}`;
     } else if (anciennete === 1) {
-        quand = 'hier';
+        quand = `hier à ${heure}`;
     } else {
-        quand = `il y a ${anciennete} jours`;
+        quand = `le ${dateLisible} à ${heure}, il y a ${anciennete} jours`;
     }
 
     return {
-        texte: `Données récupérées le ${dateLisible}, ${quand}.`,
+        texte: `Données récupérées ${quand}.`,
         estPerime: anciennete >= SEUIL_PERIME_JOURS
     };
 }

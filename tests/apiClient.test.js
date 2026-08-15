@@ -5,7 +5,8 @@ import {
     fetchWarnings,
     mergeAPIProjects,
     normalizeSessionCookie,
-    hasSessionCookie
+    hasSessionCookie,
+    fetchTransactionsPortefeuille
 } from '../src/data/apiClient.js';
 
 const SESSION = 'cf_clearance=abc; __Secure-better-auth.session_token=tok123';
@@ -183,5 +184,45 @@ describe('mergeAPIProjects', () => {
     it('tolère une réponse partielle', () => {
         expect(mergeAPIProjects([], { ongoing: null, upcoming: undefined })).toEqual([]);
         expect(mergeAPIProjects([], { ongoing: {} })).toEqual([]);
+    });
+});
+
+
+describe('fetchTransactionsPortefeuille', () => {
+    const ligne = id => ({ id, kind: 'obligation_principal_repayment_partial', value: 100 });
+
+    it('ne compte qu\'une fois une ligne renvoyée par deux lots', async () => {
+        // Un curseur qui désigne le dernier élément plutôt que le suivant fait
+        // se recouvrir les lots : le remboursement repris compterait double.
+        let appel = 0;
+        mockFetch(async () => jsonResponse({
+            data: appel++ === 0 ? [ligne('a'), ligne('b')] : [ligne('b'), ligne('c')]
+        }));
+
+        const transactions = await fetchTransactionsPortefeuille(SESSION);
+
+        expect(transactions.map(t => t.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('s\'arrête quand un lot n\'apporte plus rien de neuf', async () => {
+        // Un curseur ignoré par l'amont renverrait sans fin les mêmes lignes,
+        // recomptées à chaque tour jusqu'au garde-fou de 200 lots.
+        const fetchMock = mockFetch(async () => jsonResponse({ data: [ligne('a'), ligne('b')] }));
+
+        const transactions = await fetchTransactionsPortefeuille(SESSION);
+
+        expect(transactions).toHaveLength(2);
+        expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+    });
+
+    it('garde les lignes sans identifiant plutôt que d\'en perdre', async () => {
+        let appel = 0;
+        mockFetch(async () => jsonResponse({
+            data: appel++ === 0 ? [{ kind: 'topup_checkout', value: 500 }] : []
+        }));
+
+        const transactions = await fetchTransactionsPortefeuille(SESSION);
+
+        expect(transactions).toHaveLength(1);
     });
 });

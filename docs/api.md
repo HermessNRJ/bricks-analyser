@@ -48,7 +48,34 @@ deux cents projets — et c'est elle qui dit, propriété par propriété, ce qu
 qui manque. Voir [le carnet de versements](revenus.md#carnet-de-versements).
 
 Le journal des mouvements est le seul endroit où un remboursement de capital se distingue
-d'un coupon. Il est paginé cent lignes à la fois, en curseur.
+d'un coupon, et le seul où l'argent venu de votre banque se distingue d'un gain — les
+rechargements y portent une nature en `topup_*`, les retraits un `withdraw`, `payout` ou
+`cash_out`. Ce vocabulaire n'est pas documenté par Bricks : les natures rencontrées sont
+donc journalisées à chaque lecture, pour qu'un moyen de paiement inconnu se voie dans la
+console plutôt que de disparaître silencieusement des apports. Le journal est paginé cent
+lignes à la fois, en curseur.
+
+Le curseur n'est pas documenté non plus, et rien ne garantit qu'il désigne exactement la
+ligne suivante. Les identifiants déjà vus sont donc retenus : un lot qui recouvre le
+précédent ne recompte pas ses lignes, et un lot entièrement déjà vu arrête la pagination au
+lieu de relire les mêmes cent lignes jusqu'au garde-fou. Les doublons écartés sont
+journalisés.
+
+### Deux sources pour le capital rendu
+
+Le journal nomme chaque remboursement ; l'état de compte le laisse deviner, par le
+prélèvement qui manque sur la ligne de coupons. Les deux devraient s'accorder, et un contrôle
+les confronte année par année à chaque calcul — au niveau `warn` quand le journal en annonce
+plus du double. Voir [le numérateur du rendement](revenus.md#le-numérateur).
+
+Pour lire le détail, il faut relever le niveau de journalisation, coupé à `warn` par défaut
+parce que `info` recopie les montants et les identifiants de projets dans la console :
+
+```js
+localStorage.setItem('bricksLogLevel', 'info'); location.reload();
+// puis, une fois le diagnostic fait
+localStorage.removeItem('bricksLogLevel');
+```
 
 ## Suivi officiel des projets
 

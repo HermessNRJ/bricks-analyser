@@ -26,6 +26,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normaliserHistoriqueRevenus } from '../src/business/revenueHistory.js';
 import { normaliserTransactions } from '../src/business/walletHistory.js';
+import { normaliserApports } from '../src/business/apports.js';
 
 const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SORTIE = path.join(RACINE, 'data', 'demo.json');
@@ -246,6 +247,7 @@ function construireReleve(portefeuille) {
         const [annee, m] = mois.split('-').map(Number);
         const byProperty = [];
         let couponsCentimes = 0;
+        let interetsCentimes = 0;
 
         portefeuille.forEach(p => {
             if (mois < p.debutVersement || p.etat !== 'financed' && p.etat !== 'rembourse') {
@@ -262,12 +264,15 @@ function construireReleve(portefeuille) {
             }
 
             const investi = p.briques * 10;
-            let centimes = Math.round((investi * p.rendement / 100 / 12) * 100);
+            const interets = Math.round((investi * p.rendement / 100 / 12) * 100);
+            let centimes = interets;
 
             // Le capital rendu passe dans les coupons, comme chez Bricks
             if (p.rembourseLe === mois) {
                 centimes += investi * 100;
             }
+
+            interetsCentimes += interets;
 
             if (centimes <= 0) {
                 return;
@@ -282,12 +287,14 @@ function construireReleve(portefeuille) {
         });
 
         // Parrainage ponctuel et solde boosté quotidien : versés bruts
-        const parrainage = mois === decaler(MOIS_FIN, -14) ? 2000 : 0;
+        const parrainage = [-20, -14, -5].some(recul => mois === decaler(MOIS_FIN, recul)) ? 5000 : 0;
         const boost = entre(15, 45);
 
-        // Le prélèvement ne porte que sur les coupons
+        // Le prélèvement ne porte que sur les INTÉRÊTS : un remboursement de
+        // capital n'est pas imposable, alors même qu'il voyage dans les coupons.
+        // C'est cet écart qui laisse retrouver la part de capital à rebours.
         const taux = mois >= '2026-01' ? 0.314 : 0.30;
-        const impot = Math.round(couponsCentimes * taux);
+        const impot = Math.round(interetsCentimes * taux);
 
         return {
             year: annee,
@@ -311,13 +318,21 @@ function construireReleve(portefeuille) {
 }
 
 /**
+ * Part des achats payée par un virement plutôt que par les coupons réinvestis
+ * Un portefeuille qui ne serait alimenté que de l'extérieur ne montrerait rien
+ * de l'effet boule de neige ; un qui s'autofinancerait entièrement non plus.
+ */
+const PART_APPORTEE = 0.85;
+
+/**
  * Construit le journal des mouvements
- * Seuls les remboursements de capital en sont tirés par l'application.
+ * L'application y lit deux choses : les remboursements de capital, et ce que
+ * l'investisseur a versé de sa poche.
  * @param {Array} portefeuille - Propriétés tirées
  * @returns {Array<Object>} Transactions
  */
 function construireJournal(portefeuille) {
-    return portefeuille
+    const remboursements = portefeuille
         .filter(p => p.rembourseLe)
         .map((p, rang) => ({
             id: `demo-tx-${rang}`,
@@ -329,6 +344,28 @@ function construireJournal(portefeuille) {
             propertyId: p.id,
             propertyName: p.nom
         }));
+
+    // Les versements suivent les achats : on recharge le compte le mois où l'on
+    // achète, à l'euro rond, et les coupons déjà encaissés financent le reste.
+    const achats = {};
+
+    portefeuille.forEach(p => {
+        achats[p.moisAchat] = (achats[p.moisAchat] || 0) + p.briques * 10;
+    });
+
+    const versements = Object.keys(achats).sort()
+        .map(mois => ({ mois, montant: Math.round(achats[mois] * PART_APPORTEE / 10) * 10 }))
+        .filter(({ montant }) => montant >= 20)
+        .map(({ mois, montant }, rang) => ({
+            id: `demo-topup-${rang}`,
+            kind: 'topup_checkout',
+            createdAt: `${mois}-03T14:27:00.000Z`,
+            status: 'confirmed',
+            value: montant * 100,
+            giftBalanceChange: 0
+        }));
+
+    return [...remboursements, ...versements];
 }
 
 /**
@@ -402,7 +439,9 @@ function construireStatuts(portefeuille) {
 
 const portefeuille = tirerPortefeuille();
 const revenus = normaliserHistoriqueRevenus(construireReleve(portefeuille));
-const capital = normaliserTransactions(construireJournal(portefeuille));
+const journal = construireJournal(portefeuille);
+const capital = normaliserTransactions(journal);
+const apports = normaliserApports(journal);
 
 const cache = {
     data: construireProjets(portefeuille),
@@ -410,7 +449,8 @@ const cache = {
     savedAt: new Date().toISOString(),
     statuts: construireStatuts(portefeuille),
     revenus,
-    capital
+    capital,
+    apports
 };
 
 fs.mkdirSync(path.dirname(SORTIE), { recursive: true });
@@ -422,5 +462,6 @@ console.log(`Portefeuille fictif écrit dans ${path.relative(RACINE, SORTIE)}`);
 console.log(`  ${portefeuille.length} propriétés dont ${detenues} détenues`);
 console.log(`  ${MOIS.length} mois d'historique, de ${MOIS[0]} à ${MOIS_FIN}`);
 console.log(`  net perçu ${revenus.total.net.toFixed(2)} €, prélèvement ${revenus.total.impot.toFixed(2)} €`);
+console.log(`  ${apports.total.net.toFixed(2)} € versés de la poche de l'investisseur`);
 console.log(`  ${(fs.statSync(SORTIE).size / 1024).toFixed(0)} Ko`);
 console.log('\nPour le charger : voir docs/captures/README.md');

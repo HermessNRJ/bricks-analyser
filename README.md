@@ -16,8 +16,9 @@ navigateur ne peut pas joindre directement ([pourquoi](docs/api.md)).
 docker-compose up -d --build
 ```
 
-L'application répond sur <http://localhost:8080>. Le `--build` est nécessaire à chaque
-modification de `nginx.conf`, qui est copié dans l'image.
+L'application répond sur <http://localhost:8080>. Le `--build` est nécessaire après toute
+modification de `nginx.conf` ou d'`index.html`, tous deux copiés dans l'image. `src/` est
+monté en direct : le JavaScript et la CSS se rechargent sans reconstruire.
 
 ### 2. Récupérer sa session Bricks
 
@@ -55,12 +56,16 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
   prélèvement retenu depuis le début, lus sur l'état de compte Bricks.
 * **Perçu contre attendu** — ce qui est réellement tombé, face à ce que le portefeuille
   aurait dû verser. L'écart est le manque à gagner. → [Lire les chiffres](docs/revenus.md)
+* **Rendement annualisé** — ce que le capital rapporte vraiment, sur 1, 3, 6, 12 mois et
+  depuis le début. Un taux constaté, non le taux promis.
 * **Carnet de versements** — qui a versé ce mois-ci, qui s'est tu, et depuis quand. Une
   marque par mois sur treize mois, par propriété.
 * **Suivi des incidents** — défaut, impayé, contentieux, capital exposé, d'après le statut
   officiel de chaque projet. Cliquer sur une tuile filtre le registre.
-* **Revenus par année** — coupons, prélèvement, parrainage, solde boosté et capital rendu,
-  ventilés par année civile pour la déclaration.
+* **Revenus par année** — coupons, prélèvement retenu, impôt encore dû sur ce qui a été versé
+  brut, parrainage, solde boosté, capital rendu et versements personnels, par année civile.
+* **Origine des fonds** — ce que vous avez déposé, ce que le parrainage et le solde boosté
+  ont ajouté, et la part du portefeuille qui vient de votre poche.
 * **Graphiques** — investissement, revenus, impôt, répartition, portefeuille en surface,
   avec une période réglable commune aux trois courbes datées.
 * **Registre des propriétés** — adresse, briques, rendement, alertes datées, fiche

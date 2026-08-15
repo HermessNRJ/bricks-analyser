@@ -9,6 +9,7 @@ import { createDistributionChart } from './distributionChart.js';
 import { createRevenueChart } from './revenueChart.js';
 import { createTaxChart } from './taxChart.js';
 import { createTreemapChart } from './treemapChart.js';
+import { createOrigineFondsChart } from './origineFondsChart.js';
 import { filtrerPeriode, periodeCourante, bornerAuxDonnees } from '../ui/periodeGraphiques.js';
 import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
 
@@ -93,6 +94,17 @@ function dessinerSeriesDatees(results) {
     const impots = filtrerPeriode(reels?.impot || results.taxAmountEvolutionData, periode, reference);
     const investissement = filtrerPeriode(results.investmentEvolution, periode, reference);
 
+    // Les trois séries de l'origine des fonds partagent la même fenêtre que le
+    // reste : lire les versements sur six mois et les revenus sur vingt-quatre
+    // ferait conclure n'importe quoi de leur rapport.
+    const origine = results.origineFonds
+        ? {
+            apports: filtrerPeriode(results.origineFonds.apports, periode, reference),
+            parrainage: filtrerPeriode(results.origineFonds.parrainage, periode, reference),
+            boost: filtrerPeriode(results.origineFonds.boost, periode, reference)
+        }
+        : null;
+
     const optionsRevenus = {
         reel: Boolean(reels),
         moisPartiel: reels?.moisPartiel || null
@@ -105,6 +117,10 @@ function dessinerSeriesDatees(results) {
         ecart: reels?.ecart || null
     });
     createTaxChart(impots, optionsRevenus);
+    createOrigineFondsChart(origine, {
+        apportsConnus: Boolean(results.origineFonds?.apportsConnus),
+        moyenneApports: results.origineFonds?.moyenneApports || 0
+    });
 }
 
 /**
@@ -159,6 +175,7 @@ export function destroyAllCharts() {
         distribution: null,
         revenueEvolution: null,
         taxAmount: null,
+        origineFonds: null,
         treemap: null,
         forecast: null
     });

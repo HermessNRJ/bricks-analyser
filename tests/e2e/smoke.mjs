@@ -75,6 +75,17 @@ const fixture = {
         premierMois: '2024-04',
         dernierMois: '2024-06',
         total: { brut: 14, net: 9.8, impot: 4.2 }
+    },
+    // Journal réduit : 600 € versés de la poche pour 700 € de briques, le reste
+    // venant des coupons réinvestis.
+    apports: {
+        parMois: {
+            '2024-01': { depot: 500, retrait: 0, net: 500 },
+            '2024-03': { depot: 100, retrait: 0, net: 100 }
+        },
+        parAnnee: { 2024: { depot: 600, retrait: 0, net: 600 } },
+        total: { depot: 600, retrait: 0, net: 600 },
+        nombre: 2
     }
 };
 
@@ -116,7 +127,15 @@ const snapshot = await page.evaluate(() => ({
     bilanVersements: document.getElementById('versementsCompte').textContent.replace(/\s+/g, ' ').trim(),
     pastilles: [...document.querySelectorAll('.versement-pastille')].map(e => e.textContent.trim()),
     carnets: document.querySelectorAll('.carnet').length,
-    marquesVersees: document.querySelectorAll('.carnet-mois.est-verse').length
+    marquesVersees: document.querySelectorAll('.carnet-mois.est-verse').length,
+    rendementVisible: !document.getElementById('rendementSection').classList.contains('hidden'),
+    rendementFenetres: [...document.querySelectorAll('.rendement-fenetre')]
+        .map(e => e.querySelector('.rendement-libelle').textContent.trim()),
+    rendementTaux: [...document.querySelectorAll('.rendement-taux')].map(e => e.textContent.trim()),
+    detailInvestissement: document.getElementById('detailInvestissement').textContent.trim(),
+    colonneApportCachee: document.querySelector('th.colonne-apport').classList.contains('hidden'),
+    apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
+        .map(e => e.textContent.trim())
 }));
 
 check('la section résultats est affichée', snapshot.resultsVisible);
@@ -142,6 +161,45 @@ check('les trois états de versement sont distingués',
     && snapshot.pastilles.filter(p => p === 'Rien reçu').length === 2,
     snapshot.pastilles.join(' / '));
 check('le carnet marque les mois versés', snapshot.marquesVersees === 5, `${snapshot.marquesVersees} marques`);
+
+check('le rendement annualisé est affiché', snapshot.rendementVisible);
+// Trois mois révolus : les fenêtres de 6 et 12 mois n'ont pas de quoi être
+// calculées, et une fenêtre affichée sur des mois qu'on n'a pas serait fausse.
+check('les fenêtres se limitent à l\'historique disponible',
+    snapshot.rendementFenetres.join(' / ') === '1 mois / 3 mois / Depuis le début',
+    snapshot.rendementFenetres.join(' / '));
+// 1,40 € perçus en juin sur 700 € placés, ramenés à l'année
+// L'espace avant le signe est une espace fine insécable, posée par Intl
+check('le taux du dernier mois révolu est annualisé',
+    /^2,4\s*%$/.test(snapshot.rendementTaux[0]), snapshot.rendementTaux.join(' / '));
+// Aucune part n'est annoncée : ce serait comparer un flux — tout ce qui est
+// entré depuis l'ouverture — à l'état du capital encore engagé aujourd'hui.
+check('la tuile du capital dit ce qui a été versé depuis l\'ouverture',
+    /600/.test(snapshot.detailInvestissement)
+    && /depuis l'ouverture/.test(snapshot.detailInvestissement),
+    snapshot.detailInvestissement);
+check('la colonne des versements personnels est ouverte', !snapshot.colonneApportCachee);
+check('le tableau annuel porte les versements personnels',
+    snapshot.apportsAnnuels.every(v => /600/.test(v)), snapshot.apportsAnnuels.join(' / '));
+
+// Déplier les actualités ne doit pas ouvrir le projet : le clic sur le résumé
+// remontait jusqu'à la fiche, qui est un lien vers Bricks.
+const depliant = page.locator('#propertiesList details.alertes summary').first();
+
+if (await depliant.count() > 0) {
+    const ongletsAvant = page.context().pages().length;
+    await depliant.click();
+    await page.waitForTimeout(200);
+
+    const ouvert = await page.locator('#propertiesList details.alertes').first()
+        .evaluate(d => d.open);
+
+    check('déplier les actualités n\'ouvre pas le projet',
+        ouvert && page.context().pages().length === ongletsAvant,
+        `ouvert: ${ouvert}, onglets: ${page.context().pages().length}`);
+} else {
+    check('déplier les actualités n\'ouvre pas le projet', false, 'aucun dépliant rendu');
+}
 
 // Interactions réelles : filtre puis tri
 await page.selectOption('#propertyCountryFilter', 'Portugal');

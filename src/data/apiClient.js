@@ -214,7 +214,14 @@ const LOTS_MAX = 200;
  */
 export async function fetchTransactionsPortefeuille(session, { onProgress } = {}) {
     const transactions = [];
+    // Le curseur n'est pas documenté. S'il ne désigne pas exactement la ligne
+    // suivante — index du dernier élément plutôt que du prochain, ou paramètre
+    // simplement ignoré — les lots se recouvrent, et chaque ligne revue est
+    // recomptée. Un remboursement de capital compté deux fois double le capital
+    // rendu du mois : on retient donc les identifiants déjà vus.
+    const vus = new Set();
     let cursor = 0;
+    let doublons = 0;
 
     for (let lot = 0; lot < LOTS_MAX; lot++) {
         let page;
@@ -236,10 +243,37 @@ export async function fetchTransactionsPortefeuille(session, { onProgress } = {}
             break;
         }
 
-        transactions.push(...lignes);
+        const inedites = lignes.filter(ligne => {
+            // Une ligne sans identifiant ne peut pas être dédoublonnée : la
+            // garder est le moindre risque, en perdre une fausserait les totaux.
+            if (typeof ligne?.id !== 'string' || !ligne.id) {
+                return true;
+            }
+
+            if (vus.has(ligne.id)) {
+                doublons++;
+                return false;
+            }
+
+            vus.add(ligne.id);
+            return true;
+        });
+
+        transactions.push(...inedites);
 
         if (typeof onProgress === 'function') {
             onProgress(transactions.length);
+        }
+
+        // Un lot entièrement déjà vu signale un curseur qui n'avance plus :
+        // continuer ne ferait que relire les mêmes lignes jusqu'à LOTS_MAX.
+        if (inedites.length === 0) {
+            logger.warn(LOG_CATEGORIES.API, 'Wallet pagination stopped: page brought nothing new', {
+                batch: lot,
+                cursor,
+                received: lignes.length
+            });
+            break;
         }
 
         // Le curseur renvoyé fait foi tant qu'il avance ; sinon on le déduit du
@@ -249,7 +283,17 @@ export async function fetchTransactionsPortefeuille(session, { onProgress } = {}
             : cursor + lignes.length;
     }
 
-    logger.info(LOG_CATEGORIES.API, 'Wallet transactions fetched', { count: transactions.length });
+    if (doublons > 0) {
+        logger.warn(LOG_CATEGORIES.API, 'Wallet journal returned duplicate rows, deduplicated', {
+            duplicates: doublons,
+            kept: transactions.length
+        });
+    }
+
+    logger.info(LOG_CATEGORIES.API, 'Wallet transactions fetched', {
+        count: transactions.length,
+        duplicates: doublons
+    });
 
     return transactions;
 }

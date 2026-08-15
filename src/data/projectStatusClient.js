@@ -50,18 +50,36 @@ export async function fetchProjectStatus(projectId) {
             return { id: projectId, suivi: false };
         }
 
+        const echeances = Array.isArray(data.echeances) ? data.echeances : [];
+        const impayees = echeances.filter(e => e.status === 'unpaid');
+
+        // Les unités ne sont pas homogènes : les champs suffixés `_in_cents`
+        // sont en centimes, `amount_due` est en euros. Vérifié sur un projet en
+        // défaut, où `pending_investors_penalties_amount: 903` accompagne
+        // `net_investors_penalties_in_cents: 90296`.
+        const montantDu = impayees.reduce(
+            (somme, e) => somme + (Number.isFinite(e.amount_due) ? e.amount_due : 0), 0
+        );
+
         return {
             id: projectId,
             suivi: true,
             statut: data.project.status || null,
-            impayees: Number(data.unpaid_count) || 0,
-            // Les pénalités sont exprimées en centimes par l'API
+            impayees: impayees.length || Number(data.unpaid_count) || 0,
             penalites: (data.investors_penalties_summary?.total_amount_in_cents || 0) / 100,
-            derniereEcheanceImpayee: (data.echeances || [])
-                .filter(e => e.status === 'unpaid')
+            // Montants À L'ÉCHELLE DU PROJET : ils ne veulent rien dire sur une
+            // fiche tant qu'ils n'ont pas été ramenés aux briques détenues, d'où
+            // le nombre total de briques conservé avec eux.
+            montantDu,
+            briquesProjet: Number(data.number_of_bricks) || 0,
+            derniereEcheanceImpayee: impayees
                 .map(e => e.payment_date)
                 .sort()
-                .pop() || null
+                .pop() || null,
+            premiereEcheanceImpayee: impayees
+                .map(e => e.payment_date)
+                .sort()
+                .shift() || null
         };
 
     } catch (err) {
