@@ -131,6 +131,11 @@ function rejouer() {
  * chiffre qu'on venait d'y lire — celui de Bricks — alors qu'elle découle de la
  * saisie.
  *
+ * Elle se termine par la confrontation au constaté. C'est le seul contrôle que
+ * l'écran puisse offrir sur ce couple d'hypothèses : deux valeurs plausibles
+ * prises séparément peuvent aboutir à un rendement que le portefeuille n'a
+ * jamais approché, et rien ne le signalait.
+ *
  * @param {Object} hypotheses - Hypothèses courantes du simulateur
  */
 function afficherCorrespondanceRendement(hypotheses) {
@@ -154,7 +159,30 @@ function afficherCorrespondanceRendement(hypotheses) {
         texte += ` · ${formatPercentage(apresTout)} une fois les impayés déduits`;
     }
 
-    ligne.textContent = texte;
+    ligne.textContent = texte + confrontationAuConstate(apresTout);
+}
+
+/**
+ * Confronte le net simulé à celui que le portefeuille constate
+ *
+ * @param {number} simule - Rendement net des hypothèses courantes
+ * @returns {string} Incise à ajouter, vide faute de constaté
+ */
+function confrontationAuConstate(simule) {
+    const constate = contexte.rendementConstateNet;
+
+    if (!(constate > 0)) {
+        return '';
+    }
+
+    // Un dixième de point sépare déjà le simulateur du constaté sans qu'aucune
+    // hypothèse soit en cause : le prélèvement s'y applique à plat, quand les
+    // coupons étrangers y échappent jusqu'à la déclaration. Le seuil laisse
+    // passer cet écart-là et ne signale que les vrais désaccords.
+    return Math.abs(simule - constate) < 0.3
+        ? `, soit le constaté ${surLaFenetre(contexte.fenetreConstatee)}`
+        : `, quand le constaté ${surLaFenetre(contexte.fenetreConstatee)}`
+          + ` est de ${formatPercentage(constate)}`;
 }
 
 /**
@@ -225,6 +253,35 @@ function repereApport() {
 }
 
 /**
+ * Rédige le repère du champ « rendement annuel brut »
+ *
+ * Le champ part du taux annoncé ; c'est le champ des impayés qui doit le ramener
+ * au constaté. Le repère nomme donc les deux bouts de ce trajet, faute de quoi
+ * on croit lire deux mesures concurrentes là où il y a un départ et une cible.
+ *
+ * @returns {string} Repère à afficher, vide si rien n'est connu
+ */
+function repereRendement() {
+    if (contexte.rendementMoyen <= 0) {
+        return contexte.rendementConstate > 0
+            ? `constaté ${surLaFenetre(contexte.fenetreConstatee)} :`
+              + ` ${formatPercentage(contexte.rendementConstate)} brut`
+            : '';
+    }
+
+    const annonce = `annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`;
+
+    if (contexte.rendementConstate <= 0) {
+        return annonce;
+    }
+
+    return `${annonce} · les impayés ci-contre le ramènent au constaté`
+        + ` ${surLaFenetre(contexte.fenetreConstatee)} :`
+        + ` ${formatPercentage(contexte.rendementConstate)} brut,`
+        + ` ${formatPercentage(contexte.rendementConstateNet)} net`;
+}
+
+/**
  * Affiche, sous chaque champ, ce que fait réellement le portefeuille
  * Une hypothèse ne se juge que comparée au constat.
  */
@@ -242,35 +299,37 @@ function afficherReperes() {
         ? `durée moyenne de vos projets : ${(contexte.horizonMoyen / 12).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} ans`
         : '');
 
-    // Le net du constaté est rappelé ici parce que c'est lui, et non le brut,
-    // que la section « Rendement annualisé » met en grand : sans le pont, les
-    // deux blocs affichaient deux chiffres qui semblaient se contredire.
-    const constateNet = contexte.rendementConstateNet > 0
-        ? `, ${formatPercentage(contexte.rendementConstateNet)} net`
-        : '';
+    ecrire('repereRendement', repereRendement());
 
-    ecrire('repereRendement', contexte.rendementConstate > 0
-        ? `constaté ${surLaFenetre(contexte.fenetreConstatee)} :`
-          + ` ${formatPercentage(contexte.rendementConstate)} brut${constateNet}`
-          + ` · annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`
-        : (contexte.rendementMoyen > 0
-            ? `annoncé par Bricks : ${formatPercentage(contexte.rendementMoyen)} brut`
-            : ''));
-
-    ecrire('repereImpaye', `constaté aujourd'hui : ${formatPercentage(contexte.tauxImpayeObserve)} du capital en difficulté`);
+    // Le rôle de ce champ — creuser l'écart entre l'annoncé et le constaté — est
+    // dit une fois, sous le taux d'à côté, là où naissait la confusion.
+    ecrire('repereImpaye', `constaté aujourd'hui : ${formatPercentage(contexte.tauxImpayeObserve)}`
+        + ' du capital en difficulté');
 }
 
 /**
- * Taux dont part la simulation
+ * Couple d'hypothèses dont part la simulation
  *
- * Le constaté quand on l'a : partir du taux promis faisait dérouler une
- * projection que le portefeuille n'a jamais tenue, et l'écart se retrouvait
- * intégralement dans le résultat final.
+ * Les deux champs ne sont pas indépendants, et les remplir séparément comptait
+ * les impayés deux fois. Le taux constaté est ce qui EST TOMBÉ sur le compte :
+ * les échéances non versées en sont déjà sorties. Lui appliquer ensuite le taux
+ * d'impayés les retranchait une seconde fois, et la projection descendait à
+ * 3,6 % l'an sur un portefeuille qui en constate 4,9 %.
  *
- * @returns {number} Rendement annuel brut, en pourcentage
+ * On part donc du taux annoncé par Bricks, qui ignore tout incident, et on
+ * laisse le champ des impayés creuser l'écart une seule fois. Sur un
+ * portefeuille réel : 9,6 % brut annoncés, moins le prélèvement, moins 26 %
+ * d'impayés, égale 4,9 % — précisément le net constaté sur douze mois.
+ *
+ * Faute de taux annoncé, on retombe sur le constaté et l'hypothèse d'impayés
+ * part de zéro : il a déjà tout encaissé.
+ *
+ * @returns {{brut: number, impaye: number}} Hypothèses cohérentes entre elles
  */
-function tauxDeDepart() {
-    return contexte.rendementConstate > 0 ? contexte.rendementConstate : contexte.rendementMoyen;
+function hypothesesDeDepart() {
+    return contexte.rendementMoyen > 0
+        ? { brut: contexte.rendementMoyen, impaye: contexte.tauxImpayeObserve }
+        : { brut: contexte.rendementConstate, impaye: 0 };
 }
 
 /**
@@ -282,8 +341,10 @@ function repartirDuPortefeuille() {
         if (champ) champ.value = valeur;
     };
 
-    appliquer('simRendement', tauxDeDepart().toFixed(1));
-    appliquer('simImpaye', contexte.tauxImpayeObserve.toFixed(1));
+    const depart = hypothesesDeDepart();
+
+    appliquer('simRendement', depart.brut.toFixed(1));
+    appliquer('simImpaye', depart.impaye.toFixed(1));
 
     if (contexte.apportMoyen > 0) {
         appliquer('simApport', Math.round(contexte.apportMoyen));
@@ -302,9 +363,10 @@ function repartirDuPortefeuille() {
  * @param {Object} results - Résultats des calculs
  */
 export function updateForecastContext(results) {
-    // Le taux constaté sur douze mois prime sur celui qu'annonce Bricks : les
-    // hypothèses du simulateur doivent partir de ce que le portefeuille fait,
-    // non de ce qu'il promet. Le second reste affiché en repère.
+    // Douze mois de préférence : assez long pour lisser un versement décalé,
+    // assez court pour ne pas noyer une dégradation récente. À défaut, toute
+    // l'histoire disponible. Ce constaté sert de cible au simulateur — les
+    // hypothèses de départ doivent l'atteindre, non le contredire.
     const douzeMois = (results.rendements?.fenetres || []).find(f => f.fenetre === 12)
         || (results.rendements?.fenetres || []).find(f => f.fenetre === null);
 
@@ -331,8 +393,10 @@ export function updateForecastContext(results) {
         }
     };
 
-    preremplir('simRendement', tauxDeDepart().toFixed(1));
-    preremplir('simImpaye', contexte.tauxImpayeObserve.toFixed(1));
+    const depart = hypothesesDeDepart();
+
+    preremplir('simRendement', depart.brut.toFixed(1));
+    preremplir('simImpaye', depart.impaye.toFixed(1));
 
     if (contexte.apportMoyen > 0) {
         preremplir('simApport', Math.round(contexte.apportMoyen));

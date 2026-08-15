@@ -138,6 +138,7 @@ const snapshot = await page.evaluate(() => ({
     repereRendement: document.getElementById('repereRendement').textContent.trim(),
     correspondanceRendement: document.getElementById('correspondanceRendement').textContent.trim(),
     repereApport: document.getElementById('repereApport').textContent.trim(),
+    champRendement: document.getElementById('simRendement').value,
     // Le repère du graphique se lit dans les options du plugin : c'est la valeur
     // que le trait pointillé vient dessiner.
     repereGraphique: (() => {
@@ -211,6 +212,15 @@ check('le repère du simulateur rejoint la tuile de rendement',
 // annoncé par Bricks, alors qu'il découle du champ.
 check('la correspondance nette nomme le taux dont elle part',
     /saisis\s*→/.test(snapshot.correspondanceRendement), snapshot.correspondanceRendement);
+// Le champ partait du constaté, qui a DÉJÀ perdu ses échéances impayées, puis la
+// simulation leur appliquait le taux d'impayés : les mêmes incidents comptaient
+// deux fois et la projection tombait sous ce que le portefeuille fait vraiment.
+check('le simulateur part du taux annoncé, que les impayés viendront creuser',
+    Math.abs(Number(snapshot.champRendement) - 10.2) < 0.05, snapshot.champRendement);
+// Deux hypothèses plausibles séparément peuvent viser un rendement que le
+// portefeuille n'a jamais approché : la ligne doit le dire.
+check('la correspondance se confronte au constaté',
+    /le constaté/.test(snapshot.correspondanceRendement), snapshot.correspondanceRendement);
 check('le repère ne dit pas « sur depuis le début »',
     !/sur depuis/.test(snapshot.repereRendement), snapshot.repereRendement);
 // Aucune part n'est annoncée : ce serait comparer un flux — tout ce qui est
