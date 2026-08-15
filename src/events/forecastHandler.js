@@ -333,19 +333,6 @@ function hypothesesDeDepart() {
 }
 
 /**
- * Taux dont part la simulation
- *
- * Le constaté quand on l'a : partir du taux promis faisait dérouler une
- * projection que le portefeuille n'a jamais tenue, et l'écart se retrouvait
- * intégralement dans le résultat final.
- *
- * @returns {number} Rendement annuel brut, en pourcentage
- */
-function tauxDeDepart() {
-    return contexte.rendementConstate > 0 ? contexte.rendementConstate : contexte.rendementMoyen;
-}
-
-/**
  * Réaligne les hypothèses sur le portefeuille réel
  */
 function repartirDuPortefeuille() {

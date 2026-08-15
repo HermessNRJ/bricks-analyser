@@ -237,7 +237,7 @@ function cumulerParAnnee(parMois) {
  *
  * @param {Object|null} apports - Apports normalisés, issus du journal
  * @param {Object} [mensuel] - Revenus par mois, issus de l'état de compte
- * @returns {Object|null} { apports, parrainage, boost, total, moyenneApports }
+ * @returns {Object|null} { apports, parrainage, boost, total, apportsConnus }
  *   ou null si aucune source n'est disponible
  */
 export function serieOrigineFonds(apports, mensuel) {
