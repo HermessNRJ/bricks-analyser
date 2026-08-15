@@ -582,6 +582,23 @@ function majDetailNetCumule(results) {
 }
 
 /**
+ * Dit ce que le net cumulé a écarté
+ *
+ * L'état de compte compte le capital amorti avec les coupons. Le laisser dans
+ * la tuile gonflait le « net perçu » de tout ce qui n'était que la mise qui
+ * revient — et sur un portefeuille réel, de 237 € sur 967 €.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majDetailNetCumule(results) {
+    const capital = results.revenusReels?.capitalDansCoupons || 0;
+
+    setDetail('detailNetCumule', capital > 0
+        ? `${formatCurrency(capital, 0)} de capital rendu écartés`
+        : '');
+}
+
+/**
  * Écrit un texte de détail sous une tuile, si la tuile existe
  * @param {string} id - Identifiant de l'élément de détail
  * @param {string} texte - Texte à afficher
