@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-    classerWarning,
-    niveauRisque,
-    repartitionRisque,
-    NIVEAUX_RISQUE
-} from '../src/business/riskAnalysis.js';
+import { classerWarning, niveauRisque, repartitionRisque, NIVEAUX_RISQUE, arrieresInvestisseur } from '../src/business/riskAnalysis.js';
 
 const w = (description, date = '2026-01-01') => ({ description, date });
 
@@ -235,5 +230,55 @@ describe('repartitionRisque — partition complète', () => {
 
         expect(Object.keys(repartition).sort())
             .toEqual(['impaye', 'procedure', 'sain', 'signale']);
+    });
+});
+
+describe('arrieresInvestisseur', () => {
+    // Villa Cap d'Antibes : 25 briques à 11 %, une échéance impayée
+    const ANTIBES = { ownedBricks: 25, investment: 250, yearlyReturn: 11 };
+    const SUIVI = { suivi: true, impayees: 1, briquesProjet: 500000, penalites: 0 };
+
+    it('chiffre les coupons manqués, pas la dette de l\'emprunteur', () => {
+        // Le coupon mensuel vaut 250 × 11 % / 12 = 2,29 €, ce que le carnet
+        // affiche. La part de l'échéance due par l'emprunteur donnait 1,90 € :
+        // son échéancier et la commission de plateforme n'ont pas de rapport
+        // fixe avec le coupon versé.
+        const arrieres = arrieresInvestisseur(ANTIBES, SUIVI);
+
+        expect(arrieres.montant).toBeCloseTo(2.29, 2);
+        expect(arrieres.echeances).toBe(1);
+    });
+
+    it('compte un coupon manqué par échéance impayée', () => {
+        const arrieres = arrieresInvestisseur(ANTIBES, { ...SUIVI, impayees: 20 });
+
+        expect(arrieres.montant).toBeCloseTo(45.83, 1);
+    });
+
+    it('ramène les pénalités des investisseurs à la part des briques', () => {
+        // 37 254 € pour l'ensemble des obligataires, 25 briques sur 500 000
+        const arrieres = arrieresInvestisseur(ANTIBES, { ...SUIVI, penalites: 37254.64 });
+
+        expect(arrieres.penalites).toBeCloseTo(1.86, 1);
+        expect(arrieres.penalitesConnues).toBe(true);
+    });
+
+    it('tait la pénalité sans le nombre de briques du projet', () => {
+        // Un statut récupéré par une version antérieure ne le porte pas :
+        // annoncer la dette entière comme sienne serait faux d'un facteur 20 000
+        const arrieres = arrieresInvestisseur(
+            ANTIBES, { ...SUIVI, briquesProjet: 0, penalites: 37254.64 }
+        );
+
+        expect(arrieres.penalites).toBe(0);
+        expect(arrieres.penalitesConnues).toBe(false);
+        // Les coupons manqués, eux, restent calculables
+        expect(arrieres.montant).toBeCloseTo(2.29, 2);
+    });
+
+    it('ne dit rien sur un projet qui ne doit rien', () => {
+        expect(arrieresInvestisseur(ANTIBES, { ...SUIVI, impayees: 0 })).toBeNull();
+        expect(arrieresInvestisseur(ANTIBES, null)).toBeNull();
+        expect(arrieresInvestisseur(ANTIBES, { suivi: false })).toBeNull();
     });
 });

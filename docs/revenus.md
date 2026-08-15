@@ -20,6 +20,94 @@ de l'attendu pour de bonnes raisons :
 Faute d'état de compte (cache d'une version antérieure), l'application retombe sur
 l'estimation et le dit à l'écran.
 
+## Rendement annualisé
+
+Le taux affiché par Bricks est **promis**, projet par projet. Celui-ci est **constaté** : ce
+qui est réellement tombé sur le compte, net de prélèvement et **hors capital rendu**,
+rapporté au capital placé pour le gagner et ramené à l'année.
+
+Cinq fenêtres — 1, 3, 6, 12 mois et depuis le début — parce qu'un chiffre unique ne dit pas
+dans quel sens ça va. Un mois seul est bruyant : un parrainage, un remboursement tombé au
+bon moment suffisent à le faire bondir. Douze mois lissent tout, y compris une dégradation
+récente. C'est leur écart qui informe, et la phrase en tête de section le résume.
+
+Le mois en cours compte **dès qu'il a reçu son règlement**. Le calendrier ne suffit pas :
+Bricks verse autour du 8, si bien qu'au 14 août le mois est encaissé, et l'écarter au motif
+qu'il n'est pas fini privait les fenêtres de leur donnée la plus fraîche trois semaines
+durant. Deux conditions pour le déclarer clos : la date de règlement est passée, et ses
+coupons soutiennent la comparaison avec les trois mois précédents — un versement encore en
+route se trahit par un montant anormalement bas. Le 2 du mois, il reste écarté, faute de quoi
+le rendement de tout le monde plongerait au début de chaque mois.
+
+Une fenêtre plus longue que l'historique disponible n'est pas affichée du tout, plutôt que
+calculée sur des mois qu'on n'a pas.
+
+### Le dénominateur
+
+Diviser par l'investissement d'aujourd'hui fausserait toutes les fenêtres sauf la plus
+courte : un portefeuille qui a doublé en un an paraîtrait rapporter moitié moins qu'en
+vérité, ses revenus anciens étant rapportés à un capital qui n'existait pas encore. Le
+capital réellement placé est donc reconstruit mois par mois.
+
+L'évolution de l'investissement n'y suffit pas. Un projet remboursé vaut zéro euro
+aujourd'hui, et pèse donc zéro sur toute la série — y compris sur les mois où il était
+détenu et versait. Le capital rendu depuis, lu dans le journal des mouvements, est réinjecté
+pour combler ce trou. Sans le journal, les fenêtres longues sont flattées, et l'écran le dit.
+
+Il n'est pas réinjecté tel quel : le capital restant à rendre comprend des projets achetés
+bien après le mois qu'on regarde. Rendre 3 520 € à décembre 2023, où le portefeuille pesait
+750 €, en faisait un capital de 4 271 € pour 250 € réellement déposés — et le rendement
+depuis le début tombait à 3,8 % au lieu de 5,1 %. Faute de savoir dater l'achat de chaque
+projet remboursé, la réinjection se fait **au prorata de la taille qu'avait le portefeuille
+ce mois-là** : un mois où l'on détenait 7 % de ce qu'on détient aujourd'hui reçoit 7 % du
+capital restant à rendre. C'est une approximation, vérifiée contre les versements cumulés —
+sur un portefeuille réel, les deux séries se rejoignent à l'euro près en fin de parcours.
+
+### Le numérateur
+
+L'état de compte range les remboursements de capital **avec** les coupons : en juin 2026,
+Villa Gypsea y figure pour 34,67 € quand son coupon mensuel vaut 4,33 €. Les prendre pour du
+revenu ferait bondir le rendement d'un projet qui vient de rendre la mise.
+
+Ils ne sont **pas** défalqués depuis le journal des mouvements. Essayé, et faux : le journal
+compte des remboursements que la ligne de coupons ne contient pas, au point de la vider
+entièrement — le rendement tombait à 0,0 % sur un portefeuille qui verse tous les mois.
+
+Le prélèvement, lui, se lit. Bricks retient à la source sur les intérêts français, un
+remboursement de capital n'étant pas imposable : **le prélèvement du mois divisé par le
+barème de ce mois-là rend ces intérêts-là**. C'est ce qui explique le taux effectif de 25 %
+observé sur la ligne de coupons là où le barème est à 31,4 %.
+
+Tout ce qui échappe au prélèvement n'est pas du capital pour autant. Les **projets
+étrangers** versent sans retenue à la source — l'impôt est réclamé plus tard, sur la
+déclaration — et passeraient sinon pour une mise remboursée. Ils sont identifiés par le pays
+de la propriété et rendus au numérateur.
+
+Reste un résidu, imputé au capital faute de mieux. Mesuré sur un portefeuille réel, il se
+compose de deux choses : un fond stable d'environ **9 % de chaque coupon**, qui est
+l'amortissement mensuel du principal, et des **pointes** sur les mois où un projet solde sa
+mise. Il est affiché au survol de chaque fenêtre, pour que personne n'ait à le croire sur
+parole.
+
+Deux garde-fous : les intérêts ne peuvent pas dépasser la ligne de coupons, et un mois sans
+le moindre prélèvement garde ses coupons entiers, faute de preuve qu'il s'y cache du capital.
+
+Au survol d'une fenêtre : le montant, le capital moyen, la part venue du parrainage et du
+solde boosté, le capital rendu écarté, et le taux avant prélèvement.
+
+### Pourquoi ce taux diffère de celui du simulateur
+
+Le simulateur, plus bas dans la page, affiche « votre moyenne pondérée : X % brut ». C'est la
+moyenne des taux **annoncés** par Bricks, pondérée par le capital, sur les seuls projets
+encore détenus — une promesse, pas une observation. La ligne en dessous la traduit en net au
+barème forfaitaire, puis lui applique la part du capital actuellement en difficulté.
+
+Le taux constaté s'en écarte dans les deux sens. Vers le bas : les échéances non versées, les
+mois où le capital attend dans un projet en financement, les projets remboursés qui ne
+comptent plus dans la promesse. Vers le haut : le parrainage et le solde boosté, qui ne
+viennent d'aucune propriété. La note sous la bande de rendement rappelle les deux chiffres
+côte à côte, pour qu'aucun des deux ne passe pour l'autre.
+
 ## Bilan des versements
 
 En tête du registre : le mois jugé, et le décompte des propriétés versées, muettes et pas
@@ -69,6 +157,42 @@ Le **capital rendu** a sa propre colonne, lue dans le journal des mouvements
 range pourtant avec les coupons : en juin 2026, Villa Gypsea y figure pour 34,67 € quand
 son coupon mensuel vaut 4,33 €. La colonne reste masquée tant que le journal n'a pas été
 lu, une colonne de zéros se lisant à tort comme « aucun remboursement ».
+
+## Impôt à venir
+
+Bricks prélève à la source sur les coupons **français**. Trois recettes y échappent :
+
+* les **coupons étrangers** — un projet portugais ou espagnol verse brut ;
+* le **parrainage**, versé brut ;
+* le **solde boosté**, ces centimes crédités jour après jour.
+
+Elles ont ceci de traître qu'elles ressemblent à de l'argent déjà net. La colonne *Impôt à
+venir* chiffre la note, année par année, au barème en vigueur le mois de l'encaissement.
+
+C'est un ordre de grandeur, pas une déclaration : le taux réel dépend de votre situation, et
+un projet étranger peut ouvrir droit à un crédit d'impôt au titre de la convention fiscale du
+pays. **L'IFU transmis par Bricks reste la référence.**
+
+La dernière colonne, **de votre poche**, va dans l'autre sens : ce que vous avez versé
+depuis votre banque cette année-là, retraits défalqués. Ce n'est pas un revenu et cela ne se
+déclare pas — c'est un mouvement de trésorerie, mis là parce que c'est le seul endroit où
+les années se comparent. Elle vient du même journal, et se masque de même sans lui.
+
+## D'où vient l'argent
+
+Le registre ne dit pas d'où vient l'argent : une brique achetée par virement et une brique
+achetée avec un coupon réinvesti se ressemblent exactement. Trois sources alimentent le
+compte, et le graphique les sépare en courbes cumulées — **vos versements** (lus dans le
+journal), le **parrainage** et le **solde boosté** (lus dans l'état de compte).
+
+Les trois partagent une échelle, et les versements l'occupent presque toute. C'est
+l'information, pas un défaut de cadrage : les cadeaux de la plateforme pèsent quelques
+pour cent des apports. Cliquer sur une source dans la légende la masque, et les autres
+reprennent alors toute la hauteur.
+
+La tuile **Investissement total** porte la même lecture en un chiffre : *dont X de votre
+poche*. Si l'investissement dépasse ce qui a été déposé, la différence ne peut venir que
+des gains remis au travail — l'argent n'a pas d'autre porte d'entrée.
 
 ## Les graphiques
 

@@ -17,6 +17,7 @@ class AppState {
             // Instances de charts Chart.js
             charts: {
                 investment: null,
+                origineFonds: null,
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,
@@ -173,6 +174,7 @@ class AppState {
             allData: [],
             charts: {
                 investment: null,
+                origineFonds: null,
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,

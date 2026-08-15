@@ -77,8 +77,8 @@ export function generateMonthRange(startYYYYMM, endYYYYMM) {
  * Obtient le mois actuel au format YYYY-MM
  * @returns {string} Mois actuel au format YYYY-MM
  */
-export function getCurrentMonthYYYYMM() {
-    const now = new Date();
+export function getCurrentMonthYYYYMM(reference) {
+    const now = reference instanceof Date ? reference : new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // getMonth() retourne 0-11
     return `${year}-${String(month).padStart(2, '0')}`;

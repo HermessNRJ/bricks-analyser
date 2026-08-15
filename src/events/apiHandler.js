@@ -4,6 +4,7 @@
 
 import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, fetchTransactionsPortefeuille, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
 import { normaliserTransactions } from '../business/walletHistory.js';
+import { normaliserApports, reconcilierJournal } from '../business/apports.js';
 import { processData } from '../business/processor.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
@@ -97,6 +98,11 @@ export function setupAPIHandler() {
             });
 
             const capital = normaliserTransactions(transactions);
+            const apports = normaliserApports(transactions);
+
+            // Additionner toutes les lignes doit rendre le solde du portefeuille :
+            // le seul contrôle qui dise si une nature de mouvement nous échappe.
+            reconcilierJournal(transactions);
 
             if (capital) {
                 logger.info(LOG_CATEGORIES.EVENT, 'Capital repayments retrieved', {
@@ -108,7 +114,7 @@ export function setupAPIHandler() {
             loadingMsg.textContent = 'Chargement des données…';
 
             // Traiter les données avec les warnings
-            await processData(combinedData, warningsData, { revenus, capital });
+            await processData(combinedData, warningsData, { revenus, capital, apports });
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';

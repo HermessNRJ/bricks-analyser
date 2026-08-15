@@ -25,7 +25,7 @@ export function loadFromLocalStorage() {
             logger.info(LOG_CATEGORIES.STORAGE, 'Legacy format detected, converting', {
                 entries: parsed.length
             });
-            return { data: parsed, warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null };
+            return { data: parsed, warnings: [], savedAt: null, statuts: {}, revenus: null, capital: null, apports: null };
         }
 
         // Nouveau format (objet avec data et warnings)
@@ -42,7 +42,8 @@ export function loadFromLocalStorage() {
                 statuts: parsed.statuts || {},
                 // Absent des sauvegardes antérieures : on retombe alors sur l'estimation
                 revenus: parsed.revenus || null,
-                capital: parsed.capital || null
+                capital: parsed.capital || null,
+                apports: parsed.apports || null
             };
         }
 
@@ -77,9 +78,11 @@ export function loadFromLocalStorage() {
  *   celui déjà enregistré est conservé
  * @param {Object} [options.capital] - Remboursements de capital ; omis, celui
  *   déjà enregistré est conservé
+ * @param {Object} [options.apports] - Versements personnels ; omis, ceux déjà
+ *   enregistrés sont conservés
  * @returns {boolean} true si succès, false sinon
  */
-export function saveToLocalStorage(data, warnings = [], { dateRecuperation, statuts, revenus, capital } = {}) {
+export function saveToLocalStorage(data, warnings = [], { dateRecuperation, statuts, revenus, capital, apports } = {}) {
     if (!Array.isArray(data)) {
         logger.error(LOG_CATEGORIES.STORAGE, 'Cannot save non-array data to localStorage');
         return false;
@@ -95,7 +98,8 @@ export function saveToLocalStorage(data, warnings = [], { dateRecuperation, stat
             savedAt: dateRecuperation || lireDateRecuperation() || new Date().toISOString(),
             statuts: statuts || lireStatuts(),
             revenus: revenus || lireRevenus(),
-            capital: capital || lireCapital()
+            capital: capital || lireCapital(),
+            apports: apports || lireApports()
         };
         const jsonData = JSON.stringify(storageObject);
         localStorage.setItem(CONFIG.LOCAL_STORAGE_KEY, jsonData);
@@ -167,6 +171,19 @@ function lireCapital() {
     try {
         const stored = localStorage.getItem(CONFIG.LOCAL_STORAGE_KEY);
         return stored ? (JSON.parse(stored).capital || null) : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Relit les versements personnels déjà enregistrés
+ * @returns {Object|null} Cumuls normalisés, null s'ils sont absents ou illisibles
+ */
+function lireApports() {
+    try {
+        const stored = localStorage.getItem(CONFIG.LOCAL_STORAGE_KEY);
+        return stored ? (JSON.parse(stored).apports || null) : null;
     } catch {
         return null;
     }

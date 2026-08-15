@@ -5,7 +5,16 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
+      # Seul src/ est monté, et c'est un montage de RÉPERTOIRE : il suit le
+      # dossier, pas les fichiers, et survit donc à leur remplacement. C'est ce
+      # qui permet de recharger le JavaScript et la CSS sans reconstruire.
+      #
+      # index.html n'est délibérément pas monté. Un montage de fichier isolé est
+      # résolu une seule fois vers son inode : dès qu'un éditeur réécrit le
+      # fichier par renommage — ce que font la plupart — le montage pointe vers
+      # l'ancien inode, le conteneur se retrouve sans page d'accueil, et nginx
+      # répond 403 sans rien dire d'utile. L'image en porte déjà une copie ; le
+      # modifier demande donc un --build, comme nginx.conf.
       - ./src:/usr/share/nginx/html/src:ro
     restart: unless-stopped
     networks:

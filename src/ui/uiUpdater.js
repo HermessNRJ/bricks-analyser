@@ -10,6 +10,7 @@ import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
 import { ETATS, carnetVersements } from '../business/versements.js';
+import { netApresRetenue } from '../business/fiscalite.js';
 
 // Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
 const TAILLE_PAGE = 24;
@@ -196,6 +197,7 @@ function renderMur(properties) {
         return `<button type="button" class="brique" role="listitem"
             data-property-id="${escapeHtml(p.id)}"
             data-statut="${escapeHtml(statut)}"
+            data-risque="${escapeHtml(p.niveauRisque || '')}"
             data-alerte="${aAlerte}"
             style="flex-grow:${p.investment}"
             title="${escapeHtml(titre)}"
@@ -309,9 +311,208 @@ function updateStatCards(results) {
     document.getElementById('fundingProjectsCountValue').textContent = formatNumber(results.fundingOrUpcomingProjectsCount || 0);
 
     majDetailRevenus(results);
+    majDetailNetCumule(results);
+    majDetailInvestissement(results);
+    renderRendement(results.rendements);
     updateRiskCards(results);
 
     logger.debug(LOG_CATEGORIES.UI, 'Stat cards updated');
+}
+
+/**
+ * Dit quelle part du portefeuille est sortie de votre poche
+ *
+ * Le registre ne distingue pas une brique payée par virement d'une brique
+ * payée avec un coupon réinvesti. Comparer les versements au capital placé le
+ * dit : si l'investissement dépasse ce qui a été déposé, la différence ne peut
+ * venir que des gains remis au travail — l'argent n'a pas d'autre porte
+ * d'entrée.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majDetailInvestissement(results) {
+    const total = results.apports?.total;
+
+    majTitreCapital(results);
+
+    if (!total) {
+        setDetail('detailInvestissement', '');
+        return;
+    }
+
+    // Retirer plus qu'on n'a déposé se lit comme un apport négatif : le montant
+    // versé ne veut plus rien dire, seuls les deux sens du flux le disent.
+    if (total.retrait > 0) {
+        setDetail('detailInvestissement',
+            `${formatCurrency(total.depot, 0)} déposés, ${formatCurrency(total.retrait, 0)} repris`);
+        return;
+    }
+
+    // Plus aucune part affichée : ce serait comparer un FLUX — tout ce qui est
+    // entré depuis l'ouverture — à un ÉTAT, le capital encore engagé. Le second
+    // peut légitimement être le plus petit sans qu'un euro soit sorti de la
+    // plateforme, l'amortissement ayant déjà rendu une partie de la mise.
+    setDetail('detailInvestissement',
+        `${formatCurrency(total.net, 0)} versés depuis l'ouverture`);
+}
+
+/**
+ * Explique au survol pourquoi le capital engagé est inférieur aux versements
+ *
+ * La confusion est inévitable sans cela : on a versé 11 161 €, la tuile en
+ * affiche 10 439, et l'on n'a pourtant jamais rien retiré. C'est que Bricks
+ * amortit — le prix d'une brique baisse à mesure que le principal revient,
+ * jusqu'à zéro quand le projet est soldé. Sur un portefeuille réel, 31 des
+ * propriétés détenues étaient déjà entamées, l'une jusqu'à 1,13 € la brique.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majTitreCapital(results) {
+    const tuile = document.getElementById('totalInvestment')?.closest('.stat-card');
+
+    if (!tuile) {
+        return;
+    }
+
+    const nominal = results.nominalBriques || 0;
+    const amorti = Math.max(0, nominal - (results.totalInvestment || 0));
+
+    const phrases = ['Ce qu\'il reste placé, non la somme jamais investie.'];
+
+    if (amorti > 0) {
+        phrases.push(`Vos ${formatNumber(results.totalBricks)} briques ont été émises à`
+            + ` ${formatCurrency(nominal, 0)} : ${formatCurrency(amorti, 0)} de principal vous ont`
+            + ' déjà été rendus dessus, et le prix de la brique a baissé d\'autant.');
+    }
+
+    if (results.refundedProjectsCount > 0) {
+        phrases.push(`Les ${formatNumber(results.refundedProjectsCount)} projets soldés, eux, ne`
+            + ' comptent plus du tout.');
+    }
+
+    tuile.setAttribute('title', phrases.join(' '));
+}
+
+/**
+ * Affiche le rendement constaté sur plusieurs fenêtres
+ *
+ * Tout reste caché sans état de compte : le rendement se déduirait alors des
+ * taux affichés par Bricks, et ne ferait que les recopier.
+ *
+ * @param {Object|null} rendements - { fenetres, dernierMois, capitalReconstruit }
+ */
+function renderRendement(rendements) {
+    const section = document.getElementById('rendementSection');
+    const grille = document.getElementById('rendementFenetres');
+
+    if (!section || !grille) {
+        return;
+    }
+
+    const fenetres = rendements?.fenetres || [];
+
+    section.classList.toggle('hidden', fenetres.length === 0);
+
+    if (fenetres.length === 0) {
+        return;
+    }
+
+    grille.innerHTML = fenetres.map(carteRendement).join('');
+
+    const resume = document.getElementById('rendementResume');
+
+    if (resume) {
+        resume.textContent = resumeRendement(fenetres, rendements.dernierMois);
+    }
+
+    setDetail('rendementNote', noteRendement(rendements));
+}
+
+/**
+ * Compose une tuile de rendement
+ * @param {Object} mesure - Mesure d'une fenêtre
+ * @returns {string} Tuile HTML
+ */
+function carteRendement(mesure) {
+    const titre = [
+        `${formatCurrency(mesure.net)} de revenus sur ${mesure.mois.length} mois`,
+        `capital moyen placé : ${formatCurrency(mesure.capitalMoyen, 0)}`,
+        mesure.horsCoupons > 0
+            ? `dont ${formatCurrency(mesure.horsCoupons)} de parrainage et de solde boosté`
+            : null,
+        mesure.capitalRendu > 0
+            ? `${formatCurrency(mesure.capitalRendu)} de capital rendu ont été défalqués`
+            : null,
+        `avant prélèvement : ${formatPercentage(mesure.tauxBrut)}`
+    ].filter(Boolean).join(' · ');
+
+    return `
+        <div class="rendement-fenetre" title="${escapeHtml(titre)}">
+            <span class="rendement-taux">${formatPercentage(mesure.taux)}</span>
+            <span class="rendement-libelle">${escapeHtml(mesure.libelle)}</span>
+            <span class="rendement-detail">${formatCurrency(mesure.net)} de revenus</span>
+        </div>
+    `;
+}
+
+/**
+ * Résume la pente entre la fenêtre la plus courte et la plus longue
+ * @param {Array} fenetres - Mesures, de la plus courte à la plus longue
+ * @param {string} dernierMois - Dernier mois révolu retenu
+ * @returns {string} Phrase de résumé
+ */
+function resumeRendement(fenetres, dernierMois) {
+    const courte = fenetres[0];
+    const longue = fenetres[fenetres.length - 1];
+
+    if (fenetres.length === 1) {
+        return `${formatPercentage(courte.taux)} l'an sur ${moisEnIncise(dernierMois)},`
+            + ' seul mois révolu de l\'historique.';
+    }
+
+    // Un dixième de point n'est pas une tendance : c'est le bruit de deux
+    // versements décalés d'une semaine.
+    const ecart = courte.taux - longue.taux;
+    const sens = Math.abs(ecart) < 0.2
+        ? 'au même rythme que'
+        : (ecart > 0 ? 'mieux que' : 'moins bien que');
+
+    return `Sur ${moisEnIncise(dernierMois)}, le portefeuille a rapporté ${formatPercentage(courte.taux)} l'an —`
+        + ` ${sens} sa moyenne depuis le début (${formatPercentage(longue.taux)}).`;
+}
+
+/**
+ * Explique ce que le taux mesure, et ce qui lui manque
+ * @param {Object} rendements - Résultat du calcul
+ * @returns {string} Note de bas de section
+ */
+function noteRendement(rendements) {
+    const phrases = [
+        'Ce qui est réellement tombé sur le compte, net de prélèvement et hors capital'
+        + ' rendu, rapporté au capital placé pour le gagner et ramené à l\'année.'
+        + ' Le mois en cours compte dès que Bricks a versé, vers le 8 ; avant cela,'
+        + ' il est écarté pour ne pas faire plonger toutes les fenêtres.'
+    ];
+
+    // Le simulateur, plus bas, affiche le taux ANNONCÉ par Bricks. Deux
+    // pourcentages qui prétendent tous deux dire « ce que rapporte votre
+    // portefeuille » sans qu'on sache lequel croire : la note fait le pont.
+    if (rendements.tauxPromis) {
+        const net = rendements.tauxPromis * (1 - CONFIG.TAX_RATE);
+        phrases.push(`Bricks annonce ${formatPercentage(rendements.tauxPromis)} brut en moyenne`
+            + ` sur vos projets, soit ${formatPercentage(net)} net au barème actuel — c'est une`
+            + ' promesse, calculée sur les seuls projets encore détenus. Le taux constaté passe'
+            + ' dessous à cause des échéances non versées et des mois où le capital attend, et'
+            + ' peut repasser dessus grâce au parrainage et au solde boosté, qui ne viennent'
+            + ' d\'aucune propriété.');
+    }
+
+    if (!rendements.journalLu) {
+        phrases.push('Sans le journal des mouvements, les projets remboursés ne pèsent plus rien'
+            + ' dans le capital des mois anciens : les fenêtres longues sont flattées.');
+    }
+
+    return phrases.join(' ');
 }
 
 /**
@@ -320,7 +521,7 @@ function updateStatCards(results) {
  * La tuile affiche une espérance : chaque projet détenu est censé verser son
  * coupon. Les échéances impayées font que le versement réel s'en écarte, et
  * c'est précisément cet écart qu'on veut voir sans avoir à ouvrir Bricks. Le
- * mois courant est écarté tant qu'il n'est pas terminé.
+ * mois courant est écarté tant que le règlement n'y est pas arrivé.
  *
  * @param {Object} results - Résultats des calculs
  */
@@ -345,6 +546,23 @@ function majDetailRevenus(results) {
 
     const percu = reels.mensuel[dernier].net;
     setDetail('detailRevenusMensuels', `Perçu en ${formatMonthName(dernier)} : ${formatCurrency(percu)}`);
+}
+
+/**
+ * Dit ce que le net cumulé a écarté
+ *
+ * L'état de compte compte le capital amorti avec les coupons. Le laisser dans
+ * la tuile gonflait le « net perçu » de tout ce qui n'était que la mise qui
+ * revient — et sur un portefeuille réel, de 237 € sur 967 €.
+ *
+ * @param {Object} results - Résultats des calculs
+ */
+function majDetailNetCumule(results) {
+    const capital = results.revenusReels?.capitalDansCoupons || 0;
+
+    setDetail('detailNetCumule', capital > 0
+        ? `${formatCurrency(capital, 0)} de capital rendu écartés`
+        : '');
 }
 
 /**
@@ -406,8 +624,10 @@ function updateRiskCards(results) {
 
     const resume = document.getElementById('risqueResume');
     if (resume) {
-        const regularises = risque.defautsRegularises
-            ? ` · ${formatNumber(risque.defautsRegularises)} défauts passés, aujourd'hui régularisés`
+        const nombreRegularises = risque.defautsRegularises;
+        const regularises = nombreRegularises
+            ? ` · ${formatNumber(nombreRegularises)} défaut${pluriel(nombreRegularises)} passé${pluriel(nombreRegularises)},`
+              + ` aujourd'hui régularisé${pluriel(nombreRegularises)}`
             : '';
 
         resume.textContent = risque.enDifficulte.nombre > 0
@@ -700,9 +920,18 @@ function attachPropertyCardListener(container) {
         return;
     }
 
+    // La fiche entière est un lien vers Bricks, mais elle contient désormais des
+    // dépliants. Sans cette exception, ouvrir les actualités ouvrait le projet
+    // dans un onglet — le clic sur le résumé remontait jusqu'à la carte.
+    const dansUnDepliant = cible => Boolean(cible.closest('summary'));
+
     container.addEventListener('click', (event) => {
         if (event.target.closest('[data-action="reinitialiser"]')) {
             resetFilters();
+            return;
+        }
+
+        if (dansUnDepliant(event.target)) {
             return;
         }
 
@@ -715,6 +944,12 @@ function attachPropertyCardListener(container) {
     // Les fiches sont des liens : elles doivent répondre au clavier
     container.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        // Entrée et Espace déplient nativement un <summary> : les intercepter
+        // priverait le clavier du seul moyen d'ouvrir les actualités.
+        if (dansUnDepliant(event.target)) {
             return;
         }
 
@@ -1014,8 +1249,25 @@ function createSuiviSection(property) {
         faits.push(`${suivi.impayees} échéance${suivi.impayees > 1 ? 's' : ''} due${suivi.impayees > 1 ? 's' : ''}`);
     }
 
-    if (suivi.penalites > 0) {
-        faits.push(`${formatCurrency(suivi.penalites, 0)} de pénalités`);
+    // Les montants sont ceux de VOS briques, pas ceux du projet : le suivi
+    // officiel compte la dette envers les milliers d'obligataires, un chiffre
+    // sans rapport avec une fiche où l'on détient dix briques.
+    if (property.arrieres?.montant > 0) {
+        // Le brut est ce que le projet devait ; le net, ce qui serait arrivé sur
+        // le compte. C'est le second qui manque vraiment.
+        const brut = property.arrieres.montant;
+        const net = netApresRetenue(brut, String(suivi.derniereEcheanceImpayee || '').slice(0, 7), property.country);
+
+        faits.push(`${formatCurrency(net)} de coupons manqués (${formatCurrency(brut)} brut)`);
+    }
+
+    if (property.arrieres?.penalites > 0) {
+        faits.push(`${formatCurrency(property.arrieres.penalites)} de pénalités à votre part`);
+    } else if (suivi.penalites > 0 && !property.arrieres?.penalitesConnues) {
+        // Statut récupéré avant que le nombre de briques du projet ne soit lu :
+        // le prorata est impossible, et on le dit plutôt que d'annoncer la
+        // dette du projet entier comme si elle était vôtre.
+        faits.push('pénalités en cours, part non calculable');
     }
 
     if (faits.length === 0) {
@@ -1024,20 +1276,61 @@ function createSuiviSection(property) {
         faits.push('incident passé, plus rien de dû');
     }
 
+    const periode = periodeImpayee(suivi);
+
+    if (periode) {
+        faits.push(periode);
+    }
+
     const grave = suivi.contentieux || suivi.impayees > 0;
-    // formatMonthName capitalise le mois : en incise, il se lit en minuscule
-    const mois = suivi.derniereEcheanceImpayee
-        ? formatMonthName(String(suivi.derniereEcheanceImpayee).slice(0, 7))
-        : '';
-    const depuis = mois
-        ? ` · dernière échéance due en ${mois.charAt(0).toLowerCase()}${mois.slice(1)}`
-        : '';
+
+    // Une liste plutôt qu'une phrase à points médians : cinq faits enchaînés
+    // sur trois lignes se lisaient comme un paragraphe, et le montant dû s'y
+    // noyait au milieu des dates.
+    const lignes = faits.map(fait => `<li>${escapeHtml(fait)}</li>`).join('');
 
     return `
-        <div class="suivi-officiel${grave ? ' est-grave' : ''}">
-            ${escapeHtml(faits.join(' · '))}${escapeHtml(depuis)}
-        </div>
+        <ul class="suivi-officiel${grave ? ' est-grave' : ''}">${lignes}</ul>
     `;
+}
+
+/**
+ * Dit sur quelle période les échéances n'ont pas été honorées
+ *
+ * L'ancienne formulation, « dernière échéance due en juillet 2026 », se lisait
+ * de travers : « due » laissait entendre une échéance à venir, alors qu'il
+ * s'agit de la plus récente de celles qui n'ont pas été payées. Sur un projet
+ * qui n'a plus rien versé depuis vingt mois, c'est la période entière qui
+ * renseigne, pas son dernier jour.
+ *
+ * @param {Object} suivi - Suivi officiel du projet
+ * @returns {string} Incise à ajouter au bandeau, vide si les dates manquent
+ */
+function periodeImpayee(suivi) {
+    // formatMonthName capitalise le mois : en incise, il se lit en minuscule
+    const enClair = date => date
+        ? moisEnIncise(String(date).slice(0, 7))
+        : '';
+
+    const premier = enClair(suivi.premiereEcheanceImpayee);
+    const dernier = enClair(suivi.derniereEcheanceImpayee);
+
+    if (!dernier) {
+        return '';
+    }
+
+    if (premier && premier !== dernier) {
+        return `rien versé ${deMois(String(suivi.premiereEcheanceImpayee).slice(0, 7))} à ${dernier}`;
+    }
+
+    if (suivi.impayees === 1) {
+        return `échéance ${deMois(String(suivi.derniereEcheanceImpayee).slice(0, 7))} jamais versée`;
+    }
+
+    // Plusieurs échéances dues mais une seule date connue : un suivi récupéré
+    // avant que la première ne soit relevée. Annoncer une échéance unique
+    // ferait passer vingt mois de silence pour un mois de retard.
+    return `dernière impayée en ${dernier}`;
 }
 
 /**
@@ -1070,13 +1363,16 @@ function createActualitesSection(property) {
         `;
     }).join('');
 
+    // Repliées : trois actualités de six cents caractères occupaient plus de
+    // place que tout le reste de la fiche, et l'on parcourt le registre pour
+    // comparer des montants, pas pour lire des communiqués.
     return `
-        <div class="alertes">
-            <div class="actualites-entete">
+        <details class="alertes">
+            <summary class="actualites-entete">
                 ${actualites.length} actualité${actualites.length > 1 ? 's' : ''} du projet
-            </div>
+            </summary>
             <div class="alertes-liste">${liste}</div>
-        </div>
+        </details>
     `;
 }
 
@@ -1114,13 +1410,13 @@ function createAlertesSection(property) {
     }).join('');
 
     return `
-        <div class="alertes">
-            <div class="alertes-entete${classeAge}">
+        <details class="alertes">
+            <summary class="alertes-entete${classeAge}">
                 <span aria-hidden="true">▲</span>
                 ${nombre} alerte${pluriel} ${mention}
-            </div>
+            </summary>
             <div class="alertes-liste">${liste}</div>
-        </div>
+        </details>
     `;
 }
 
@@ -1143,7 +1439,7 @@ function createVersementSection(property) {
 
     const libelle = LIBELLES_VERSEMENT[versement.etat] || '';
     const montant = versement.etat === ETATS.VERSE
-        ? `<span class="versement-montant">${formatCurrency(versement.montant)}</span>`
+        ? montantVerse(versement.montant, moisVersements, property.country)
         : '';
 
     const carnet = carnetVersements(property, versementsParPropriete, moisVersements);
@@ -1151,7 +1447,7 @@ function createVersementSection(property) {
     const sans = carnet.filter(c => c.etat === ETATS.MANQUANT).length;
 
     const marques = carnet.map(c => `<span class="carnet-mois est-${c.etat}"
-            title="${escapeHtml(titreMoisCarnet(c))}"></span>`).join('');
+            title="${escapeHtml(titreMoisCarnet(c, property.country))}"></span>`).join('');
 
     const resume = `${carnet.length} derniers mois : ${verses} versement${pluriel(verses)}`
         + (sans > 0 ? `, ${sans} mois sans versement` : '');
@@ -1173,16 +1469,40 @@ function createVersementSection(property) {
  * @param {Object} case_ - Case du carnet { mois, etat, montant }
  * @returns {string} Texte de l'infobulle
  */
-function titreMoisCarnet({ mois, etat, montant }) {
+function titreMoisCarnet({ mois, etat, montant }, pays) {
     const nom = formatMonthName(mois);
 
     if (etat === ETATS.VERSE) {
-        return `${nom} : ${formatCurrency(montant)}`;
+        const net = netApresRetenue(montant, mois, pays);
+        return `${nom} : ${formatCurrency(net)} net · ${formatCurrency(montant)} brut`;
     }
 
     return etat === ETATS.MANQUANT
         ? `${nom} : rien reçu`
         : `${nom} : aucun versement attendu`;
+}
+
+/**
+ * Compose le montant versé du mois, net puis brut
+ *
+ * La ventilation de l'état de compte est brute. N'afficher qu'elle laissait
+ * croire que c'était l'argent reçu, alors que Bricks prélève avant de créditer.
+ * Sur un projet étranger, les deux montants sont égaux — et c'est précisément
+ * ce qu'il faut voir : rien n'a encore été prélevé, l'impôt viendra plus tard.
+ *
+ * @param {number} brut - Coupon brut du mois
+ * @param {string} mois - Mois jugé
+ * @param {string} [pays] - Pays de la propriété
+ * @returns {string} HTML des deux montants
+ */
+function montantVerse(brut, mois, pays) {
+    const net = netApresRetenue(brut, mois, pays);
+    const titre = pays && pays !== 'France'
+        ? 'Versé brut : aucune retenue à la source hors de France, l\'impôt viendra sur la déclaration'
+        : 'Net encaissé, prélèvement forfaitaire déduit';
+
+    return `<span class="versement-montant" title="${escapeHtml(titre)}">${formatCurrency(net)}</span>`
+        + `<span class="versement-brut">${formatCurrency(brut)} brut</span>`;
 }
 
 /**
@@ -1242,9 +1562,15 @@ function createPropertyCard(property) {
     const revenueStartDisplay = property.revenueStartDate
         ? formatMonthName(property.revenueStartDate)
         : 'N/D';
+    // Aucun « (est.) » : une date de remboursement à venir ne peut être qu'une
+    // estimation, et le préciser sur chaque fiche ne fait qu'encombrer.
     const refundDateDisplay = property.refundDate
-        ? `${formatMonthName(property.refundDate)} (est.)`
+        ? formatMonthName(property.refundDate)
         : (property.isRefunded ? 'Remboursé' : 'N/D');
+
+    // Le coupon annoncé, avant retenue. Hors de France il est aussi le net :
+    // rien n'est prélevé à la source, l'impôt vient sur la déclaration.
+    const brutMensuel = property.investment * (property.yearlyReturn || 0) / 100 / 12;
 
     // URL du projet sur Bricks.co
     const projectUrl = `https://app.bricks.co/project/${encodeURIComponent(property.id)}`;
@@ -1271,7 +1597,7 @@ function createPropertyCard(property) {
                 </div>
                 <div class="paire">
                     <dt>Revenus nets / mois</dt>
-                    <dd>${formatCurrency(property.monthlyRevenue)}</dd>
+                    <dd>${formatCurrency(property.monthlyRevenue)}<span class="detail-brut">${formatCurrency(brutMensuel)} brut</span></dd>
                 </div>
                 <div class="paire">
                     <dt>Premier versement</dt>

@@ -6,26 +6,37 @@ import { CONFIG, tauxImpositionPour } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
-import { repartitionRisque, niveauRisque } from './riskAnalysis.js';
-import { serieMensuelle } from './revenueHistory.js';
+import { repartitionRisque, niveauRisque, arrieresInvestisseur } from './riskAnalysis.js';
+import { serieMensuelle, moisEncoreOuvert } from './revenueHistory.js';
 import { annoterVersements } from './versements.js';
+import { serieOrigineFonds } from './apports.js';
+import { calculerRendements, capitalImpliciteParMois } from './rendement.js';
+import { rendementMoyenPondere } from './forecast.js';
+import { couponsEtrangersParMois, impotDifferre } from './fiscalite.js';
 
 /**
  * Calcule les revenus mensuels (brut, net, taxe) pour un projet
+ *
+ * Hors de France, Bricks ne retient rien à la source : le coupon arrive brut et
+ * l'impôt est réclamé plus tard, sur la déclaration. Annoncer un net amputé du
+ * prélèvement forfaitaire y était doublement faux — le montant ne correspondait
+ * ni à ce qui tombe sur le compte, ni à ce que la fiche affiche par ailleurs
+ * pour les versements réellement reçus.
+ *
  * @param {number} investment - Investissement total
  * @param {number} yearlyReturn - Rendement annuel en %
+ * @param {string} [pays] - Pays du projet ; hors de France, aucune retenue
  * @returns {Object} { gross, net, tax }
  */
-export function calculateMonthlyRevenue(investment, yearlyReturn) {
+export function calculateMonthlyRevenue(investment, yearlyReturn, pays = 'France') {
     const grossYearly = (investment * yearlyReturn) / 100;
     const grossMonthly = grossYearly / 12;
-    const netMonthly = grossMonthly * (1 - CONFIG.TAX_RATE);
-    const tax = grossMonthly * CONFIG.TAX_RATE;
+    const taux = pays === 'France' ? CONFIG.TAX_RATE : 0;
 
     return {
         gross: grossMonthly,
-        net: netMonthly,
-        tax: tax
+        net: grossMonthly * (1 - taux),
+        tax: grossMonthly * taux
     };
 }
 
@@ -56,9 +67,10 @@ function resolveFirstSeenMonth(knownMonth, candidateMonth) {
  * @param {Object} [statuts] - Suivis officiels de projet, indexés par identifiant
  * @param {Object} [revenus] - Historique des revenus réellement versés (optionnel)
  * @param {Object} [capital] - Remboursements de capital, lus dans le journal
+ * @param {Object} [apports] - Versements personnels, lus dans le journal
  * @returns {Object} Statistiques complètes
  */
-export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null, capital = null) {
+export function calculateInvestmentStats(data, warnings = [], statuts = {}, revenus = null, capital = null, apports = null) {
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Starting investment stats calculation', {
         monthEntries: data.length
     });
@@ -182,7 +194,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         }
 
         // Calculer les revenus
-        const revenue = calculateMonthlyRevenue(projectInvestment, project.yearlyReturn);
+        const revenue = calculateMonthlyRevenue(projectInvestment, project.yearlyReturn, project.country);
         monthlyRevenue += revenue.net;
 
         // Calculer la date de remboursement estimée
@@ -252,6 +264,9 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     properties.forEach(p => {
         p.suivi = statuts?.[p.id] || null;
         p.niveauRisque = niveauRisque(p, p.suivi);
+        // Ce que le projet vous doit, à vous : le suivi officiel ne connaît que
+        // la dette envers l'ensemble des obligataires.
+        p.arrieres = arrieresInvestisseur(p, p.suivi);
     });
 
     // Ce que chaque projet a réellement versé le mois dernier, d'après l'état
@@ -268,6 +283,14 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     }
 
     const activePropertiesCount = properties.filter(p => !p.isRefunded).length;
+
+    // Bricks amortit : le prix d'une brique baisse à mesure que le principal
+    // revient, jusqu'à zéro quand le projet est soldé. `totalInvestment` est
+    // donc le capital ENCORE engagé, pas la somme jamais investie — et l'écart
+    // avec le nominal dit combien a déjà été rendu sur les projets détenus.
+    const nominalBriques = properties
+        .filter(p => !p.isRefunded)
+        .reduce((somme, p) => somme + p.ownedBricks * CONFIG.DEFAULT_BRICK_PRICE, 0);
 
     logger.info(LOG_CATEGORIES.CALC_STATS, 'Project stats calculated', {
         totalBricks,
@@ -340,20 +363,45 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     // ne sert plus qu'aux mois à venir, où rien n'a encore été versé.
     const historiqueDisponible = Boolean(revenus?.mensuel && Object.keys(revenus.mensuel).length > 0);
 
+    // Les projets étrangers versent sans retenue à la source : ni le rendement
+    // ni la note fiscale ne peuvent les traiter comme les autres.
+    const etrangerParMois = historiqueDisponible
+        ? couponsEtrangersParMois(revenus.versements, properties)
+        : {};
+
+    const impotAVenir = historiqueDisponible
+        ? impotDifferre(revenus.mensuel, etrangerParMois)
+        : null;
+
+    // Le « net cumulé perçu » de l'état de compte contient le capital amorti
+    // qui voyage dans les coupons : c'est votre mise qui revient, pas un gain.
+    // Le prélèvement, lui, n'a porté que sur les intérêts : il n'a rien à
+    // corriger.
+    const capitalDansCoupons = historiqueDisponible
+        ? Object.values(capitalImpliciteParMois(revenus.mensuel, etrangerParMois))
+            .reduce((somme, montant) => somme + montant, 0)
+        : 0;
+
     const revenusReels = historiqueDisponible
         ? {
             mensuel: revenus.mensuel,
-            parAnnee: fusionnerCapital(revenus.parAnnee, capital?.parAnnee),
+            parAnnee: fusionnerJournal(revenus.parAnnee, capital?.parAnnee, apports?.parAnnee, impotAVenir?.parAnnee),
+            impotAVenir,
             capital: capital || null,
+            apports: apports || null,
             premierMois: revenus.premierMois,
             dernierMois: revenus.dernierMois,
             total: revenus.total,
+            capitalDansCoupons: Math.round(capitalDansCoupons * 100) / 100,
             net: serieMensuelle(revenus, 'net'),
             brut: serieMensuelle(revenus, 'brut'),
             impot: serieMensuelle(revenus, 'impot'),
-            // Le mois courant n'est pas terminé : son montant n'est pas comparable
-            // aux précédents et doit être signalé comme tel à l'écran.
-            moisPartiel: revenus.dernierMois === getCurrentMonthYYYYMM() ? revenus.dernierMois : null,
+            // Un mois qui n'a pas encore reçu son règlement n'est pas comparable
+            // aux précédents et doit être signalé comme tel à l'écran. Passé le
+            // 8, il l'est : Bricks a versé, et le mois cesse d'être une demi-mesure.
+            moisPartiel: moisEncoreOuvert(revenus.mensuel, revenus.dernierMois)
+                ? revenus.dernierMois
+                : null,
             ...serieAttendue(revenus, netRevenueEvolutionData)
         }
         : null;
@@ -364,6 +412,33 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
             netEstime: totalNetRevenueSinceBeginning,
             netReel: revenus.total.net
         });
+    }
+
+    // ========================================================================
+    // RENDEMENT CONSTATÉ ET ORIGINE DES FONDS
+    // ========================================================================
+    // Les deux demandent l'état de compte : sans lui on ne connaît que des
+    // revenus espérés, dont le rendement ne serait que le taux affiché
+    // recopié, et l'origine des fonds serait muette.
+    const rendements = historiqueDisponible
+        ? calculerRendements({
+            mensuel: revenus.mensuel,
+            moisPartiel: revenusReels.moisPartiel,
+            investmentEvolution,
+            capitalParMois: capital?.parMois,
+            // Le taux annoncé par Bricks sert de repère : l'écart avec le taux
+            // constaté est ce que coûtent les échéances non versées.
+            tauxPromis: rendementMoyenPondere(properties),
+            etrangerParMois
+        })
+        : null;
+
+    const origineFonds = historiqueDisponible
+        ? serieOrigineFonds(apports, revenus.mensuel)
+        : null;
+
+    if (historiqueDisponible && capital?.parMois) {
+        confronterCapital(revenus.mensuel, capital.parMois, etrangerParMois);
     }
 
     // ========================================================================
@@ -379,6 +454,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     return {
         totalBricks,
         totalInvestment,
+        nominalBriques: Math.round(nominalBriques * 100) / 100,
         monthlyRevenue,
         properties,
         detenuesCount: detenues,
@@ -387,6 +463,9 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         partFinancement,
         risque: repartitionRisque(properties, statuts),
         versements,
+        rendements,
+        origineFonds,
+        apports: apports || null,
         investmentEvolution,
         netRevenueEvolutionData,
         grossRevenueEvolutionData,
@@ -395,7 +474,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         // « Perçu » et « payé » se lisent sur l'état de compte quand on l'a ;
         // l'estimation ne prend le relais que faute de mieux.
         totalNetRevenueSinceBeginning: historiqueDisponible
-            ? revenus.total.net
+            ? Math.round((revenus.total.net - capitalDansCoupons) * 100) / 100
             : totalNetRevenueSinceBeginning,
         totalTaxesSinceBeginning: historiqueDisponible
             ? revenus.total.impot
@@ -408,21 +487,100 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
 }
 
 /**
- * Ajoute le capital remboursé à la ventilation annuelle des revenus
+ * Confronte les deux sources qui prétendent dire le capital remboursé
  *
- * Le capital vient d'une autre source que les revenus — le journal des
- * mouvements, non l'état de compte — et peut donc manquer. Une année sans
- * remboursement connu vaut zéro, ce qui se lit mieux qu'une case vide.
+ * Le journal des mouvements le nomme ligne à ligne ; l'état de compte le laisse
+ * deviner par le prélèvement qui manque sur la ligne de coupons. Les deux
+ * devraient tomber sur le même montant. Ils n'y tombent pas toujours : sur un
+ * portefeuille réel, le journal en comptait assez pour vider entièrement les
+ * coupons, ce qui ramenait le rendement à zéro.
+ *
+ * Le rendement se calcule donc sur l'état de compte seul. Ce contrôle reste là
+ * pour dire l'ampleur de l'écart, parce que la colonne « Capital rendu » du
+ * tableau annuel, elle, lit toujours le journal.
+ *
+ * @param {Object} mensuel - Revenus par mois, issus de l'état de compte
+ * @param {Object} capitalParMois - Capital remboursé, issu du journal
+ */
+function confronterCapital(mensuel, capitalParMois, etrangerParMois) {
+    const implicite = capitalImpliciteParMois(mensuel, etrangerParMois);
+    const annees = {};
+
+    const cumuler = (source, champ) => {
+        Object.keys(source).forEach(m => {
+            const annee = m.slice(0, 4);
+            const ligne = annees[annee] ||= { releve: 0, journal: 0 };
+            ligne[champ] += source[m] || 0;
+        });
+    };
+
+    cumuler(implicite, 'releve');
+    cumuler(capitalParMois, 'journal');
+
+    let releve = 0;
+    let journal = 0;
+
+    Object.values(annees).forEach(ligne => {
+        releve += ligne.releve;
+        journal += ligne.journal;
+        ligne.releve = Math.round(ligne.releve * 100) / 100;
+        ligne.journal = Math.round(ligne.journal * 100) / 100;
+        ligne.ecart = Math.round((ligne.journal - ligne.releve) * 100) / 100;
+    });
+
+    // Quelques euros séparent normalement les deux : un remboursement du 2 peut
+    // être rangé sur le mois précédent. Au-delà du double, c'est structurel.
+    const suspect = releve > 0 && journal > releve * 2;
+
+    const detail = {
+        impliedByStatement: Math.round(releve * 100) / 100,
+        reportedByJournal: Math.round(journal * 100) / 100,
+        byYear: annees
+    };
+
+    if (suspect) {
+        logger.warn(LOG_CATEGORIES.CALC_STATS,
+            'Wallet journal reports far more capital than the statement implies', detail);
+    } else {
+        logger.info(LOG_CATEGORIES.CALC_STATS, 'Capital repayments cross-checked', detail);
+    }
+}
+
+/**
+ * Ajoute au tableau annuel ce que seul le journal des mouvements sait
+ *
+ * Le capital rendu et les versements personnels viennent d'une autre source que
+ * les revenus — le journal, non l'état de compte — et peuvent donc manquer. Une
+ * année sans mouvement connu vaut zéro, ce qui se lit mieux qu'une case vide.
+ *
+ * Une année où vous avez déposé sans qu'aucun revenu ne tombe n'existerait pas
+ * dans la ventilation des revenus : elle est ajoutée, faute de quoi le premier
+ * versement d'un portefeuille ouvert en décembre disparaîtrait du tableau.
  *
  * @param {Object} parAnnee - Revenus par année
  * @param {Object} [capitalParAnnee] - Capital remboursé par année
+ * @param {Object} [apportsParAnnee] - Versements personnels par année
+ * @param {Object} [impotParAnnee] - Impôt restant dû sur les recettes brutes
  * @returns {Object} Ventilation enrichie
  */
-function fusionnerCapital(parAnnee, capitalParAnnee) {
+function fusionnerJournal(parAnnee, capitalParAnnee, apportsParAnnee, impotParAnnee) {
     const fusion = {};
+    const vide = { brut: 0, net: 0, impot: 0, coupons: 0, parrainage: 0, boost: 0 };
 
-    Object.keys(parAnnee || {}).forEach(annee => {
-        fusion[annee] = { ...parAnnee[annee], capital: capitalParAnnee?.[annee] ?? 0 };
+    const annees = new Set([
+        ...Object.keys(parAnnee || {}),
+        ...Object.keys(apportsParAnnee || {})
+    ]);
+
+    annees.forEach(annee => {
+        fusion[annee] = {
+            ...vide,
+            ...(parAnnee?.[annee] || {}),
+            capital: capitalParAnnee?.[annee] ?? 0,
+            apport: apportsParAnnee?.[annee]?.net ?? 0,
+            etranger: impotParAnnee?.[annee]?.etranger ?? 0,
+            impotAVenir: impotParAnnee?.[annee]?.impot ?? 0
+        };
     });
 
     return fusion;
@@ -472,8 +630,9 @@ function serieAttendue(revenus, netRevenueEvolutionData) {
 
     // L'écart se lit sur le dernier mois RÉVOLU : un mois entamé manque
     // simplement de versements encore à venir, et son écart ne veut rien dire.
-    const moisCourant = getCurrentMonthYYYYMM();
-    const dernierComplet = moisAttendus.filter(mois => mois !== moisCourant).pop() || null;
+    const dernierComplet = moisAttendus
+        .filter(mois => !moisEncoreOuvert(revenus.mensuel, mois))
+        .pop() || null;
 
     const ecart = dernierComplet
         ? {

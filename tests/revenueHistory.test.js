@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { moisDepuisIndex, normaliserHistoriqueRevenus, serieMensuelle } from '../src/business/revenueHistory.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { moisDepuisIndex, normaliserHistoriqueRevenus, serieMensuelle, moisEncoreOuvert } from '../src/business/revenueHistory.js';
 import { calculateInvestmentStats } from '../src/business/calculations.js';
 
 /**
@@ -237,6 +237,17 @@ describe('serieMensuelle', () => {
 });
 
 describe('calculateInvestmentStats avec l\'état de compte', () => {
+    // Le relevé porte juillet et août 2026 : sans horloge figée, ces tests
+    // changeraient de sens au fil des mois.
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 7, 14));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     const portefeuille = [{
         yearMonthDate: '2026-07',
         projects: [{
@@ -253,9 +264,21 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         const historique = normaliserHistoriqueRevenus(RELEVE);
         const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
 
-        expect(resultats.totalNetRevenueSinceBeginning).toBeCloseTo(historique.total.net, 2);
+        // Le prélèvement n'a porté que sur les intérêts : il est repris tel quel
         expect(resultats.totalTaxesSinceBeginning).toBeCloseTo(historique.total.impot, 2);
         expect(resultats.revenusReels.net['2026-07']).toBe(44.76);
+    });
+
+    it('écarte du net cumulé le capital amorti dans les coupons', () => {
+        // Le relevé mêle capital et intérêts : le prélèvement retenu trahit la
+        // part imposable, le reste est la mise qui revient et n'est pas un gain.
+        const historique = normaliserHistoriqueRevenus(RELEVE);
+        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
+        const capital = resultats.revenusReels.capitalDansCoupons;
+
+        expect(capital).toBeGreaterThan(0);
+        expect(resultats.totalNetRevenueSinceBeginning)
+            .toBeCloseTo(historique.total.net - capital, 2);
     });
 
     it('transmet la ventilation annuelle jusqu\'à l\'écran', () => {
@@ -302,22 +325,24 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
             .toBeCloseTo(resultats.totalNetRevenueEstime, 2);
     });
 
-    it('signale le mois courant comme inachevé, et lui seul', () => {
-        const moisCourant = new Date().toISOString().slice(0, 7);
-        const [annee, mois] = moisCourant.split('-').map(Number);
+    it('ne signale plus inachevé un mois déjà réglé', () => {
+        // Le 14 août, Bricks a versé : août compte, et le mois le plus frais
+        // n'est plus écarté trois semaines durant.
+        const resultats = calculateInvestmentStats(
+            portefeuille, [], {}, normaliserHistoriqueRevenus(RELEVE)
+        );
 
-        const historique = normaliserHistoriqueRevenus({
-            revenuesByYearAndMonth: [{
-                year: annee,
-                month: mois - 1,
-                untaxedTotal: 1000,
-                taxedTotal: 686,
-                revenues: { withholdingTax: { total: -314 } }
-            }]
-        });
+        expect(resultats.revenusReels.moisPartiel).toBeNull();
+    });
 
-        const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
-        expect(resultats.revenusReels.moisPartiel).toBe(moisCourant);
+    it('signale inachevé un mois dont le règlement n\'est pas passé', () => {
+        vi.setSystemTime(new Date(2026, 7, 3));
+
+        const resultats = calculateInvestmentStats(
+            portefeuille, [], {}, normaliserHistoriqueRevenus(RELEVE)
+        );
+
+        expect(resultats.revenusReels.moisPartiel).toBe('2026-08');
     });
 
     it('ne confronte l\'attendu que sur les douze derniers mois', () => {
@@ -352,9 +377,9 @@ describe('calculateInvestmentStats avec l\'état de compte', () => {
         const resultats = calculateInvestmentStats(portefeuille, [], {}, historique);
         const ecart = resultats.revenusReels.ecart;
 
-        // Août est le mois courant : l'écart doit porter sur juillet
-        expect(ecart.mois).toBe('2026-07');
-        expect(ecart.percu).toBe(44.76);
+        // Le 14 août, août a reçu son règlement : c'est lui que l'écart juge
+        expect(ecart.mois).toBe('2026-08');
+        expect(ecart.percu).toBe(36.35);
         expect(ecart.manque).toBeCloseTo(ecart.attendu - ecart.percu, 6);
     });
 
@@ -469,5 +494,44 @@ describe('ventilation des versements par propriété', () => {
         });
 
         expect(versements).toEqual({});
+    });
+});
+
+
+describe('moisEncoreOuvert', () => {
+    const MENSUEL = {
+        '2026-05': { coupons: 60 },
+        '2026-06': { coupons: 60 },
+        '2026-07': { coupons: 60 },
+        '2026-08': { coupons: 50 }
+    };
+
+    it('tient le mois pour ouvert avant la date de règlement', () => {
+        // Le 3 août, rien n'est encore tombé : compter le mois ferait plonger
+        // toutes les fenêtres au début de chaque mois.
+        expect(moisEncoreOuvert(MENSUEL, '2026-08', new Date(2026, 7, 3))).toBe(true);
+    });
+
+    it('le tient pour clos une fois le règlement passé et reçu', () => {
+        expect(moisEncoreOuvert(MENSUEL, '2026-08', new Date(2026, 7, 14))).toBe(false);
+    });
+
+    it('le tient pour ouvert si les versements n\'y sont pas tous arrivés', () => {
+        // 12 € là où les trois mois précédents en font 60 : le règlement est
+        // manifestement encore en route.
+        const partiel = { ...MENSUEL, '2026-08': { coupons: 12 } };
+
+        expect(moisEncoreOuvert(partiel, '2026-08', new Date(2026, 7, 14))).toBe(true);
+    });
+
+    it('ne juge jamais ouvert un mois passé', () => {
+        expect(moisEncoreOuvert(MENSUEL, '2026-07', new Date(2026, 7, 14))).toBe(false);
+        expect(moisEncoreOuvert(MENSUEL, null, new Date(2026, 7, 14))).toBe(false);
+    });
+
+    it('fait confiance à la date faute de mois de comparaison', () => {
+        // Premier mois d'un portefeuille tout neuf : rien à quoi le comparer
+        expect(moisEncoreOuvert({ '2026-08': { coupons: 2 } }, '2026-08', new Date(2026, 7, 14)))
+            .toBe(false);
     });
 });

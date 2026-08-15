@@ -15,6 +15,8 @@
  */
 
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { CONFIG } from '../core/config.js';
+import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
 
 /**
  * Convertit des centimes en euros
@@ -260,4 +262,62 @@ export function serieMensuelle(historique, champ) {
     });
 
     return serie;
+}
+
+/**
+ * Part des mois précédents en dessous de laquelle un mois paraît inachevé
+ *
+ * Un règlement partiellement arrivé se voit : le mois pèse une fraction de ses
+ * voisins. Le seuil est bas — les deux tiers — parce qu'un mois peut légitimement
+ * baisser (projets remboursés, échéances impayées) sans être incomplet pour
+ * autant, et qu'écarter un mois valide coûte plus cher que d'en compter un qui
+ * gagnera encore quelques euros.
+ */
+const PART_ATTENDUE = 0.66;
+
+/** Mois de référence servant à juger l'ampleur du mois courant */
+const MOIS_TEMOINS = 3;
+
+/**
+ * Dit si un mois n'a pas encore reçu tout ce qu'il doit recevoir
+ *
+ * Le calendrier ne suffit pas. Bricks règle autour du 8 : le 14 août, août est
+ * encaissé, et l'écarter au motif que le mois n'est pas fini prive les fenêtres
+ * de leur donnée la plus fraîche. Le 2 août, en revanche, il est vide, et
+ * l'inclure ferait plonger le rendement de tout le monde au début de chaque mois.
+ *
+ * Deux conditions pour le déclarer clos : la date de règlement est passée, et
+ * les coupons du mois soutiennent la comparaison avec les précédents — un
+ * versement encore en route se trahit par un montant anormalement bas.
+ *
+ * @param {Object} mensuel - Revenus par mois, issus de l'état de compte
+ * @param {string} mois - Mois à juger, au format YYYY-MM
+ * @param {Date} [maintenant] - Instant de référence
+ * @returns {boolean} true si le mois est encore en train de se remplir
+ */
+export function moisEncoreOuvert(mensuel, mois, maintenant = new Date()) {
+    if (!mois || mois !== getCurrentMonthYYYYMM(maintenant)) {
+        return false;
+    }
+
+    if (maintenant.getDate() <= CONFIG.JOUR_REGLEMENT) {
+        return true;
+    }
+
+    const temoins = Object.keys(mensuel || {})
+        .filter(m => m < mois)
+        .sort()
+        .slice(-MOIS_TEMOINS)
+        .map(m => mensuel[m]?.coupons || 0)
+        .filter(valeur => valeur > 0);
+
+    // Aucun mois de référence : rien ne permet de juger, on fait confiance à
+    // la date plutôt que d'écarter le seul mois disponible.
+    if (temoins.length === 0) {
+        return false;
+    }
+
+    const median = [...temoins].sort((a, b) => a - b)[Math.floor(temoins.length / 2)];
+
+    return (mensuel[mois]?.coupons || 0) < median * PART_ATTENDUE;
 }

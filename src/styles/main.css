@@ -320,6 +320,26 @@ input {
 .brique[data-statut="upcoming"] { background: var(--statut-avenir); }
 .brique[data-statut="refunded"] { background: var(--statut-rembourse); }
 
+/* Le défaut se voit sur la brique elle-même : 2 710 € exposés sur 36 projets
+   se lisaient jusqu'ici comme n'importe quel autre vert. La hachure garde la
+   couleur de statut dessous — on voit à la fois ce qu'est le projet et qu'il
+   ne paie plus. */
+.brique[data-risque="procedure"] {
+    background-image: repeating-linear-gradient(
+        135deg,
+        var(--alerte) 0 2px,
+        transparent 2px 4px
+    );
+}
+
+.brique[data-risque="impaye"] {
+    background-image: repeating-linear-gradient(
+        135deg,
+        var(--alerte-faible) 0 1px,
+        transparent 1px 5px
+    );
+}
+
 /* L'encoche d'alerte : un liseré rouge en tête de brique */
 .brique[data-alerte="true"]::after {
     content: '';
@@ -350,6 +370,11 @@ input {
     height: 10px;
     border-radius: 2px;
     display: inline-block;
+}
+
+.pastille-defaut {
+    background: var(--statut-actif);
+    background-image: repeating-linear-gradient(135deg, var(--alerte) 0 2px, transparent 2px 4px);
 }
 
 .pastille-actif { background: var(--statut-actif); }
@@ -475,6 +500,97 @@ input {
     margin-top: 10px;
     margin-bottom: 28px;
     max-width: 80ch;
+}
+
+/* --------------------------------------------------------------------------
+   Rendement annualisé
+
+   Cinq fenêtres sur une seule ligne : c'est leur succession qui porte le sens,
+   et une grille à deux rangées aurait cassé la lecture de gauche à droite, du
+   mois dernier au début de l'histoire. En dessous de 700 px elles défilent
+   horizontalement plutôt que de s'empiler, pour la même raison.
+   -------------------------------------------------------------------------- */
+
+/* Nommée « -section » et non « .rendement » : les fiches du registre portent
+   déjà un `dd.rendement` pour le taux annoncé du projet, et un sélecteur nu
+   l'aurait encadré d'une bordure et de 22 px de marge dans chaque carte. */
+.rendement-section {
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 28px;
+}
+
+.rendement-entete {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 18px;
+}
+
+.rendement-entete h3 {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.rendement-resume {
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+}
+
+.rendement-fenetres {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+}
+
+.rendement-fenetre {
+    flex: 1 0 auto;
+    min-width: 118px;
+    display: flex;
+    flex-direction: column;
+    padding: 0 18px;
+    border-left: var(--rule-width) solid var(--rule);
+}
+
+.rendement-fenetre:first-child {
+    padding-left: 0;
+    border-left: none;
+}
+
+.rendement-taux {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.rendement-libelle {
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-top: 6px;
+}
+
+.rendement-detail {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    margin-top: 4px;
+}
+
+/* La dernière fenêtre couvre tout l'historique : c'est la référence à laquelle
+   les autres se comparent, et elle doit se distinguer d'un coup d'œil. */
+.rendement-fenetre:last-child .rendement-taux {
+    color: var(--statut-financement);
 }
 
 /* --------------------------------------------------------------------------
@@ -1042,9 +1158,12 @@ select:hover {
    -------------------------------------------------------------------------- */
 
 /* Le suivi officiel : une ligne de faits, pas une narration */
+/* Une liste : cinq faits enchaînés par des points médians se lisaient comme un
+   paragraphe, et le montant dû s'y noyait entre deux dates. Chaque constat sur
+   sa ligne, l'œil les compte. */
 .suivi-officiel {
     margin-top: 12px;
-    padding: 7px 10px;
+    padding: 8px 10px 8px 22px;
     border-radius: 3px;
     background: var(--surface-sunken);
     border-left: 2px solid var(--rule-strong);
@@ -1052,6 +1171,64 @@ select:hover {
     font-variant-numeric: tabular-nums;
     font-size: 0.76rem;
     color: var(--ink-muted);
+    list-style: none;
+}
+
+.suivi-officiel li {
+    position: relative;
+    padding-left: 2px;
+}
+
+.suivi-officiel li + li {
+    margin-top: 3px;
+}
+
+.suivi-officiel li::before {
+    content: '—';
+    position: absolute;
+    left: -12px;
+    opacity: 0.55;
+}
+
+/* Le montant qui vous est dû est le seul fait chiffré qui appelle une décision :
+   il porte la graisse, les dates restent en appui. */
+.suivi-officiel li:first-child {
+    font-weight: 600;
+}
+
+/* Repliées par défaut : trois communiqués de six cents caractères pesaient plus
+   que tout le reste de la fiche. Le résumé reste cliquable au clavier. */
+details.alertes > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+details.alertes > summary::-webkit-details-marker {
+    display: none;
+}
+
+details.alertes > summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 0.8em;
+    transition: transform 0.15s ease;
+}
+
+details.alertes[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+details.alertes > summary:hover {
+    color: var(--ink);
+}
+
+/* Le brut suit le net dans la liste des chiffres clés, en second rang */
+.detail-brut {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    margin-top: 1px;
 }
 
 .suivi-officiel.est-grave {
@@ -1199,10 +1376,66 @@ select:hover {
     color: var(--alerte);
 }
 
+/* --------------------------------------------------------------------------
+   Bandeau de chargement
+
+   Deux indicateurs peuvent s'afficher ensemble — les données, puis le suivi
+   officiel des projets, lancé sans attendre — d'où un conteneur qui les empile
+   plutôt que deux barres superposées au même endroit. Il ne prend aucune place
+   quand les deux sont masqués, et laisse passer les clics : seules les barres
+   elles-mêmes sont opaques.
+   -------------------------------------------------------------------------- */
+
+.bandeau-chargement {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+}
+
 .chargement {
-    color: var(--ink-muted);
-    font-size: 0.85rem;
-    margin-top: 10px;
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+    /* Le bleu du système, celui des projets en cours de financement : un travail
+       engagé qui n'est pas terminé. L'encre neutre passait pour un bandeau de
+       chrome et se remarquait à peine. */
+    background: var(--statut-financement);
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 550;
+    text-align: center;
+    padding: 12px 20px;
+    box-shadow: 0 2px 10px rgba(29, 95, 176, 0.35);
+}
+
+/* Une barre qui avance sans fin : le texte seul ne distingue pas un chargement
+   en cours d'un chargement figé sur une erreur silencieuse. */
+.chargement::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    width: 30%;
+    background: var(--statut-financement);
+    animation: bandeau-progression 1.4s ease-in-out infinite;
+}
+
+@keyframes bandeau-progression {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(430%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chargement::after {
+        animation: none;
+        width: 100%;
+    }
 }
 
 /* Modales */
@@ -1587,6 +1820,16 @@ select:hover {
     font-family: var(--font-data);
     font-size: 0.8rem;
     color: var(--ink);
+}
+
+/* Le brut suit le net, en retrait : c'est le montant annoncé, pas celui qui
+   arrive. Sur un projet étranger les deux sont égaux — et c'est justement ce
+   qu'il faut voir, rien n'ayant encore été prélevé. */
+.versement-brut {
+    font-family: var(--font-data);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    margin-left: -2px;
 }
 
 /* Les marques s'alignent sur une ligne de base commune : les mois sans
