@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normaliserApports, serieOrigineFonds, estApport, estRetrait, reconcilierJournal } from '../src/business/apports.js';
+import { normaliserApports, serieOrigineFonds, moyenneVersements, estApport, estRetrait, reconcilierJournal } from '../src/business/apports.js';
 
 /** Extrait réel du journal : un rechargement au milieu de coupons et de prélèvements */
 const JOURNAL = [
@@ -140,13 +140,11 @@ describe('serieOrigineFonds', () => {
         expect(serie.parrainage['2026-02']).toBe(0);
     });
 
-    it('totalise chaque source et donne le rythme des versements', () => {
+    it('totalise chaque source', () => {
         const serie = serieOrigineFonds(APPORTS, MENSUEL);
 
         expect(serie.total.apports).toBeCloseTo(700, 2);
         expect(serie.total.parrainage).toBeCloseTo(25, 2);
-        // 700 € sur les trois mois couverts
-        expect(serie.moyenneApports).toBeCloseTo(233.33, 1);
     });
 
     it('signale l\'absence du journal plutôt que de tracer un zéro', () => {
@@ -264,5 +262,32 @@ describe('statuts retenus', () => {
         ]);
 
         expect(apports.total.depot).toBeCloseTo(200, 2);
+    });
+});
+
+describe('moyenneVersements', () => {
+    const SERIE = { '2026-01': 300, '2026-02': 0, '2026-03': 400, '2026-04': 500 };
+
+    it('moyenne sur les mois demandés, et rien qu\'eux', () => {
+        // Le repère du graphique se calait sur tout l'historique alors que les
+        // barres n'affichaient qu'une fenêtre : il ne bougeait jamais.
+        expect(moyenneVersements(SERIE, ['2026-03', '2026-04'])).toBeCloseTo(450, 2);
+        expect(moyenneVersements(SERIE, Object.keys(SERIE))).toBeCloseTo(300, 2);
+    });
+
+    it('compte les mois sans versement au dénominateur', () => {
+        // Une pause de six mois divise le rythme par deux : c'est l'information
+        // cherchée, pas un mois à écarter.
+        expect(moyenneVersements(SERIE, ['2026-01', '2026-02'])).toBeCloseTo(150, 2);
+    });
+
+    it('traite un mois absent de la série comme un mois à zéro', () => {
+        expect(moyenneVersements(SERIE, ['2026-04', '2026-05'])).toBeCloseTo(250, 2);
+    });
+
+    it('renvoie zéro faute de mois ou de série', () => {
+        expect(moyenneVersements(SERIE, [])).toBe(0);
+        expect(moyenneVersements(SERIE, null)).toBe(0);
+        expect(moyenneVersements(null, ['2026-01'])).toBe(0);
     });
 });

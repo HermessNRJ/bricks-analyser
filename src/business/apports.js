@@ -237,7 +237,7 @@ function cumulerParAnnee(parMois) {
  *
  * @param {Object|null} apports - Apports normalisés, issus du journal
  * @param {Object} [mensuel] - Revenus par mois, issus de l'état de compte
- * @returns {Object|null} { apports, parrainage, boost, total, moyenneApports }
+ * @returns {Object|null} { apports, parrainage, boost, total, apportsConnus }
  *   ou null si aucune source n'est disponible
  */
 export function serieOrigineFonds(apports, mensuel) {
@@ -275,10 +275,33 @@ export function serieOrigineFonds(apports, mensuel) {
         // Sans le journal, la série des versements serait plate à zéro et se
         // lirait comme « je n'ai jamais rien déposé » : mieux vaut la taire.
         apportsConnus: Boolean(apports?.parMois && Object.keys(apports.parMois).length > 0),
-        // Le rythme habituel, qui sert de repère à chaque barre
-        moyenneApports: Math.round((total.apports / mois.length) * 100) / 100,
         total
     };
+}
+
+/**
+ * Votre rythme de versement sur une liste de mois
+ *
+ * Les mois sans versement comptent au dénominateur : une pause de six mois
+ * divise la moyenne par deux, ce qui est précisément l'information cherchée.
+ *
+ * Cette fonction est le seul endroit où « ce que je verse par mois » se calcule.
+ * Le graphique en tirait son repère sur tout l'historique quand ses barres
+ * n'affichaient qu'une fenêtre, et le simulateur en tirait un troisième chiffre
+ * de la courbe d'investissement — trois réponses différentes à la même question.
+ *
+ * @param {Object} serie - Versements par mois { 'YYYY-MM': € }
+ * @param {Array<string>} mois - Mois à moyenner, y compris ceux à zéro
+ * @returns {number} Versement moyen sur la période, en euros
+ */
+export function moyenneVersements(serie, mois) {
+    if (!Array.isArray(mois) || mois.length === 0) {
+        return 0;
+    }
+
+    const total = mois.reduce((somme, m) => somme + (serie?.[m] || 0), 0);
+
+    return Math.round((total / mois.length) * 100) / 100;
 }
 
 /**

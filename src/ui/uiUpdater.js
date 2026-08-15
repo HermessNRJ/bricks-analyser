@@ -430,27 +430,41 @@ function renderRendement(rendements) {
 
 /**
  * Compose une tuile de rendement
+ *
+ * Brut et net figurent tous deux, l'un sous l'autre. Le simulateur, plus bas,
+ * raisonne en brut — n'afficher ici que le net donnait deux pourcentages sans
+ * rien qui dise lequel est lequel, et le rapprochement était impossible.
+ *
+ * Les montants sont ramenés au mois : un cumul sur trente-trois mois ne se
+ * compare à rien, là où un montant mensuel se lit contre le dernier versement.
+ *
  * @param {Object} mesure - Mesure d'une fenêtre
  * @returns {string} Tuile HTML
  */
 function carteRendement(mesure) {
+    const parMois = valeur => valeur / mesure.mois.length;
+
     const titre = [
-        `${formatCurrency(mesure.net)} de revenus sur ${mesure.mois.length} mois`,
+        `sur ${mesure.mois.length} mois : ${formatCurrency(mesure.net)} nets`
+            + ` pour ${formatCurrency(mesure.brut)} bruts`,
         `capital moyen placé : ${formatCurrency(mesure.capitalMoyen, 0)}`,
         mesure.horsCoupons > 0
             ? `dont ${formatCurrency(mesure.horsCoupons)} de parrainage et de solde boosté`
             : null,
         mesure.capitalRendu > 0
             ? `${formatCurrency(mesure.capitalRendu)} de capital rendu ont été défalqués`
-            : null,
-        `avant prélèvement : ${formatPercentage(mesure.tauxBrut)}`
+            : null
     ].filter(Boolean).join(' · ');
 
     return `
         <div class="rendement-fenetre" title="${escapeHtml(titre)}">
-            <span class="rendement-taux">${formatPercentage(mesure.taux)}</span>
             <span class="rendement-libelle">${escapeHtml(mesure.libelle)}</span>
-            <span class="rendement-detail">${formatCurrency(mesure.net)} de revenus</span>
+            <span class="rendement-taux">${formatPercentage(mesure.taux)}</span>
+            <span class="rendement-taux-brut">${formatPercentage(mesure.tauxBrut)} brut</span>
+            <div class="rendement-montants">
+                <span>${formatCurrency(parMois(mesure.net))} nets par mois</span>
+                <span>${formatCurrency(parMois(mesure.brut))} bruts</span>
+            </div>
         </div>
     `;
 }
@@ -466,7 +480,7 @@ function resumeRendement(fenetres, dernierMois) {
     const longue = fenetres[fenetres.length - 1];
 
     if (fenetres.length === 1) {
-        return `${formatPercentage(courte.taux)} l'an sur ${moisEnIncise(dernierMois)},`
+        return `${formatPercentage(courte.taux)} l'an net sur ${moisEnIncise(dernierMois)},`
             + ' seul mois révolu de l\'historique.';
     }
 
@@ -477,8 +491,8 @@ function resumeRendement(fenetres, dernierMois) {
         ? 'au même rythme que'
         : (ecart > 0 ? 'mieux que' : 'moins bien que');
 
-    return `Sur ${moisEnIncise(dernierMois)}, le portefeuille a rapporté ${formatPercentage(courte.taux)} l'an —`
-        + ` ${sens} sa moyenne depuis le début (${formatPercentage(longue.taux)}).`;
+    return `Sur ${moisEnIncise(dernierMois)}, le portefeuille a rapporté ${formatPercentage(courte.taux)} l'an`
+        + ` net — ${sens} sa moyenne depuis le début (${formatPercentage(longue.taux)}).`;
 }
 
 /**
@@ -488,23 +502,25 @@ function resumeRendement(fenetres, dernierMois) {
  */
 function noteRendement(rendements) {
     const phrases = [
-        'Ce qui est réellement tombé sur le compte, net de prélèvement et hors capital'
-        + ' rendu, rapporté au capital placé pour le gagner et ramené à l\'année.'
-        + ' Le mois en cours compte dès que Bricks a versé, vers le 8 ; avant cela,'
-        + ' il est écarté pour ne pas faire plonger toutes les fenêtres.'
+        'Ce qui est réellement tombé sur le compte, hors capital rendu, rapporté au'
+        + ' capital placé pour le gagner et ramené à l\'année. Le grand chiffre est net'
+        + ' de prélèvement ; la ligne au-dessous donne le même mois en brut, avant'
+        + ' impôt. Le mois en cours compte dès que Bricks a versé, vers le 8 ; avant'
+        + ' cela, il est écarté pour ne pas faire plonger toutes les fenêtres.'
     ];
 
-    // Le simulateur, plus bas, affiche le taux ANNONCÉ par Bricks. Deux
-    // pourcentages qui prétendent tous deux dire « ce que rapporte votre
-    // portefeuille » sans qu'on sache lequel croire : la note fait le pont.
+    // Le simulateur, plus bas, part du taux ANNONCÉ par Bricks. Deux pourcentages
+    // qui prétendent tous deux dire « ce que rapporte votre portefeuille » sans
+    // qu'on sache lequel croire : la note fait le pont, en brut, puisque c'est en
+    // brut que le simulateur se saisit.
     if (rendements.tauxPromis) {
         const net = rendements.tauxPromis * (1 - CONFIG.TAX_RATE);
         phrases.push(`Bricks annonce ${formatPercentage(rendements.tauxPromis)} brut en moyenne`
             + ` sur vos projets, soit ${formatPercentage(net)} net au barème actuel — c'est une`
-            + ' promesse, calculée sur les seuls projets encore détenus. Le taux constaté passe'
-            + ' dessous à cause des échéances non versées et des mois où le capital attend, et'
-            + ' peut repasser dessus grâce au parrainage et au solde boosté, qui ne viennent'
-            + ' d\'aucune propriété.');
+            + ' promesse, calculée sur les seuls projets encore détenus. Comparez-la à la ligne'
+            + ' brute des tuiles : le constaté passe dessous à cause des échéances non versées'
+            + ' et des mois où le capital attend, et peut repasser dessus grâce au parrainage et'
+            + ' au solde boosté, qui ne viennent d\'aucune propriété.');
     }
 
     if (!rendements.journalLu) {
@@ -545,7 +561,7 @@ function majDetailRevenus(results) {
     }
 
     const percu = reels.mensuel[dernier].net;
-    setDetail('detailRevenusMensuels', `Perçu en ${formatMonthName(dernier)} : ${formatCurrency(percu)}`);
+    setDetail('detailRevenusMensuels', `Perçu en ${moisEnIncise(dernier)} : ${formatCurrency(percu)}`);
 }
 
 /**
@@ -1655,7 +1671,10 @@ function updateProjections(netRevenueData) {
         const monthKey = addMonthsToYYYYMM(currentMonth, i);
         const value = revenueData[monthKey];
         const revenueDisplay = typeof value === 'number' ? formatCurrency(value) : 'N/D';
-        const label = i === 0 ? 'Ce Mois-ci (est.)' : formatMonthName(monthKey);
+        // Pas de « (est.) » sur la première case : les cinq sont des
+        // projections, et ne le marquer que sur une laissait croire que les
+        // autres étaient acquises.
+        const label = i === 0 ? 'Ce mois-ci' : formatMonthName(monthKey);
 
         cards.push(`
             <div class="stat-card">
@@ -1672,7 +1691,7 @@ function updateProjections(netRevenueData) {
         const moisStable = addMonthsToYYYYMM(currentMonth, dernierChangement);
         note.textContent = dernierChangement === 0
             ? 'Versés autour du 8 du mois. Aucun nouveau projet ne commence à verser dans les mois à venir : le montant reste stable.'
-            : `Versés autour du 8 du mois. Stable à partir de ${formatMonthName(moisStable)}, aucun autre projet ne commence à verser ensuite.`;
+            : `Versés autour du 8 du mois. Stable à partir ${deMois(moisStable)}, aucun autre projet ne commence à verser ensuite.`;
     }
 
     logger.debug(LOG_CATEGORIES.UI, 'Projections updated', { moisAffiches: cards.length });

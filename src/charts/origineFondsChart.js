@@ -30,9 +30,14 @@
  * ne se compare qu'à ses voisines ; avec lui, chaque mois se lit au-dessus ou
  * en dessous de votre rythme habituel — ce qui est la question qu'on se pose en
  * regardant ses propres apports.
+ *
+ * Il se calcule sur les mois dessinés, et non une fois pour tout l'historique.
+ * Autrement le trait restait à 252 € que l'on regarde trois mois ou trois ans,
+ * et se posait au milieu de barres qui n'avaient pas servi à l'établir.
  */
 
 import { state } from '../core/state.js';
+import { moyenneVersements } from '../business/apports.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 /** Une couleur par source, reprises du système visuel de l'application */
@@ -100,9 +105,8 @@ const repereMoyenne = {
  * @param {Object} [options]
  * @param {boolean} [options.apportsConnus] - false si le journal manque : la
  *   série des versements est alors tue plutôt que tracée à plat sur zéro
- * @param {number} [options.moyenneApports] - Versement mensuel moyen, en repère
  */
-export function createOrigineFondsChart(origine, { apportsConnus = true, moyenneApports = 0 } = {}) {
+export function createOrigineFondsChart(origine, { apportsConnus = true } = {}) {
     const ctx = document.getElementById('origineFondsChart')?.getContext('2d');
 
     if (!ctx) {
@@ -131,6 +135,7 @@ export function createOrigineFondsChart(origine, { apportsConnus = true, moyenne
 
     if (conteneur) conteneur.style.display = 'block';
 
+    const moyenneApports = moyenneVersements(origine?.apports, labels);
     const retenues = SOURCES.filter(source => source.cle !== 'apports' || apportsConnus);
 
     const datasets = retenues.map(source => ({
