@@ -143,6 +143,8 @@ const snapshot = await page.evaluate(() => ({
     projectionNote: document.getElementById('projectionsNote').textContent.trim(),
     countries: [...document.getElementById('propertyCountryFilter').options].map(o => o.value),
     warningRendered: document.getElementById('propertiesList').textContent.includes('Retard de travaux'),
+    resumeAlertes: document.querySelector('#propertiesList .alertes-entete')?.textContent
+        .replace(/\s+/g, ' ').trim() ?? '',
     xssExecuted: Boolean(window.__XSS__),
     injectedNodes: document.querySelectorAll('#propertiesList img[onerror], #propertiesList script').length,
     inlineHandlers: document.querySelectorAll('#propertiesList [onclick]').length,
@@ -211,6 +213,11 @@ check('la note dit pourquoi la série s\'arrête là',
     /ne bouge plus ensuite/.test(snapshot.projectionNote), snapshot.projectionNote);
 check('le filtre pays détecte le Portugal', snapshot.countries.includes('Portugal'), snapshot.countries.join(','));
 check('la description du warning est nettoyée et affichée', snapshot.warningRendered);
+// Le résumé du dépliant se compose par interpolation : une variable qui n'est
+// pas la chaîne attendue s'y écrit telle quelle, et le libellé part en vrille
+// sans que rien d'autre ne bronche.
+check('le résumé des alertes se lit en français',
+    /^▲? ?1 alerte (récente|ancienne)$/.test(snapshot.resumeAlertes), snapshot.resumeAlertes);
 check('aucun HTML de l\'API n\'est exécuté', !snapshot.xssExecuted && snapshot.injectedNodes === 0);
 check('aucun handler onclick inline', snapshot.inlineHandlers === 0);
 check('le bilan des versements nomme le mois jugé',

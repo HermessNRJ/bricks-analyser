@@ -1553,7 +1553,7 @@ function createAlertesSection(property) {
         <details class="alertes">
             <summary class="alertes-entete${classeAge}">
                 <span aria-hidden="true">▲</span>
-                ${nombre} alerte${pluriel} ${mention}
+                ${nombre} alerte${marque} ${mention}
             </summary>
             <div class="alertes-liste">${liste}</div>
         </details>
