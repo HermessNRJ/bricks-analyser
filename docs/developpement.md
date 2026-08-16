@@ -32,14 +32,14 @@ tri, persistance, client API — sans nécessiter de session ni de données pers
 
 ```bash
 npm install          # une seule fois
-npm test             # ~400 tests unitaires (Vitest + jsdom)
+npm test             # ~500 tests unitaires (Vitest + jsdom)
 npm run test:watch   # mode watch pendant le développement
 npm run test:coverage
 ```
 
-**Smoke test de bout en bout** (optionnel) : ouvre `index.html` dans un vrai Chromium avec
-un jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri,
-les pastilles de versement et la non-exécution du HTML venant de l'API.
+**Smoke test de bout en bout** : ouvre `index.html` dans un vrai Chromium avec un jeu de
+données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri, les
+pastilles de versement et la non-exécution du HTML venant de l'API.
 
 ```bash
 npx playwright install chromium   # une seule fois
@@ -51,13 +51,14 @@ Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:
 `CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
 
 Chaque poussée et chaque pull request déclenchent la CI (`.github/workflows/tests.yml`) :
-tests unitaires sur la borne basse de `engines` et sur node 22 courant, plus un
-`npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc là, et non
-sur la machine de quelqu'un après la fusion.
+tests unitaires sur la borne basse de `engines` et sur node 22 courant, smoke test dans un
+Chromium, et `npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc
+là, et non sur la machine de quelqu'un après la fusion. Quand le smoke test échoue en CI,
+la capture de la page au moment de l'échec est publiée en artefact du job.
 
-**Ce qui n'est pas couvert automatiquement :** les gestionnaires d'événements du DOM
-(`src/events/`), les modales et la configuration Chart.js (`src/charts/`), vérifiés par le
-smoke test et à la main.
+**Ce qui n'est pas couvert par les tests unitaires :** les gestionnaires d'événements du
+DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le
+smoke test qui les tient — d'où sa présence en CI et non plus en option.
 
 ## Architecture
 
@@ -78,6 +79,7 @@ src/
 │   ├── versements.js        # Qui a versé ce mois-ci, qui s'est tu
 │   └── walletHistory.js     # Journal des mouvements : capital remboursé
 ├── charts/           # Gestion des graphiques
+│   ├── arrieresChart.js     # Coupons manqués et pénalités, cumulés
 │   ├── chartManager.js      # Gestionnaire principal
 │   ├── distributionChart.js # Donut de répartition
 │   ├── forecastChart.js     # Projection du simulateur

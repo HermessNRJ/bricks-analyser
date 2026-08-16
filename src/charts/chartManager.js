@@ -78,7 +78,7 @@ export function redessinerSeriesDatees() {
 }
 
 /**
- * Dessine les trois courbes datées en appliquant la fenêtre choisie
+ * Dessine les graphiques datés en appliquant la fenêtre choisie
  * @param {Object} results - Résultats des calculs
  */
 function dessinerSeriesDatees(results) {
@@ -87,7 +87,7 @@ function dessinerSeriesDatees(results) {
     const reels = results.revenusReels;
     const periode = periodeCourante();
 
-    // Une référence commune pour les trois découpes : sans elle, « les six
+    // Une référence commune à toutes les découpes : sans elle, « les six
     // derniers mois » ne désignent pas la même fenêtre d'une courbe à l'autre.
     const reference = moisCouverts(results);
 

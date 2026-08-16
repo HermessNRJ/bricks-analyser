@@ -58,7 +58,7 @@ oxipng -o max --zopfli --strip safe docs/captures/*.png
 | `revenus.png` | Le graphique « Évolution des revenus nets », les deux courbes et la note d'écart en dessous | [revenus.md](../revenus.md#attendu-et-perçu) |
 | `revenus-annuels.png` | Le tableau des revenus par année, avec les colonnes brutes et le capital remboursé | [revenus.md](../revenus.md#revenus-par-année) |
 | `origine-fonds.png` | Le graphique « D'où vient l'argent », sa légende et sa note. Environ 560 × 550 px | [revenus.md](../revenus.md#doù-vient-largent) |
-| `periode.png` | Le sélecteur de période et les trois courbes datées en dessous | [revenus.md](../revenus.md#période-des-courbes) |
+| `periode.png` | Le sélecteur de période et les graphiques datés en dessous | [revenus.md](../revenus.md#période-des-courbes) |
 | `simulateur.png` | Le formulaire d'hypothèses et sa courbe | [revenus.md](../revenus.md#simulateur) |
 
 Pour le registre, laissez les filtres sur « Tous » et le tri par défaut : les six premières

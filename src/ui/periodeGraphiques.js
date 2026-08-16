@@ -1,10 +1,11 @@
 /**
  * Fenêtre temporelle commune aux graphiques datés
  *
- * Un seul réglage gouverne les trois courbes plutôt qu'un par graphique :
- * l'intérêt de restreindre la période est justement de lire l'investissement,
- * les revenus et l'impôt sur la même fenêtre. Trois sélecteurs à accorder à la
- * main auraient rendu la comparaison pénible et, le plus souvent, fausse.
+ * Un seul réglage gouverne tous les graphiques datés plutôt qu'un par
+ * graphique : l'intérêt de restreindre la période est justement de lire
+ * l'investissement, les revenus, l'impôt, l'origine des fonds et les arriérés
+ * sur la même fenêtre. Cinq sélecteurs à accorder à la main auraient rendu la
+ * comparaison pénible et, le plus souvent, fausse.
  *
  * Le donut et la treemap n'ont pas d'axe temporel : ce sont des états du
  * portefeuille aujourd'hui, et aucune période ne s'y applique.

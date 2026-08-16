@@ -32,6 +32,68 @@ jobs:
 
       - run: npm test
 
+  e2e:
+    # Les tests unitaires ne touchent pas src/events/ ni les modales : ce job est
+    # le seul à ouvrir vraiment la page, donc le seul à voir qu'un gestionnaire
+    # d'événements ne s'accroche plus ou qu'un import a été cassé.
+    name: Smoke test navigateur
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Le binaire Chromium ne vient pas avec le paquet npm : sans ce cache, il
+      # se retélécharge (~150 Mo) à chaque exécution. La clé suit le lockfile,
+      # donc une montée de Playwright invalide le cache d'elle-même.
+      - name: Cache du navigateur Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Le smoke test lit index.html par HTTP : les modules ES6 ne se chargent
+      # pas depuis file://. Rien à proxifier ici — aucun appel à l'API Bricks
+      # n'est fait, le jeu de données est injecté dans le localStorage.
+      # Le serveur doit survivre à la fin de cette étape, d'où le nohup : chaque
+      # « run » est un shell distinct, et le test tourne dans le suivant.
+      - name: Servir le dépôt
+        run: |
+          nohup npm run serve > serveur.log 2>&1 &
+          for _ in $(seq 30); do
+            if curl -sf http://127.0.0.1:8099/index.html -o /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Le serveur n'a pas répondu en 30 s :" >&2
+          cat serveur.log >&2
+          exit 1
+
+      - run: npm run test:e2e
+        env:
+          SCREENSHOT: capture-e2e.png
+
+      # Une vérification qui échoue se lit bien plus vite sur l'image que dans
+      # les valeurs rapportées par le test.
+      - name: Publier la capture en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capture-e2e
+          path: capture-e2e.png
+          if-no-files-found: ignore
+
   audit:
     name: Vulnérabilités
     runs-on: ubuntu-latest
