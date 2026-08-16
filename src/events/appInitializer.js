@@ -21,6 +21,7 @@ import {
     allerALaPage, setTaillePage, taillePageCourante
 } from '../ui/uiUpdater.js';
 import { afficherAgeDonnees } from '../ui/dataAge.js';
+import { lirePreference } from '../core/preferences.js';
 
 /**
  * Initialise l'application au chargement de la page
@@ -76,86 +77,41 @@ function subscribeToStateChanges() {
 }
 
 /**
+ * Contrôles du registre, du nom de leur préférence à l'argument attendu
+ *
+ * L'identifiant du <select> dans index.html, la clé de la préférence et le
+ * critère passé à updatePropertySortAndFilter portent le même nom à un mot
+ * près. Les tenir dans une table plutôt que dans cinq blocs recopiés évite
+ * qu'un filtre ajouté n'en oublie un.
+ */
+const CONTROLES_REGISTRE = {
+    propertySortBy: 'sortBy',
+    propertyFilter: 'filter',
+    propertyWarningFilter: 'warningFilter',
+    propertyCountryFilter: 'countryFilter',
+    propertyVersementFilter: 'versementFilter'
+};
+
+/**
  * Configure les contrôles de tri et filtrage des propriétés
  */
 function setupPropertyControls() {
-    const sortBySelect = document.getElementById('propertySortBy');
-    const filterSelect = document.getElementById('propertyFilter');
-    const warningFilterSelect = document.getElementById('propertyWarningFilter');
+    Object.entries(CONTROLES_REGISTRE).forEach(([id, critere]) => {
+        const select = document.getElementById(id);
 
-    if (sortBySelect) {
-        // Charger l'état depuis localStorage
-        const savedSortBy = localStorage.getItem('propertySortBy') || 'investment-desc';
-        sortBySelect.value = savedSortBy;
+        if (!select) {
+            return;
+        }
 
-        // Écouter les changements
-        sortBySelect.addEventListener('change', (e) => {
-            const sortBy = e.target.value;
-            updatePropertySortAndFilter({ sortBy });
+        select.value = lirePreference(id);
+
+        select.addEventListener('change', (e) => {
+            updatePropertySortAndFilter({ [critere]: e.target.value });
         });
+    });
 
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property sort control configured', { sortBy: savedSortBy });
-    }
-
-    if (filterSelect) {
-        // Charger l'état depuis localStorage
-        const savedFilter = localStorage.getItem('propertyFilter') || 'all';
-        filterSelect.value = savedFilter;
-
-        // Écouter les changements
-        filterSelect.addEventListener('change', (e) => {
-            const filter = e.target.value;
-            updatePropertySortAndFilter({ filter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property filter control configured', { filter: savedFilter });
-    }
-
-
-    if (warningFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
-        warningFilterSelect.value = savedWarningFilter;
-
-        // Écouter les changements
-        warningFilterSelect.addEventListener('change', (e) => {
-            const warningFilter = e.target.value;
-            updatePropertySortAndFilter({ warningFilter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
-    }
-
-    const versementFilterSelect = document.getElementById('propertyVersementFilter');
-    if (versementFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedVersementFilter = localStorage.getItem('propertyVersementFilter') || 'all';
-        versementFilterSelect.value = savedVersementFilter;
-
-        // Écouter les changements
-        versementFilterSelect.addEventListener('change', (e) => {
-            updatePropertySortAndFilter({ versementFilter: e.target.value });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property payment filter control configured', {
-            versementFilter: savedVersementFilter
-        });
-    }
-
-    const countryFilterSelect = document.getElementById('propertyCountryFilter');
-    if (countryFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
-        countryFilterSelect.value = savedCountryFilter;
-
-        // Écouter les changements
-        countryFilterSelect.addEventListener('change', (e) => {
-            const countryFilter = e.target.value;
-            updatePropertySortAndFilter({ countryFilter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property country filter control configured', { countryFilter: savedCountryFilter });
-    }
+    logger.debug(LOG_CATEGORIES.EVENT, 'Registry controls configured',
+        Object.fromEntries(Object.keys(CONTROLES_REGISTRE).map(id => [id, lirePreference(id)])));
 }
 
 /**

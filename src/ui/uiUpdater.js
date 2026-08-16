@@ -11,22 +11,13 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
 import { ETATS, carnetVersements } from '../business/versements.js';
 import { netApresRetenue } from '../business/fiscalite.js';
+import {
+    TAILLES_PAGE, CLES_FILTRES, lirePreference, ecrirePreference
+} from '../core/preferences.js';
 
-/**
- * Nombres de fiches par page proposés
- *
- * 24 par défaut : 241 fiches d'un bloc donnaient une page de 80 000 px. Le
- * choix reste ouvert parce que la bonne taille dépend de ce qu'on cherche —
- * feuilleter demande des pages courtes, chercher à l'œil demande tout d'un
- * coup. `Infinity` est la valeur de « Tout », et non un cas particulier à
- * tester partout : elle traverse `slice` et `Math.ceil` sans rien casser.
- */
-export const TAILLES_PAGE = [24, 48, 96, Infinity];
+export { TAILLES_PAGE };
 
-const TAILLE_PAGE_DEFAUT = 24;
-const CLE_TAILLE_PAGE = 'registreTaillePage';
-
-let taillePage = lireTaillePage();
+let taillePage = lirePreference('registreTaillePage');
 
 // Stocker les propriétés pour le tri/filtrage
 let allProperties = [];
@@ -43,27 +34,6 @@ let idCible = null;
 // ont besoin bien après le calcul, à chaque changement de page ou de filtre.
 let versementsParPropriete = null;
 let moisVersements = null;
-
-/**
- * Relit la taille de page enregistrée
- * @returns {number} Taille valide, celle par défaut sinon
- */
-function lireTaillePage() {
-    try {
-        const brut = localStorage.getItem(CLE_TAILLE_PAGE);
-
-        // « Tout » se sérialise en `null` par JSON : Infinity n'a pas de
-        // représentation. Le mot est donc écrit tel quel.
-        if (brut === 'all') {
-            return Infinity;
-        }
-
-        const valeur = Number(brut);
-        return TAILLES_PAGE.includes(valeur) ? valeur : TAILLE_PAGE_DEFAUT;
-    } catch {
-        return TAILLE_PAGE_DEFAUT;
-    }
-}
 
 /**
  * Change le nombre de fiches par page et revient au début du registre
@@ -83,11 +53,7 @@ export function setTaillePage(valeur) {
     taillePage = taille;
     currentPage = 1;
 
-    try {
-        localStorage.setItem(CLE_TAILLE_PAGE, Number.isFinite(taille) ? String(taille) : 'all');
-    } catch {
-        // Préférence d'affichage : son échec ne doit rien interrompre
-    }
+    ecrirePreference('registreTaillePage', taille);
 
     logger.debug(LOG_CATEGORIES.UI, 'Registry page size changed', { taillePage });
     updatePropertyList(allProperties);
@@ -145,11 +111,11 @@ export function updateUI(results) {
     allProperties = results.properties;
 
     // Charger les préférences de tri/filtrage
-    currentSortBy = localStorage.getItem('propertySortBy') || 'investment-desc';
-    currentFilter = localStorage.getItem('propertyFilter') || 'all';
-    currentWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
-    currentCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
-    currentVersementFilter = localStorage.getItem('propertyVersementFilter') || 'all';
+    currentSortBy = lirePreference('propertySortBy');
+    currentFilter = lirePreference('propertyFilter');
+    currentWarningFilter = lirePreference('propertyWarningFilter');
+    currentCountryFilter = lirePreference('propertyCountryFilter');
+    currentVersementFilter = lirePreference('propertyVersementFilter');
     currentPage = 1;
 
     versementsParPropriete = results.versements?.parPropriete || null;
@@ -190,7 +156,7 @@ function renderBilanVersements(versements) {
         // le registre sans laisser de quoi le rouvrir, puisque le menu est caché.
         if (currentVersementFilter !== 'all') {
             currentVersementFilter = 'all';
-            localStorage.setItem('propertyVersementFilter', 'all');
+            ecrirePreference('propertyVersementFilter', 'all');
         }
         return;
     }
@@ -917,10 +883,14 @@ export function resetFilters() {
  * Enregistre les filtres courants pour la prochaine visite
  */
 function persistFilters() {
-    localStorage.setItem('propertyFilter', currentFilter);
-    localStorage.setItem('propertyWarningFilter', currentWarningFilter);
-    localStorage.setItem('propertyCountryFilter', currentCountryFilter);
-    localStorage.setItem('propertyVersementFilter', currentVersementFilter);
+    const valeurs = {
+        propertyFilter: currentFilter,
+        propertyWarningFilter: currentWarningFilter,
+        propertyCountryFilter: currentCountryFilter,
+        propertyVersementFilter: currentVersementFilter
+    };
+
+    CLES_FILTRES.forEach(cle => ecrirePreference(cle, valeurs[cle]));
 }
 
 /**
@@ -1357,27 +1327,27 @@ function sortProperties(properties, sortBy) {
 export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, countryFilter, versementFilter } = {}) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
-        localStorage.setItem('propertySortBy', sortBy);
+        ecrirePreference('propertySortBy', sortBy);
     }
 
     if (filter !== undefined) {
         currentFilter = filter;
-        localStorage.setItem('propertyFilter', filter);
+        ecrirePreference('propertyFilter', filter);
     }
 
     if (warningFilter !== undefined) {
         currentWarningFilter = warningFilter;
-        localStorage.setItem('propertyWarningFilter', warningFilter);
+        ecrirePreference('propertyWarningFilter', warningFilter);
     }
 
     if (countryFilter !== undefined) {
         currentCountryFilter = countryFilter;
-        localStorage.setItem('propertyCountryFilter', countryFilter);
+        ecrirePreference('propertyCountryFilter', countryFilter);
     }
 
     if (versementFilter !== undefined) {
         currentVersementFilter = versementFilter;
-        localStorage.setItem('propertyVersementFilter', versementFilter);
+        ecrirePreference('propertyVersementFilter', versementFilter);
     }
 
     // Tout changement de critère renvoie au début de la liste
