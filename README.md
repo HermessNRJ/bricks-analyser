@@ -86,7 +86,8 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
 
 Les images de cette page et de [Lire les chiffres](docs/revenus.md) montrent le portefeuille
 de démonstration : `npm run demo` fabrique 42 propriétés fictives à photographier, inutile
-de publier le vôtre. Mode d'emploi, cadrages et emplacements :
+de publier le vôtre. `npm run serve`, puis `?demo` sur l'adresse locale, l'affiche sans rien
+enregistrer. Mode d'emploi, cadrages et emplacements :
 [docs/captures](docs/captures/README.md).
 
 ## Aller plus loin

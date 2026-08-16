@@ -16,6 +16,7 @@ import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { truncate, formatCurrency, formatPercentage } from '../utils/formatters.js';
 import { escapeHtml } from '../utils/html.js';
+import { couleur } from './theme.js';
 
 // Stocker les propriétés "Autres" pour le drill-down
 let otherPropertiesCache = [];
@@ -59,11 +60,11 @@ const centerTextPlugin = {
             ctx.font = `600 ${taille}px ui-monospace, SFMono-Regular, Menlo, monospace`;
         }
 
-        ctx.fillStyle = '#16202b';
+        ctx.fillStyle = couleur('--ink');
         ctx.fillText(montant, centreX, centreY - taille * 0.35);
 
         ctx.font = `500 ${Math.max(9, Math.round(taille * 0.42))}px system-ui, sans-serif`;
-        ctx.fillStyle = '#5c6b77';
+        ctx.fillStyle = couleur('--ink-muted');
         ctx.fillText('Total investi', centreX, centreY + taille * 0.7);
 
         ctx.restore();
@@ -78,11 +79,11 @@ const centerTextPlugin = {
  */
 function getColorByStatus(property, index) {
     if (property.isRefunded) {
-        return '#868e96'; // Gris pour remboursé
+        return couleur('--statut-rembourse');
     } else if (property.projectStatus === 'ongoing') {
-        return '#007bff'; // Bleu pour en financement
+        return couleur('--statut-financement');
     } else if (property.projectStatus === 'upcoming') {
-        return '#ffc107'; // Jaune pour à venir
+        return couleur('--statut-avenir');
     } else {
         return CONFIG.CHART_COLORS[index % CONFIG.CHART_COLORS.length];
     }
@@ -124,10 +125,10 @@ export function createDistributionChart(properties) {
     const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
 
     // Préparer les données
-    let chartLabels = [];
-    let chartData = [];
-    let chartColors = [];
-    let propertyDetails = []; // Pour la légende enrichie
+    const chartLabels = [];
+    const chartData = [];
+    const chartColors = [];
+    const propertyDetails = []; // Pour la légende enrichie
 
     if (sortedProperties.length > CONFIG.MAX_CHART_SEGMENTS) {
         // Prendre les N-1 premières propriétés
@@ -147,7 +148,7 @@ export function createDistributionChart(properties) {
         if (otherPropertiesInvestment > 0) {
             chartLabels.push('Autres');
             chartData.push(otherPropertiesInvestment);
-            chartColors.push('#95a5a6'); // Gris pour "Autres"
+            chartColors.push(couleur('--graph-autres'));
             propertyDetails.push({
                 name: 'Autres',
                 investment: otherPropertiesInvestment,
@@ -178,9 +179,9 @@ export function createDistributionChart(properties) {
                     data: chartData,
                     backgroundColor: chartColors,
                     borderWidth: 3,
-                    borderColor: '#ffffff',
+                    borderColor: couleur('--surface'),
                     hoverBorderWidth: 4,
-                    hoverBorderColor: '#667eea'
+                    hoverBorderColor: couleur('--statut-financement')
                 }]
             },
             options: {
@@ -217,8 +218,8 @@ export function createDistributionChart(properties) {
                             font: {
                                 size: 11
                             },
-                            generateLabels: (chart) => {
-                                const data = chart.data;
+                            generateLabels: (graphique) => {
+                                const data = graphique.data;
                                 return data.labels.map((label, i) => {
                                     const value = data.datasets[0].data[i];
                                     const percentage = total > 0 ? (value / total) * 100 : 0;
@@ -235,7 +236,7 @@ export function createDistributionChart(properties) {
                     },
 
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: couleur('--graph-infobulle'),
                         padding: 12,
                         titleFont: { size: 14, weight: 'bold' },
                         bodyFont: { size: 13 },

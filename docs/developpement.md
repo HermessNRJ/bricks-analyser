@@ -8,7 +8,23 @@
 * **Serveur :** nginx (via Docker)
 * **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
 
-Node 22 ou plus est requis (voir le champ `engines` de `package.json`).
+Node 22.12 ou plus est requis (voir le champ `engines` de `package.json`). La borne n'est
+pas ronde parce qu'elle vient de deux besoins précis : Vitest 4 s'appuie sur Rolldown, dont
+npm refuse d'installer le binaire natif en deçà, et jsdom 30 charge un module ESM depuis du
+CommonJS — ce que `require()` ne sait faire que depuis 22.12.
+
+## Système visuel
+
+`src/styles/main.css` s'ouvre sur deux blocs de jetons : `:root` pour le thème clair, et
+un `@media (prefers-color-scheme: dark)` qui redéfinit les mêmes noms. Tout ce qui suit
+vaut pour les deux — aucune règle de mise en page n'est dupliquée. Le thème suit le
+réglage du système, sans bascule dans l'interface.
+
+Chart.js dessine dans un canevas et n'accepte donc pas de variable CSS : `src/charts/
+theme.js` résout les jetons au moment du tracé (`couleur('--statut-actif')`) et redessine
+tout quand le système bascule. Une couleur de graphique écrite en dur ne suivrait pas le
+thème — c'est le seul endroit du code où une couleur peut apparaître, sous forme de valeur
+de repli pour les tests, qui tournent sans mise en page.
 
 ## Données locales
 
@@ -19,11 +35,33 @@ démonstration. Le dossier n'est pas suivi par git — `.gitignore` écarte tout
 
 ```bash
 npm run demo    # écrit data/demo.json : 42 propriétés inventées, 26 mois d'historique
+npm run serve   # puis http://127.0.0.1:8099/index.html?demo
 ```
+
+`?demo` affiche ce portefeuille sans rien écrire dans le localStorage : le vôtre n'est pas
+touché, et la page y revient dès que le paramètre disparaît. Un bandeau dit à l'écran que
+les chiffres sont inventés.
 
 Ce jeu fictif sert aux captures d'écran ; il est fabriqué au format brut de l'API puis
 passé par les vrais normaliseurs, donc il reste juste si ceux-ci changent. Voir
 [docs/captures](captures/README.md).
+
+## Linter
+
+```bash
+npm run lint         # ESLint sur src/, tests/ et tools/
+npm run lint:fix     # corrige ce qui se corrige tout seul
+```
+
+Le projet n'a pas de bundler : rien ne relit le code avant que le navigateur ne l'exécute.
+Un import mort ou une variable oubliée ne se voyait donc qu'à l'ouverture de la page, et
+seulement si le chemin fautif était emprunté.
+
+La configuration (`eslint.config.js`) ne norme pas le style : indentation, guillemets et
+points-virgules restent l'affaire de l'auteur. Les règles ajoutées à `recommended` ne visent
+que ce qui est faux ou mort — `no-unused-vars`, `no-var`, `prefer-const`, `eqeqeq`,
+`require-atomic-updates` — plus `no-console`, le module `logger` étant la seule sortie
+prévue. Deux exceptions sont marquées dans le code, chacune avec sa raison.
 
 ## Tests
 
@@ -32,14 +70,14 @@ tri, persistance, client API — sans nécessiter de session ni de données pers
 
 ```bash
 npm install          # une seule fois
-npm test             # ~400 tests unitaires (Vitest + jsdom)
+npm test             # ~500 tests unitaires (Vitest + jsdom)
 npm run test:watch   # mode watch pendant le développement
 npm run test:coverage
 ```
 
-**Smoke test de bout en bout** (optionnel) : ouvre `index.html` dans un vrai Chromium avec
-un jeu de données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri,
-les pastilles de versement et la non-exécution du HTML venant de l'API.
+**Smoke test de bout en bout** : ouvre `index.html` dans un vrai Chromium avec un jeu de
+données injecté dans le localStorage, et vérifie le rendu, les filtres, le tri, les
+pastilles de versement et la non-exécution du HTML venant de l'API.
 
 ```bash
 npx playwright install chromium   # une seule fois
@@ -51,13 +89,14 @@ Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:
 `CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
 
 Chaque poussée et chaque pull request déclenchent la CI (`.github/workflows/tests.yml`) :
-tests unitaires sur la borne basse de `engines` et sur node 22 courant, plus un
-`npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc là, et non
-sur la machine de quelqu'un après la fusion.
+tests unitaires sur la borne basse de `engines` et sur node 22 courant, linter, smoke test
+dans un Chromium, et `npm audit`. Une montée de dépendance exigeant un node plus récent
+échoue donc là, et non sur la machine de quelqu'un après la fusion. Quand le smoke test
+échoue en CI, la capture de la page au moment de l'échec est publiée en artefact du job.
 
-**Ce qui n'est pas couvert automatiquement :** les gestionnaires d'événements du DOM
-(`src/events/`), les modales et la configuration Chart.js (`src/charts/`), vérifiés par le
-smoke test et à la main.
+**Ce qui n'est pas couvert par les tests unitaires :** les gestionnaires d'événements du
+DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le
+smoke test qui les tient — d'où sa présence en CI et non plus en option.
 
 ## Architecture
 
@@ -78,6 +117,7 @@ src/
 │   ├── versements.js        # Qui a versé ce mois-ci, qui s'est tu
 │   └── walletHistory.js     # Journal des mouvements : capital remboursé
 ├── charts/           # Gestion des graphiques
+│   ├── arrieresChart.js     # Coupons manqués et pénalités, cumulés
 │   ├── chartManager.js      # Gestionnaire principal
 │   ├── distributionChart.js # Donut de répartition
 │   ├── forecastChart.js     # Projection du simulateur
@@ -95,7 +135,17 @@ src/
 │   ├── projectStatusClient.js # Suivi officiel (projects.bricks.co)
 │   └── storage.js           # localStorage
 ├── events/           # Gestionnaires d'événements
-├── ui/               # Rendu de l'interface
+├── ui/
+│   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections
+│   ├── tuiles.js            # Chiffres clés, rendement annualisé, incidents
+│   ├── registre.js          # État de la liste : tri, filtres, pages
+│   ├── fiche.js             # Le HTML d'une carte de propriété
+│   ├── alertes.js           # Fraîcheur des alertes, partagée liste/fiche
+│   ├── libelles.js          # Pluriels et mois en incise
+│   ├── revenuAnnuel.js      # Tableau des revenus par année
+│   ├── periodeGraphiques.js # Fenêtre commune aux graphiques datés
+│   ├── dataAge.js           # Âge des données affichées
+│   └── modals.js            # Modale de suppression, bandeau d'erreur
 ├── utils/            # Formatage, dates, échappement, journalisation
 └── styles/main.css
 

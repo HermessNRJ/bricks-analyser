@@ -187,7 +187,6 @@ describe('repartitionRisque — partition complète', () => {
     const bien = (id, warnings = [], isRefunded = false) => ({
         id, investment: isRefunded ? 0 : 100, warnings, isRefunded
     });
-    const w = (description) => ({ description, date: '2026-01-01' });
 
     it('répartit chaque propriété détenue dans exactement un niveau', () => {
         // Le défaut corrigé : trois des quatre niveaux étaient affichés, donc

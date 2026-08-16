@@ -139,7 +139,7 @@ describe('fetchProjectStatuses', () => {
         const fetcher = async (id) => {
             actifs += 1;
             maximum = Math.max(maximum, actifs);
-            await new Promise(r => setTimeout(r, 1));
+            await new Promise(r => { setTimeout(r, 1); });
             actifs -= 1;
             return { id, suivi: false };
         };

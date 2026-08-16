@@ -7,7 +7,7 @@ import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { loadFromLocalStorage } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
-import { showDeletionModal } from '../ui/modals.js';
+import { showDeletionModal, showError } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
 import { initPeriodeGraphiques } from '../ui/periodeGraphiques.js';
 import { redessinerSeriesDatees } from '../charts/chartManager.js';
@@ -21,6 +21,7 @@ import {
     allerALaPage, setTaillePage, taillePageCourante
 } from '../ui/uiUpdater.js';
 import { afficherAgeDonnees } from '../ui/dataAge.js';
+import { lirePreference } from '../core/preferences.js';
 
 /**
  * Initialise l'application au chargement de la page
@@ -76,86 +77,41 @@ function subscribeToStateChanges() {
 }
 
 /**
+ * Contrôles du registre, du nom de leur préférence à l'argument attendu
+ *
+ * L'identifiant du <select> dans index.html, la clé de la préférence et le
+ * critère passé à updatePropertySortAndFilter portent le même nom à un mot
+ * près. Les tenir dans une table plutôt que dans cinq blocs recopiés évite
+ * qu'un filtre ajouté n'en oublie un.
+ */
+const CONTROLES_REGISTRE = {
+    propertySortBy: 'sortBy',
+    propertyFilter: 'filter',
+    propertyWarningFilter: 'warningFilter',
+    propertyCountryFilter: 'countryFilter',
+    propertyVersementFilter: 'versementFilter'
+};
+
+/**
  * Configure les contrôles de tri et filtrage des propriétés
  */
 function setupPropertyControls() {
-    const sortBySelect = document.getElementById('propertySortBy');
-    const filterSelect = document.getElementById('propertyFilter');
-    const warningFilterSelect = document.getElementById('propertyWarningFilter');
+    Object.entries(CONTROLES_REGISTRE).forEach(([id, critere]) => {
+        const select = document.getElementById(id);
 
-    if (sortBySelect) {
-        // Charger l'état depuis localStorage
-        const savedSortBy = localStorage.getItem('propertySortBy') || 'investment-desc';
-        sortBySelect.value = savedSortBy;
+        if (!select) {
+            return;
+        }
 
-        // Écouter les changements
-        sortBySelect.addEventListener('change', (e) => {
-            const sortBy = e.target.value;
-            updatePropertySortAndFilter({ sortBy });
+        select.value = lirePreference(id);
+
+        select.addEventListener('change', (e) => {
+            updatePropertySortAndFilter({ [critere]: e.target.value });
         });
+    });
 
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property sort control configured', { sortBy: savedSortBy });
-    }
-
-    if (filterSelect) {
-        // Charger l'état depuis localStorage
-        const savedFilter = localStorage.getItem('propertyFilter') || 'all';
-        filterSelect.value = savedFilter;
-
-        // Écouter les changements
-        filterSelect.addEventListener('change', (e) => {
-            const filter = e.target.value;
-            updatePropertySortAndFilter({ filter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property filter control configured', { filter: savedFilter });
-    }
-
-
-    if (warningFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedWarningFilter = localStorage.getItem('propertyWarningFilter') || 'all';
-        warningFilterSelect.value = savedWarningFilter;
-
-        // Écouter les changements
-        warningFilterSelect.addEventListener('change', (e) => {
-            const warningFilter = e.target.value;
-            updatePropertySortAndFilter({ warningFilter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property warning filter control configured', { warningFilter: savedWarningFilter });
-    }
-
-    const versementFilterSelect = document.getElementById('propertyVersementFilter');
-    if (versementFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedVersementFilter = localStorage.getItem('propertyVersementFilter') || 'all';
-        versementFilterSelect.value = savedVersementFilter;
-
-        // Écouter les changements
-        versementFilterSelect.addEventListener('change', (e) => {
-            updatePropertySortAndFilter({ versementFilter: e.target.value });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property payment filter control configured', {
-            versementFilter: savedVersementFilter
-        });
-    }
-
-    const countryFilterSelect = document.getElementById('propertyCountryFilter');
-    if (countryFilterSelect) {
-        // Charger l'état depuis localStorage
-        const savedCountryFilter = localStorage.getItem('propertyCountryFilter') || 'all';
-        countryFilterSelect.value = savedCountryFilter;
-
-        // Écouter les changements
-        countryFilterSelect.addEventListener('change', (e) => {
-            const countryFilter = e.target.value;
-            updatePropertySortAndFilter({ countryFilter });
-        });
-
-        logger.debug(LOG_CATEGORIES.EVENT, 'Property country filter control configured', { countryFilter: savedCountryFilter });
-    }
+    logger.debug(LOG_CATEGORIES.EVENT, 'Registry controls configured',
+        Object.fromEntries(Object.keys(CONTROLES_REGISTRE).map(id => [id, lirePreference(id)])));
 }
 
 /**
@@ -252,9 +208,94 @@ function setupPeriodeControl() {
 }
 
 /**
+ * Chemin du portefeuille de démonstration, écrit par « npm run demo »
+ *
+ * Absent de l'image Docker, qui ne copie que index.html, src/, la favicon et
+ * nginx.conf : la démonstration se regarde derrière « npm run serve ».
+ */
+const FICHIER_DEMO = 'data/demo.json';
+
+/**
+ * Affiche le portefeuille de démonstration sans toucher au vrai
+ *
+ * Prendre une capture d'écran demandait jusqu'ici de coller un fetch dans la
+ * console du navigateur, puis de penser à un localStorage.clear() après coup.
+ * Le paramètre ?demo fait la même chose en un lien — et sans rien écrire :
+ * les 42 propriétés fictives vivent le temps de la page, le portefeuille
+ * enregistré est intact au rechargement suivant.
+ *
+ * @returns {Promise<boolean>} Vrai si la démonstration est à l'écran
+ */
+async function chargerDemonstration() {
+    try {
+        const reponse = await fetch(FICHIER_DEMO);
+
+        if (!reponse.ok) {
+            throw new Error(`${reponse.status} ${reponse.statusText}`);
+        }
+
+        const demo = await reponse.json();
+
+        await finalizeProcessing(demo.data, demo.warnings, {
+            persister: false,
+            statuts: demo.statuts,
+            revenus: demo.revenus,
+            capital: demo.capital,
+            apports: demo.apports
+        });
+
+        // Pas d'âge des données ici : la ligne « Données récupérées… » répond
+        // d'ordinaire pour le vrai portefeuille, et daterait un fichier fabriqué
+        // à la demande. Le bandeau dit tout ce qu'il y a à dire.
+        afficherBandeauDemo();
+
+        logger.info(LOG_CATEGORIES.EVENT, 'Demo portfolio displayed', {
+            entries: demo.data?.length ?? 0
+        });
+
+        return true;
+
+    } catch (err) {
+        logger.error(LOG_CATEGORIES.EVENT, 'Demo portfolio unavailable', err);
+        showError(`Portefeuille de démonstration introuvable (${FICHIER_DEMO}).`
+            + ' Il se fabrique avec « npm run demo », et n\'est pas copié dans l\'image Docker.');
+        return false;
+    }
+}
+
+/**
+ * Dit à l'écran que les chiffres sont inventés
+ *
+ * Un tableau de bord chiffré au centime se lit comme un relevé : rien, sinon
+ * cette bande, ne distinguerait 42 propriétés fictives d'un vrai portefeuille.
+ */
+function afficherBandeauDemo() {
+    if (document.getElementById('bandeauDemo')) {
+        return;
+    }
+
+    const bandeau = document.createElement('p');
+    bandeau.id = 'bandeauDemo';
+    bandeau.className = 'bandeau-demo';
+    bandeau.setAttribute('role', 'status');
+    bandeau.textContent = 'Portefeuille de démonstration : 42 propriétés inventées. '
+        + 'Rien n\'est enregistré, et vos données ne sont pas touchées.';
+
+    document.getElementById('results')?.prepend(bandeau);
+}
+
+/**
  * Charge les données initiales depuis localStorage
  */
 async function loadInitialData() {
+    // ?demo passe avant le cache : c'est une demande explicite, et elle ne doit
+    // pas dépendre de ce qui est déjà enregistré.
+    if (new URLSearchParams(location.search).has('demo')) {
+        if (await chargerDemonstration()) {
+            return;
+        }
+    }
+
     const cachedStorage = loadFromLocalStorage();
 
     if (cachedStorage && cachedStorage.data && cachedStorage.data.length > 0) {

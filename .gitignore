@@ -4,6 +4,10 @@
 !package-lock.json
 !tests/fixtures/*.json
 
+# Configuration d'outillage, sans donnée : la règle « *.json » ci-dessus
+# l'écartait avec les exports. settings.local.json, lui, reste ignoré.
+!.claude/launch.json
+
 # Dépendances / outils
 node_modules/
 coverage/

@@ -28,10 +28,11 @@
 import { state } from '../core/state.js';
 import { totalAffiche } from '../business/arrieres.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { couleur } from './theme.js';
 
 /** Reprises des variables du système visuel : --alerte et --alerte-faible */
-const COULEUR_COUPONS = '#b3341f';
-const COULEUR_PENALITES = '#a97400';
+const couleurCoupons = () => couleur('--alerte');
+const couleurPenalites = () => couleur('--alerte-faible');
 
 /**
  * Formate un montant en euros
@@ -71,10 +72,10 @@ const repereTotal = {
 
         ctx.save();
 
-        ctx.fillStyle = COULEUR_COUPONS;
+        ctx.fillStyle = couleurCoupons();
         ctx.fillRect(x, hautCoupons, largeur, base - hautCoupons);
 
-        ctx.fillStyle = COULEUR_PENALITES;
+        ctx.fillStyle = couleurPenalites();
         ctx.fillRect(x, sommet, largeur, hautCoupons - sommet);
 
         // Le libellé se pose sur le fond du graphique, pas sur la barre : au
@@ -86,10 +87,10 @@ const repereTotal = {
         const texte = `total dû ${euros(total)}`;
         const largeurTexte = ctx.measureText(texte).width;
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.fillStyle = couleur('--graph-etiquette-fond');
         ctx.fillRect(chartArea.right - largeurTexte - 6, sommet - 18, largeurTexte + 6, 15);
 
-        ctx.fillStyle = '#16202b';
+        ctx.fillStyle = couleur('--ink');
         ctx.fillText(texte, chartArea.right - 3, sommet - 5);
 
         ctx.restore();
@@ -145,10 +146,10 @@ export function createArrieresChart(arrieres) {
     const penalites = labels.map(mois => arrieres.penalites?.[mois] ?? 0);
     const total = totalAffiche(arrieres, labels);
 
-    const serie = (label, data, couleur) => ({
+    const serie = (label, data, teinte) => ({
         label,
         data,
-        borderColor: couleur,
+        borderColor: teinte,
         backgroundColor: 'transparent',
         borderWidth: 2,
         fill: false,
@@ -166,8 +167,8 @@ export function createArrieresChart(arrieres) {
             data: {
                 labels,
                 datasets: [
-                    serie('Coupons non versés (€)', coupons, COULEUR_COUPONS),
-                    serie('Pénalités de retard (€)', penalites, COULEUR_PENALITES)
+                    serie('Coupons non versés (€)', coupons, couleurCoupons()),
+                    serie('Pénalités de retard (€)', penalites, couleurPenalites())
                 ]
             },
             plugins: [repereTotal],

@@ -91,6 +91,10 @@ export async function rafraichirStatuts({ silencieux = false } = {}) {
         return {};
 
     } finally {
+        // La règle voit une variable réécrite après un await et suppose un
+        // entrelacement. C'est précisément ce que ce drapeau empêche : le garde
+        // en tête de fonction renvoie tout appel concurrent avant d'arriver ici.
+        // eslint-disable-next-line require-atomic-updates
         enCours = false;
         if (bouton) bouton.disabled = false;
 

@@ -39,12 +39,13 @@
 import { state } from '../core/state.js';
 import { moyenneVersements } from '../business/apports.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { couleur } from './theme.js';
 
 /** Une couleur par source, reprises du système visuel de l'application */
-const SOURCES = [
-    { cle: 'apports', libelle: 'Vos versements', couleur: '#1d5fb0' },
-    { cle: 'parrainage', libelle: 'Parrainage', couleur: '#1f6f4a' },
-    { cle: 'boost', libelle: 'Solde boosté', couleur: '#a97400' }
+const sources = () => [
+    { cle: 'apports', libelle: 'Vos versements', couleur: couleur('--statut-financement') },
+    { cle: 'parrainage', libelle: 'Parrainage', couleur: couleur('--statut-actif') },
+    { cle: 'boost', libelle: 'Solde boosté', couleur: couleur('--statut-avenir') }
 ];
 
 /**
@@ -71,7 +72,7 @@ const repereMoyenne = {
         }
 
         ctx.save();
-        ctx.strokeStyle = '#5c6b77';
+        ctx.strokeStyle = couleur('--ink-muted');
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
@@ -89,10 +90,10 @@ const repereMoyenne = {
         const texte = `moyenne ${Math.round(moyenne).toLocaleString('fr-FR')}€`;
         const largeur = ctx.measureText(texte).width;
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.fillStyle = couleur('--graph-etiquette-fond');
         ctx.fillRect(chartArea.right - largeur - 6, y - 17, largeur + 6, 14);
 
-        ctx.fillStyle = '#5c6b77';
+        ctx.fillStyle = couleur('--ink-muted');
         ctx.fillText(texte, chartArea.right - 3, y - 4);
         ctx.restore();
     }
@@ -136,7 +137,7 @@ export function createOrigineFondsChart(origine, { apportsConnus = true } = {}) 
     if (conteneur) conteneur.style.display = 'block';
 
     const moyenneApports = moyenneVersements(origine?.apports, labels);
-    const retenues = SOURCES.filter(source => source.cle !== 'apports' || apportsConnus);
+    const retenues = sources().filter(source => source.cle !== 'apports' || apportsConnus);
 
     const datasets = retenues.map(source => ({
         label: source.libelle,

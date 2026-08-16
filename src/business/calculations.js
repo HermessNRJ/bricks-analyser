@@ -76,21 +76,20 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         monthEntries: data.length
     });
 
-    let totalBricks = 0;
     let totalInvestment = 0;
     let monthlyRevenue = 0; // Revenus nets mensuels espérés
-    let properties = [];
-    let investmentEvolution = {};
-    let uniqueProjects = new Map();
+    const properties = [];
+    const investmentEvolution = {};
+    const uniqueProjects = new Map();
     let refundedProjectsCount = 0;
     let fundingOrUpcomingProjectsCount = 0;
-    let projectNetRevenueEntries = [];
-    let projectGrossRevenueEntries = [];
+    const projectNetRevenueEntries = [];
+    const projectGrossRevenueEntries = [];
 
     // ========================================================================
     // PREMIÈRE PASSE : Collecter toutes les propriétés uniques
     // ========================================================================
-    data.forEach((monthData, monthIndex) => {
+    data.forEach((monthData) => {
         const monthKey = monthData.yearMonthDate;
 
         if (!monthData.projects) {
@@ -275,8 +274,9 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     // dire que de peindre en rouge un portefeuille dont on ignore les recettes.
     const versements = annoterVersements(properties, revenus?.versements);
 
-    // Recalculer totalBricks en excluant les projets remboursés
-    totalBricks = 0;
+    // Les briques d'un projet remboursé ne sont plus détenues : le compte ne se
+    // tient qu'une fois les propriétés rassemblées et leur statut connu.
+    let totalBricks = 0;
     for (const prop of properties) {
         if (!prop.isRefunded) {
             totalBricks += prop.ownedBricks;
@@ -657,9 +657,9 @@ function serieAttendue(revenus, netRevenueEvolutionData) {
  * @private
  */
 function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenueEntries, investmentEvolution) {
-    let netRevenueEvolutionData = {};
-    let grossRevenueEvolutionData = {};
-    let taxAmountEvolutionData = {};
+    const netRevenueEvolutionData = {};
+    const grossRevenueEvolutionData = {};
+    const taxAmountEvolutionData = {};
     let totalNetRevenueSinceBeginning = 0;
     let totalTaxesSinceBeginning = 0;
 
@@ -715,14 +715,14 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
 
         // Évolution des revenus bruts
         if (projectGrossRevenueEntries.length > 0) {
-            allMonthsInRange.forEach(currentMonth => {
+            allMonthsInRange.forEach(mois => {
                 let totalGrossRevenueInCurrentMonth = 0;
                 projectGrossRevenueEntries.forEach(entry => {
-                    if (entry.startDate <= currentMonth) {
+                    if (entry.startDate <= mois) {
                         totalGrossRevenueInCurrentMonth += entry.revenue;
                     }
                 });
-                grossRevenueEvolutionData[currentMonth] = totalGrossRevenueInCurrentMonth;
+                grossRevenueEvolutionData[mois] = totalGrossRevenueInCurrentMonth;
             });
         }
 
@@ -730,12 +730,12 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
         // Appliquer le taux du jour à tout l'historique gonflerait les impôts
         // déjà payés sur les années au taux précédent.
         if (projectNetRevenueEntries.length > 0 || projectGrossRevenueEntries.length > 0) {
-            allMonthsInRange.forEach(currentMonth => {
-                const gross = grossRevenueEvolutionData[currentMonth] || 0;
-                const taux = tauxImpositionPour(currentMonth);
+            allMonthsInRange.forEach(mois => {
+                const gross = grossRevenueEvolutionData[mois] || 0;
+                const taux = tauxImpositionPour(mois);
 
-                netRevenueEvolutionData[currentMonth] = gross * (1 - taux);
-                taxAmountEvolutionData[currentMonth] = gross * taux;
+                netRevenueEvolutionData[mois] = gross * (1 - taux);
+                taxAmountEvolutionData[mois] = gross * taux;
             });
         }
 

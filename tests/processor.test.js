@@ -146,4 +146,42 @@ describe('finalizeProcessing', () => {
 
         vi.restoreAllMocks();
     });
+
+    // C'est ce qui rend ?demo inoffensif : 42 propriétés inventées s'affichent
+    // par-dessus le portefeuille enregistré sans le remplacer.
+    describe('persister: false', () => {
+        it('affiche sans rien écrire', async () => {
+            await finalizeProcessing([month('2024-01', [project('demo')])], [], { persister: false });
+
+            expect(updateUI).toHaveBeenCalledOnce();
+            expect(showResults).toHaveBeenCalledOnce();
+            expect(loadFromLocalStorage()).toBeNull();
+        });
+
+        it('laisse intact le portefeuille déjà enregistré', async () => {
+            await finalizeProcessing([month('2024-01', [project('vrai')])]);
+            const avant = localStorage.getItem('bricksInvestmentData');
+
+            await finalizeProcessing([month('2024-02', [project('demo')])], [], { persister: false });
+
+            expect(localStorage.getItem('bricksInvestmentData')).toBe(avant);
+        });
+
+        // Croiser des propriétés fictives avec les statuts officiels d'un vrai
+        // portefeuille donnerait un tableau qui n'est celui de personne.
+        it('n\'emprunte pas les statuts du cache', async () => {
+            const statuts = { vrai: { id: 'vrai', suivi: true, statut: 'defaulted', impayees: 2 } };
+
+            // Le statut est bien enregistré, et un rendu ordinaire le reprend
+            await finalizeProcessing([month('2024-01', [project('vrai')])], [], { statuts });
+            const ordinaire = await finalizeProcessing([month('2024-01', [project('vrai')])]);
+            expect(ordinaire.properties[0].suivi).toMatchObject({ statut: 'defaulted' });
+
+            const ephemere = await finalizeProcessing(
+                [month('2024-01', [project('vrai')])], [], { persister: false }
+            );
+
+            expect(ephemere.properties[0].suivi).toBeNull();
+        });
+    });
 });
