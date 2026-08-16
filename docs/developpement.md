@@ -98,6 +98,34 @@ dans un Chromium, et `npm audit`. Une montée de dépendance exigeant un node pl
 DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le
 smoke test qui les tient — d'où sa présence en CI et non plus en option.
 
+## Publier une version
+
+Les versions suivent [SemVer](https://semver.org) : `MAJEUR.MINEUR.CORRECTIF`. Ici, ce qui
+compte pour la personne qui met à jour — un chiffre affiché qui change de sens, une donnée
+locale à recharger, une borne Node qui monte — relève du majeur ; une fonctionnalité, du
+mineur ; une correction, du correctif.
+
+Le tag est la source de vérité, et il déclenche tout :
+
+```bash
+git tag -a v1.1.0 -m "Thème sombre, chargement de la démo par ?demo"
+git push origin v1.1.0
+```
+
+`.github/workflows/publication.yml` construit alors l'image pour `linux/amd64` et
+`linux/arm64`, la pousse sur GHCR sous quatre tags — `1.1.0`, `1.1`, `1` et `latest` — puis
+crée la release avec les notes générées depuis les commits. Rien ne se publie depuis une
+branche : une version publiée correspond toujours à un point nommé de l'historique.
+
+Le champ `version` de `package.json` n'entre pas dans ce circuit — le paquet n'est pas
+publié sur npm (`"private": true`). Le tenir à jour avant de poser le tag reste une
+politesse pour qui lit le dépôt.
+
+Les pull requests qui touchent au `Dockerfile`, à `nginx.conf`, à `index.html` ou à `src/`
+construisent l'image **sans la pousser**, puis la démarrent et vérifient que nginx sert bien
+la page et la feuille de style. Une base épinglée retirée du registre, ou un chemin de
+`COPY` cassé, se voient donc avant la fusion.
+
 ## Architecture
 
 Architecture modulaire ES6 avec séparation des responsabilités.

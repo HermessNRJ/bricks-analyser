@@ -5,6 +5,11 @@ qui est investi, ce qui a réellement été versé, ce qui manque à l'appel, et
 donnerait sous d'autres hypothèses. Les données sont récupérées depuis l'API Bricks et ne
 quittent pas votre machine.
 
+> Outil indépendant, sans lien avec Bricks.co : ni affilié, ni approuvé, ni soutenu par
+> eux. Il lit une API non documentée, qui peut changer sans préavis. Aucun chiffre affiché
+> ne fait foi — seul votre relevé Bricks compte — et rien ici n'est un conseil en
+> investissement.
+
 ![Le tableau de bord : le mur des propriétés, les huit chiffres clés, le rendement annualisé sur cinq fenêtres et le suivi des incidents](docs/captures/vue-ensemble.png)
 
 ## Démarrer
@@ -21,6 +26,13 @@ docker-compose up -d --build
 L'application répond sur <http://localhost:8080>. Le `--build` est nécessaire après toute
 modification de `nginx.conf` ou d'`index.html`, tous deux copiés dans l'image. `src/` est
 monté en direct : le JavaScript et la CSS se rechargent sans reconstruire.
+
+Sans cloner le dépôt, une image prête à l'emploi est publiée à chaque version
+([toutes les versions](https://github.com/HermessNRJ/bricks-analyser/releases)) :
+
+```bash
+docker run -d -p 8080:80 --name bricks ghcr.io/hermessnrj/bricks-analyser:latest
+```
 
 ### 2. Récupérer sa session Bricks
 
@@ -98,3 +110,19 @@ enregistrer. Mode d'emploi, cadrages et emplacements :
 | [Accès à l'API](docs/api.md) | Le proxy nginx, les endpoints, le suivi officiel des projets |
 | [Sécurité](docs/securite.md) | Cookie de session, CSP, intégrité des dépendances |
 | [Développement](docs/developpement.md) | Tests, pile technique, architecture du code |
+
+## Licence
+
+[GNU AGPL-3.0](LICENSE) — Copyright © 2025-2026 Rémi BOIDET.
+
+Libre d'usage, de modification et de redistribution, à une condition : toute version
+modifiée reste sous la même licence, **y compris si elle est seulement mise à disposition
+sur un réseau** plutôt que distribuée.
+
+Cette clause n'est pas une formalité ici. La sûreté de l'outil tient à ce qu'il tourne sur
+votre machine et que le cookie de session n'aille nulle part ailleurs. Une version hébergée
+par un tiers renverse ce modèle : on lui confierait un accès complet à son compte Bricks.
+L'AGPL ne l'interdit pas, mais elle oblige qui le ferait à publier son code — donc à rester
+vérifiable.
+
+Le programme est fourni sans aucune garantie, dans la mesure permise par la loi.
