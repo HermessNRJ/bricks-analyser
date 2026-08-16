@@ -13,14 +13,11 @@ npm run demo       # écrit data/demo.json — 42 propriétés inventées, 26 mo
 npm run serve      # sert le dépôt sur http://127.0.0.1:8099
 ```
 
-Ouvrez <http://127.0.0.1:8099/index.html>, puis dans la console du navigateur :
+Puis ouvrez <http://127.0.0.1:8099/index.html?demo>.
 
-```js
-fetch('/data/demo.json').then(r => r.json()).then(d => {
-  localStorage.setItem('bricksInvestmentData', JSON.stringify(d));
-  location.reload();
-});
-```
+Le paramètre `?demo` affiche le portefeuille fictif sans rien enregistrer : un bandeau
+rappelle à l'écran que les chiffres sont inventés, le vôtre reste intact, et la page revient
+à votre portefeuille dès que vous retirez le paramètre. Rien à nettoyer après coup.
 
 Le portefeuille est tiré d'une graine fixe : deux exécutions le même mois donnent le même
 résultat. L'historique se cale en revanche sur le mois courant, pour que les courbes et le
@@ -29,8 +26,11 @@ carnet de versements aient l'air d'aujourd'hui.
 Les vignettes pointent vers `picsum.photos` : elles demandent un accès réseau, et n'ont
 d'autre rôle que de remplir les fiches sur les captures.
 
-Quand vous avez fini : `localStorage.clear()` dans la console, et le tableau de bord
-redevient vierge.
+`data/` n'entre pas dans l'image Docker : `?demo` répond derrière `npm run serve`, pas
+derrière <http://localhost:8080>.
+
+Le bandeau de démonstration est à recadrer hors des captures : il n'a pas sa place dans la
+documentation, où il annoncerait une limite du produit plutôt que du jeu de données.
 
 ## 2. Les captures à prendre
 

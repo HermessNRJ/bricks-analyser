@@ -1466,6 +1466,21 @@ details.alertes > summary:hover {
     color: var(--alerte);
 }
 
+/* Portefeuille de démonstration (?demo) : un tableau de bord chiffré au centime
+   se lit comme un relevé, et rien d'autre que cette bande ne dirait que les
+   42 propriétés sont inventées. Elle emprunte l'ambre des alertes faibles —
+   assez pour arrêter l'œil, pas assez pour se faire passer pour un incident. */
+.bandeau-demo {
+    background: #fdf6e6;
+    border: var(--rule-width) solid var(--alerte-faible);
+    border-left-width: 3px;
+    color: #6b4a00;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+    font-size: 0.85rem;
+}
+
 /* --------------------------------------------------------------------------
    Bandeau de chargement
 

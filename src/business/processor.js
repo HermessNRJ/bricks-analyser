@@ -101,18 +101,27 @@ export async function processData(fileData, warnings = [], { revenus, capital, a
  *   du cache est réutilisé
  * @param {Object} [options.apports] - Versements personnels ; omis, ceux du
  *   cache sont réutilisés
+ * @param {boolean} [options.persister=true] - À false, rien n'est écrit dans le
+ *   localStorage et rien n'y est relu : le portefeuille de démonstration
+ *   s'affiche sans effacer celui de la personne, et sans emprunter ses statuts
  * @returns {Promise<Object>} Résultats des calculs
  */
 export async function finalizeProcessing(finalData, warnings = [], options = {}) {
+    const persister = options.persister !== false;
+
     logger.info(LOG_CATEGORIES.DATA_MERGE, 'Finalizing data processing', {
-        entries: finalData.length
+        entries: finalData.length,
+        persister
     });
 
     try {
         // Mettre à jour l'état global
         state.set('allData', finalData);
 
-        const cache = loadFromLocalStorage();
+        // Un affichage éphémère ne doit rien emprunter au cache : croiser des
+        // données de démonstration avec les statuts officiels d'un vrai
+        // portefeuille donnerait un tableau qui n'est celui de personne.
+        const cache = persister ? loadFromLocalStorage() : null;
 
         // Le suivi officiel des projets prime sur la lecture des alertes
         const statuts = options.statuts || cache?.statuts || {};
@@ -138,12 +147,14 @@ export async function finalizeProcessing(finalData, warnings = [], options = {})
         });
 
         // Sauvegarder dans localStorage (avec warnings)
-        const saved = saveToLocalStorage(finalData, warnings, options);
+        if (persister) {
+            const saved = saveToLocalStorage(finalData, warnings, options);
 
-        if (saved) {
-            afficherAgeDonnees(loadFromLocalStorage()?.savedAt || null);
-        } else {
-            logger.warn(LOG_CATEGORIES.STORAGE, 'Failed to save to localStorage, but continuing');
+            if (saved) {
+                afficherAgeDonnees(loadFromLocalStorage()?.savedAt || null);
+            } else {
+                logger.warn(LOG_CATEGORIES.STORAGE, 'Failed to save to localStorage, but continuing');
+            }
         }
 
         // Mettre à jour l'interface utilisateur

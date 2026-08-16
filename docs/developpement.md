@@ -22,7 +22,12 @@ démonstration. Le dossier n'est pas suivi par git — `.gitignore` écarte tout
 
 ```bash
 npm run demo    # écrit data/demo.json : 42 propriétés inventées, 26 mois d'historique
+npm run serve   # puis http://127.0.0.1:8099/index.html?demo
 ```
+
+`?demo` affiche ce portefeuille sans rien écrire dans le localStorage : le vôtre n'est pas
+touché, et la page y revient dès que le paramètre disparaît. Un bandeau dit à l'écran que
+les chiffres sont inventés.
 
 Ce jeu fictif sert aux captures d'écran ; il est fabriqué au format brut de l'API puis
 passé par les vrais normaliseurs, donc il reste juste si ceux-ci changent. Voir

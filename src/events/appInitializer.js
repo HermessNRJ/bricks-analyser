@@ -7,7 +7,7 @@ import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { loadFromLocalStorage } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
-import { showDeletionModal } from '../ui/modals.js';
+import { showDeletionModal, showError } from '../ui/modals.js';
 import { resizeAllCharts } from '../charts/chartManager.js';
 import { initPeriodeGraphiques } from '../ui/periodeGraphiques.js';
 import { redessinerSeriesDatees } from '../charts/chartManager.js';
@@ -208,9 +208,94 @@ function setupPeriodeControl() {
 }
 
 /**
+ * Chemin du portefeuille de démonstration, écrit par « npm run demo »
+ *
+ * Absent de l'image Docker, qui ne copie que index.html, src/, la favicon et
+ * nginx.conf : la démonstration se regarde derrière « npm run serve ».
+ */
+const FICHIER_DEMO = 'data/demo.json';
+
+/**
+ * Affiche le portefeuille de démonstration sans toucher au vrai
+ *
+ * Prendre une capture d'écran demandait jusqu'ici de coller un fetch dans la
+ * console du navigateur, puis de penser à un localStorage.clear() après coup.
+ * Le paramètre ?demo fait la même chose en un lien — et sans rien écrire :
+ * les 42 propriétés fictives vivent le temps de la page, le portefeuille
+ * enregistré est intact au rechargement suivant.
+ *
+ * @returns {Promise<boolean>} Vrai si la démonstration est à l'écran
+ */
+async function chargerDemonstration() {
+    try {
+        const reponse = await fetch(FICHIER_DEMO);
+
+        if (!reponse.ok) {
+            throw new Error(`${reponse.status} ${reponse.statusText}`);
+        }
+
+        const demo = await reponse.json();
+
+        await finalizeProcessing(demo.data, demo.warnings, {
+            persister: false,
+            statuts: demo.statuts,
+            revenus: demo.revenus,
+            capital: demo.capital,
+            apports: demo.apports
+        });
+
+        // Pas d'âge des données ici : la ligne « Données récupérées… » répond
+        // d'ordinaire pour le vrai portefeuille, et daterait un fichier fabriqué
+        // à la demande. Le bandeau dit tout ce qu'il y a à dire.
+        afficherBandeauDemo();
+
+        logger.info(LOG_CATEGORIES.EVENT, 'Demo portfolio displayed', {
+            entries: demo.data?.length ?? 0
+        });
+
+        return true;
+
+    } catch (err) {
+        logger.error(LOG_CATEGORIES.EVENT, 'Demo portfolio unavailable', err);
+        showError(`Portefeuille de démonstration introuvable (${FICHIER_DEMO}).`
+            + ' Il se fabrique avec « npm run demo », et n\'est pas copié dans l\'image Docker.');
+        return false;
+    }
+}
+
+/**
+ * Dit à l'écran que les chiffres sont inventés
+ *
+ * Un tableau de bord chiffré au centime se lit comme un relevé : rien, sinon
+ * cette bande, ne distinguerait 42 propriétés fictives d'un vrai portefeuille.
+ */
+function afficherBandeauDemo() {
+    if (document.getElementById('bandeauDemo')) {
+        return;
+    }
+
+    const bandeau = document.createElement('p');
+    bandeau.id = 'bandeauDemo';
+    bandeau.className = 'bandeau-demo';
+    bandeau.setAttribute('role', 'status');
+    bandeau.textContent = 'Portefeuille de démonstration : 42 propriétés inventées. '
+        + 'Rien n\'est enregistré, et vos données ne sont pas touchées.';
+
+    document.getElementById('results')?.prepend(bandeau);
+}
+
+/**
  * Charge les données initiales depuis localStorage
  */
 async function loadInitialData() {
+    // ?demo passe avant le cache : c'est une demande explicite, et elle ne doit
+    // pas dépendre de ce qui est déjà enregistré.
+    if (new URLSearchParams(location.search).has('demo')) {
+        if (await chargerDemonstration()) {
+            return;
+        }
+    }
+
     const cachedStorage = loadFromLocalStorage();
 
     if (cachedStorage && cachedStorage.data && cachedStorage.data.length > 0) {
