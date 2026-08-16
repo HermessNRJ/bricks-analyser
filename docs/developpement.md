@@ -13,6 +13,19 @@ pas ronde parce qu'elle vient de deux besoins précis : Vitest 4 s'appuie sur Ro
 npm refuse d'installer le binaire natif en deçà, et jsdom 30 charge un module ESM depuis du
 CommonJS — ce que `require()` ne sait faire que depuis 22.12.
 
+## Système visuel
+
+`src/styles/main.css` s'ouvre sur deux blocs de jetons : `:root` pour le thème clair, et
+un `@media (prefers-color-scheme: dark)` qui redéfinit les mêmes noms. Tout ce qui suit
+vaut pour les deux — aucune règle de mise en page n'est dupliquée. Le thème suit le
+réglage du système, sans bascule dans l'interface.
+
+Chart.js dessine dans un canevas et n'accepte donc pas de variable CSS : `src/charts/
+theme.js` résout les jetons au moment du tracé (`couleur('--statut-actif')`) et redessine
+tout quand le système bascule. Une couleur de graphique écrite en dur ne suivrait pas le
+thème — c'est le seul endroit du code où une couleur peut apparaître, sous forme de valeur
+de repli pour les tests, qui tournent sans mise en page.
+
 ## Données locales
 
 `data/` accueille les exports Bricks récupérés à la main et le portefeuille de

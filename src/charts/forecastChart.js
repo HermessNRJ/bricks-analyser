@@ -5,6 +5,7 @@
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { formatCurrency } from '../utils/formatters.js';
+import { couleur } from './theme.js';
 
 /**
  * Réduit la série mensuelle à un nombre de points lisible
@@ -83,8 +84,8 @@ export function createForecastChart(resultat) {
                     {
                         label: 'Capital investi',
                         data: points.map(p => p.capital),
-                        borderColor: '#1d5fb0',
-                        backgroundColor: 'rgba(29, 95, 176, 0.08)',
+                        borderColor: couleur('--statut-financement'),
+                        backgroundColor: couleur('--graph-investissement-fond'),
                         borderWidth: 2,
                         fill: true,
                         tension: 0.25,
@@ -94,8 +95,8 @@ export function createForecastChart(resultat) {
                     {
                         label: 'Revenus nets cumulés',
                         data: points.map(p => p.cumulNet),
-                        borderColor: '#1f6f4a',
-                        backgroundColor: 'rgba(31, 111, 74, 0.08)',
+                        borderColor: couleur('--statut-actif'),
+                        backgroundColor: couleur('--graph-parrainage-fond'),
                         borderWidth: 2,
                         fill: true,
                         tension: 0.25,

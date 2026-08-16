@@ -4,9 +4,10 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { couleur } from './theme.js';
 
 /** Trait de l'attendu : présent mais en retrait, le perçu restant le sujet */
-const COULEUR_ATTENDU = '#8a94a6';
+const couleurAttendu = () => couleur('--graph-attendu');
 
 /**
  * Formate un montant en euros
@@ -61,7 +62,7 @@ export function createRevenueChart(netRevenueData, { reel = false, moisPartiel =
     // le trait qui y mène pointillé, pour qu'une chute de fin de série ne passe
     // pas pour une perte de revenus.
     const indexPartiel = moisPartiel ? labels.indexOf(moisPartiel) : -1;
-    const couleur = '#4bc0c0';
+    const teinte = couleur('--graph-revenus');
 
     const legende = reel
         ? 'Perçu (€)'
@@ -84,15 +85,15 @@ export function createRevenueChart(netRevenueData, { reel = false, moisPartiel =
                 datasets: [{
                     label: legende,
                     data: data,
-                    borderColor: couleur,
-                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    borderColor: teinte,
+                    backgroundColor: couleur('--graph-revenus-fond'),
                     borderWidth: 3,
                     fill: true,
                     tension: 0.1,
                     pointBackgroundColor: (context) =>
-                        context.dataIndex === indexPartiel ? '#ffffff' : couleur,
+                        context.dataIndex === indexPartiel ? couleur('--surface') : teinte,
                     pointBorderColor: (context) =>
-                        context.dataIndex === indexPartiel ? couleur : '#ffffff',
+                        context.dataIndex === indexPartiel ? teinte : couleur('--surface'),
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     segment: {
@@ -103,15 +104,15 @@ export function createRevenueChart(netRevenueData, { reel = false, moisPartiel =
                 }].concat(serieAttendue ? [{
                     label: 'Attendu au rythme du portefeuille (€)',
                     data: serieAttendue,
-                    borderColor: COULEUR_ATTENDU,
+                    borderColor: couleurAttendu(),
                     backgroundColor: 'transparent',
                     borderWidth: 2,
                     borderDash: [6, 4],
                     fill: false,
                     tension: 0.1,
                     spanGaps: false,
-                    pointBackgroundColor: '#ffffff',
-                    pointBorderColor: COULEUR_ATTENDU,
+                    pointBackgroundColor: couleur('--surface'),
+                    pointBorderColor: couleurAttendu(),
                     pointBorderWidth: 2,
                     pointRadius: 3,
                     order: 0

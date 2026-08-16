@@ -6,6 +6,7 @@
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { formatCurrency, truncate, formatPercentage } from '../utils/formatters.js';
+import { couleur } from './theme.js';
 
 /**
  * Interpole entre deux couleurs RGB
@@ -148,38 +149,43 @@ export function createTreemapChart(properties) {
                     groups: ['name'],
                     spacing: 1,
                     borderWidth: 2,
-                    borderColor: 'white',
-                    backgroundColor: (ctx) => {
-                        if (ctx.type !== 'data') return 'transparent';
-                        const dataIndex = ctx.dataIndex;
-                        const data = ctx.dataset.tree[dataIndex];
+                    // Le joint entre tuiles reprend le fond de la carte : en
+                    // thème sombre, un liseré blanc découpait la surface en
+                    // grille lumineuse et mangeait les petites parcelles.
+                    borderColor: couleur('--surface'),
+                    backgroundColor: (contexte) => {
+                        if (contexte.type !== 'data') return 'transparent';
+                        const dataIndex = contexte.dataIndex;
+                        const data = contexte.dataset.tree[dataIndex];
                         return data ? data.color : 'rgba(102, 126, 234, 0.8)';
                     },
-                    hoverBackgroundColor: (ctx) => {
-                        if (ctx.type !== 'data') return 'transparent';
-                        const dataIndex = ctx.dataIndex;
-                        const data = ctx.dataset.tree[dataIndex];
+                    hoverBackgroundColor: (contexte) => {
+                        if (contexte.type !== 'data') return 'transparent';
+                        const dataIndex = contexte.dataIndex;
+                        const data = contexte.dataset.tree[dataIndex];
                         return data ? getDarkerColor(data.color) : 'rgba(102, 126, 234, 1)';
                     },
                     labels: {
                         display: true,
                         align: 'center',
                         position: 'middle',
-                        color: 'white',
+                        // Le libellé est posé sur une tuile saturée dans les
+                        // deux thèmes : il reste blanc.
+                        color: couleur('--sur-couleur'),
                         font: {
                             size: 11,
                             weight: 'bold'
                         },
                         padding: 4,
-                        formatter: (ctx) => {
-                            if (ctx.type !== 'data') return '';
-                            const data = ctx.dataset.tree[ctx.dataIndex];
+                        formatter: (contexte) => {
+                            if (contexte.type !== 'data') return '';
+                            const data = contexte.dataset.tree[contexte.dataIndex];
                             if (!data) return '';
 
                             // Accéder à l'élément rendu pour obtenir les dimensions
                             try {
-                                const meta = ctx.chart.getDatasetMeta(ctx.datasetIndex);
-                                const element = meta.data[ctx.dataIndex];
+                                const meta = contexte.chart.getDatasetMeta(contexte.datasetIndex);
+                                const element = meta.data[contexte.dataIndex];
 
                                 if (element && element.width && element.height) {
                                     const area = element.width * element.height;
@@ -217,7 +223,7 @@ export function createTreemapChart(properties) {
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        backgroundColor: couleur('--graph-infobulle'),
                         padding: 15,
                         titleFont: { size: 14, weight: 'bold' },
                         bodyFont: { size: 13 },

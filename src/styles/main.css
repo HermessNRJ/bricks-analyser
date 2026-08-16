@@ -13,10 +13,20 @@
     --surface: #ffffff;
     --surface-sunken: #f4f6f8;
     --ink: #16202b;
+    --ink-fort: #24333f;
     --ink-muted: #5c6b77;
     --ink-faint: #8797a3;
     --rule: #d7dee4;
     --rule-strong: #b9c4cd;
+    --rule-faible: #eef1f4;
+
+    /* Fond des champs de saisie et des menus. En clair, la carte est blanche
+       et le champ l'est aussi : c'est le trait qui le délimite. En sombre, un
+       trait n'y suffit plus — le champ se creuse d'un ton sous la carte. */
+    --champ: #ffffff;
+
+    /* Texte posé sur un aplat saturé, quel que soit le thème */
+    --sur-couleur: #ffffff;
 
     /* Sémantique : statut d'un projet */
     --statut-actif: #1f6f4a;
@@ -26,8 +36,41 @@
 
     /* Le seul ton chaud : le risque */
     --alerte: #b3341f;
+    --alerte-texte: #7d2416;
     --alerte-faible: #a97400;
     --alerte-fond: #fbf0ee;
+    --alerte-faible-fond: #fdf6e6;
+    --alerte-faible-texte: #6b4a00;
+
+    /* Aplats pâles : une pastille, un badge, une colonne mise en avant */
+    --fond-actif: #e7f0ea;
+    --fond-financement: #eaf1fa;
+    --fond-avenir: #faf3e3;
+    --fond-brut: #fbf7ee;
+
+    /* Le vert olive de la barre de risque, entre l'ambre et le vert franc */
+    --risque-median: #7a8f3c;
+
+    /* Ombres et voiles : teintés de l'encre, jamais du noir pur */
+    --ombre-carte: 0 2px 10px rgba(22, 32, 43, 0.07);
+    --ombre-flottant: 0 4px 14px rgba(22, 32, 43, 0.15);
+    --ombre-modale: 0 18px 50px rgba(22, 32, 43, 0.25);
+    --ombre-chargement: rgba(29, 95, 176, 0.35);
+    --voile-modale: rgba(22, 32, 43, 0.5);
+    --anneau-cible: rgba(29, 95, 176, 0.15);
+
+    /* Graphiques : Chart.js lit ces jetons plutôt que de porter sa propre
+       palette, sans quoi les courbes resteraient claires sur fond sombre. */
+    --graph-revenus: #4bc0c0;
+    --graph-revenus-fond: rgba(75, 192, 192, 0.1);
+    --graph-attendu: #8a94a6;
+    --graph-impot: #ff6384;
+    --graph-impot-fond: rgba(255, 99, 132, 0.2);
+    --graph-autres: #95a5a6;
+    --graph-investissement-fond: rgba(29, 95, 176, 0.08);
+    --graph-parrainage-fond: rgba(31, 111, 74, 0.08);
+    --graph-etiquette-fond: rgba(255, 255, 255, 0.88);
+    --graph-infobulle: rgba(22, 32, 43, 0.94);
 
     /* Typographie */
     --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
@@ -38,6 +81,78 @@
     --gap: 20px;
     --radius: 6px;
     --rule-width: 1px;
+
+    color-scheme: light;
+}
+
+/* --------------------------------------------------------------------------
+   Thème sombre
+
+   Le même système, retourné : encre claire sur papier de nuit. Les tons
+   sémantiques ne changent pas de sens, seulement de luminosité — un vert de
+   projet actif à 20 % de clarté disparaîtrait sur ce fond, et le rouge d'un
+   défaut y virerait au brun. Les aplats pâles deviennent des teintes sourdes
+   du même ton, jamais des gris : c'est leur couleur qui porte l'information.
+
+   Aucune règle de mise en page ici, uniquement des jetons redéfinis : tout ce
+   qui est écrit plus bas vaut pour les deux thèmes.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --paper: #11171d;
+        --surface: #19212a;
+        --surface-sunken: #141b22;
+        --ink: #e4eaf0;
+        --ink-fort: #f2f6f9;
+        --ink-muted: #9dabb8;
+        --ink-faint: #76858f;
+        --rule: #2b353f;
+        --rule-strong: #4a5967;
+        --rule-faible: #232c35;
+        --champ: #0d1216;
+
+        --statut-actif: #4fb589;
+        --statut-financement: #6aa6ec;
+        --statut-avenir: #d4a13f;
+        --statut-rembourse: #7f8b98;
+
+        --alerte: #ef7059;
+        --alerte-texte: #f5a795;
+        --alerte-faible: #d4a13f;
+        --alerte-fond: #2c1c18;
+        --alerte-faible-fond: #2b2413;
+        --alerte-faible-texte: #e3c179;
+
+        --fond-actif: #14291f;
+        --fond-financement: #16243a;
+        --fond-avenir: #2b2413;
+        --fond-brut: #26221a;
+
+        --risque-median: #9bb055;
+
+        /* Sur fond sombre, une ombre portée ne se voit pas : c'est le noir
+           dense qui creuse, et il faut l'appuyer pour que la carte décolle. */
+        --ombre-carte: 0 2px 10px rgba(0, 0, 0, 0.35);
+        --ombre-flottant: 0 4px 14px rgba(0, 0, 0, 0.5);
+        --ombre-modale: 0 18px 50px rgba(0, 0, 0, 0.65);
+        --ombre-chargement: rgba(106, 166, 236, 0.35);
+        --voile-modale: rgba(5, 8, 11, 0.7);
+        --anneau-cible: rgba(106, 166, 236, 0.28);
+
+        --graph-revenus: #57c7c7;
+        --graph-revenus-fond: rgba(87, 199, 199, 0.14);
+        --graph-attendu: #97a2b3;
+        --graph-impot: #ef6b83;
+        --graph-impot-fond: rgba(239, 107, 131, 0.2);
+        --graph-autres: #7f8b98;
+        --graph-investissement-fond: rgba(106, 166, 236, 0.12);
+        --graph-parrainage-fond: rgba(79, 181, 137, 0.12);
+        --graph-etiquette-fond: rgba(25, 33, 42, 0.9);
+        --graph-infobulle: rgba(8, 12, 16, 0.95);
+
+        color-scheme: dark;
+    }
 }
 
 * {
@@ -166,7 +281,7 @@ body {
     padding: 9px 12px;
     border: var(--rule-width) solid var(--rule-strong);
     border-radius: var(--radius);
-    background: var(--surface);
+    background: var(--champ);
     color: var(--ink);
 }
 
@@ -196,7 +311,7 @@ body {
 }
 
 .bouton-principal:hover:not(:disabled) {
-    background: #24333f;
+    background: var(--ink-fort);
 }
 
 .bouton-secondaire {
@@ -859,7 +974,7 @@ select {
     padding: 7px 10px;
     border: var(--rule-width) solid var(--rule-strong);
     border-radius: var(--radius);
-    background: var(--surface);
+    background: var(--champ);
     cursor: pointer;
 }
 
@@ -892,7 +1007,7 @@ select:hover {
     width: 180px;
     height: 8px;
     border-radius: 4px;
-    background: linear-gradient(to right, #b3341f, #a97400, #7a8f3c, #1f6f4a);
+    background: linear-gradient(to right, var(--alerte), var(--alerte-faible), var(--risque-median), var(--statut-actif));
 }
 
 /* --------------------------------------------------------------------------
@@ -973,7 +1088,7 @@ select:hover {
     padding: 8px 10px;
     border: var(--rule-width) solid var(--rule-strong);
     border-radius: var(--radius);
-    background: var(--surface);
+    background: var(--champ);
 }
 
 .properties-controls input[type="search"]::placeholder {
@@ -1056,7 +1171,7 @@ select:hover {
 .property-card:hover {
     border-color: var(--rule-strong);
     border-left-color: var(--statut-actif);
-    box-shadow: 0 2px 10px rgba(22, 32, 43, 0.07);
+    box-shadow: var(--ombre-carte);
 }
 
 /* Nom et adresse tiennent sur deux lignes au plus, et réservent cette hauteur
@@ -1157,21 +1272,21 @@ select:hover {
 .property-ongoing { border-left-color: var(--statut-financement); }
 .property-ongoing:hover { border-left-color: var(--statut-financement); }
 .property-ongoing .badge-statut {
-    background: #eaf1fa;
+    background: var(--fond-financement);
     color: var(--statut-financement);
 }
 
 .property-upcoming { border-left-color: var(--statut-avenir); }
 .property-upcoming:hover { border-left-color: var(--statut-avenir); }
 .property-upcoming .badge-statut {
-    background: #faf3e3;
+    background: var(--fond-avenir);
     color: var(--statut-avenir);
 }
 
 /* Propriété mise en avant par un clic sur le mur */
 .property-card.est-ciblee {
     border-color: var(--statut-financement);
-    box-shadow: 0 0 0 3px rgba(29, 95, 176, 0.15);
+    box-shadow: 0 0 0 3px var(--anneau-cible);
 }
 
 /* --------------------------------------------------------------------------
@@ -1255,7 +1370,7 @@ details.alertes > summary:hover {
 .suivi-officiel.est-grave {
     background: var(--alerte-fond);
     border-left-color: var(--alerte);
-    color: #7d2416;
+    color: var(--alerte-texte);
 }
 
 .actualites-entete {
@@ -1441,7 +1556,7 @@ details.alertes > summary:hover {
     background: var(--alerte-fond);
     border: var(--rule-width) solid var(--alerte);
     border-left-width: 3px;
-    color: #7d2416;
+    color: var(--alerte-texte);
     padding: 12px 14px;
     border-radius: var(--radius);
     margin-bottom: 14px;
@@ -1471,10 +1586,10 @@ details.alertes > summary:hover {
    42 propriétés sont inventées. Elle emprunte l'ambre des alertes faibles —
    assez pour arrêter l'œil, pas assez pour se faire passer pour un incident. */
 .bandeau-demo {
-    background: #fdf6e6;
+    background: var(--alerte-faible-fond);
     border: var(--rule-width) solid var(--alerte-faible);
     border-left-width: 3px;
-    color: #6b4a00;
+    color: var(--alerte-faible-texte);
     padding: 10px 14px;
     border-radius: var(--radius);
     margin-bottom: var(--gap);
@@ -1510,12 +1625,12 @@ details.alertes > summary:hover {
        engagé qui n'est pas terminé. L'encre neutre passait pour un bandeau de
        chrome et se remarquait à peine. */
     background: var(--statut-financement);
-    color: #ffffff;
+    color: var(--sur-couleur);
     font-size: 0.9rem;
     font-weight: 550;
     text-align: center;
     padding: 12px 20px;
-    box-shadow: 0 2px 10px rgba(29, 95, 176, 0.35);
+    box-shadow: 0 2px 10px var(--ombre-chargement);
 }
 
 /* Une barre qui avance sans fin : le texte seul ne distingue pas un chargement
@@ -1547,7 +1662,7 @@ details.alertes > summary:hover {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(22, 32, 43, 0.5);
+    background: var(--voile-modale);
     display: none;
     justify-content: center;
     align-items: center;
@@ -1559,7 +1674,7 @@ details.alertes > summary:hover {
     background: var(--surface);
     padding: 26px;
     border-radius: var(--radius);
-    box-shadow: 0 18px 50px rgba(22, 32, 43, 0.25);
+    box-shadow: var(--ombre-modale);
     width: 100%;
     max-width: 520px;
 }
@@ -1654,7 +1769,7 @@ details.alertes > summary:hover {
     height: 42px;
     border-radius: var(--radius);
     font-size: 16px;
-    box-shadow: 0 4px 14px rgba(22, 32, 43, 0.15);
+    box-shadow: var(--ombre-flottant);
 }
 
 #scrollToTopBtn:hover {
@@ -1731,8 +1846,8 @@ details.alertes > summary:hover {
    --------------------------------------------------------------------------- */
 
 .revenus-annuels {
-    background: #ffffff;
-    border: 1px solid #e4e9ed;
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule);
     border-radius: 6px;
     padding: 24px;
     margin-bottom: 28px;
@@ -1760,14 +1875,14 @@ details.alertes > summary:hover {
 .tableau-revenus td {
     padding: 9px 11px;
     text-align: right;
-    border-bottom: 1px solid #eef1f4;
+    border-bottom: var(--rule-width) solid var(--rule-faible);
 }
 
 .tableau-revenus thead th {
     font-size: 0.74rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #5c6b77;
+    color: var(--ink-muted);
     font-weight: 600;
     border-bottom-width: 2px;
 }
@@ -1783,17 +1898,17 @@ details.alertes > summary:hover {
     letter-spacing: 0;
     text-transform: none;
     font-weight: 400;
-    color: #8a94a6;
+    color: var(--ink-faint);
 }
 
 /* Le versé sans retenue est ce qui reste à déclarer : il se distingue */
 .tableau-revenus .colonne-brute {
-    background: #fbf7ee;
+    background: var(--fond-brut);
 }
 
 .tableau-revenus .ligne-total th,
 .tableau-revenus .ligne-total td {
-    border-top: 2px solid #e4e9ed;
+    border-top: 2px solid var(--rule);
     border-bottom: none;
     font-weight: 600;
 }
@@ -1807,8 +1922,8 @@ details.alertes > summary:hover {
     flex-wrap: wrap;
     align-items: flex-end;
     gap: 16px 22px;
-    background: #ffffff;
-    border: 1px solid #e4e9ed;
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule);
     border-radius: 6px;
     padding: 16px 20px;
     margin-bottom: 20px;
@@ -1828,16 +1943,16 @@ details.alertes > summary:hover {
 .periode-graphiques input[type="month"] {
     font: inherit;
     padding: 7px 10px;
-    border: 1px solid #d5dce2;
+    border: var(--rule-width) solid var(--rule-strong);
     border-radius: 4px;
-    background: #ffffff;
+    background: var(--champ);
     color: inherit;
 }
 
 /* Le capital rendu n'est pas un revenu : il se lit à part des deux natures brutes */
 .tableau-revenus .colonne-capital {
-    background: #f4f6f8;
-    color: #5c6b77;
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1916,9 +2031,9 @@ details.alertes > summary:hover {
     white-space: nowrap;
 }
 
-.versement-pastille.est-verse { background: #e7f0ea; color: var(--statut-actif); }
+.versement-pastille.est-verse { background: var(--fond-actif); color: var(--statut-actif); }
 .versement-pastille.est-manquant { background: var(--alerte-fond); color: var(--alerte); }
-.versement-pastille.est-attendu { background: #faf3e3; color: var(--statut-avenir); }
+.versement-pastille.est-attendu { background: var(--fond-avenir); color: var(--statut-avenir); }
 .versement-pastille.est-solde { background: var(--surface-sunken); color: var(--statut-rembourse); }
 
 .versement-montant {

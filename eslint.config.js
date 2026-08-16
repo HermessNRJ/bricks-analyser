@@ -50,6 +50,11 @@ export default [
             'no-var': 'error',
             'prefer-const': 'error',
 
+            // Un paramètre qui porte le nom d'un import masque cet import sur
+            // toute la fonction : la ligne se lit pareil et ne fait plus la
+            // même chose.
+            'no-shadow': ['error', { builtinGlobals: false, hoist: 'functions' }],
+
             // == compare 0, '' et null d'une façon que personne ne retient.
             // L'exception « == null » couvre null et undefined d'un coup, ce
             // qui est délibéré et lisible.

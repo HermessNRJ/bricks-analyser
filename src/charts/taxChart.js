@@ -6,6 +6,7 @@ import { state } from '../core/state.js';
 import { CONFIG } from '../core/config.js';
 import { formatPercentage } from '../utils/formatters.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { couleur } from './theme.js';
 
 /**
  * Met le taux courant dans le titre de la section
@@ -74,8 +75,8 @@ export function createTaxChart(taxData, { reel = false } = {}) {
                         ? 'Impôt prélevé par Bricks (€)'
                         : `Montant de l'impôt (est. ${formatPercentage(CONFIG.TAX_RATE * 100)})`,
                     data: data,
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: couleur('--graph-impot-fond'),
+                    borderColor: couleur('--graph-impot'),
                     borderWidth: 1
                 }]
             },

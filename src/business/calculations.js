@@ -715,14 +715,14 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
 
         // Évolution des revenus bruts
         if (projectGrossRevenueEntries.length > 0) {
-            allMonthsInRange.forEach(currentMonth => {
+            allMonthsInRange.forEach(mois => {
                 let totalGrossRevenueInCurrentMonth = 0;
                 projectGrossRevenueEntries.forEach(entry => {
-                    if (entry.startDate <= currentMonth) {
+                    if (entry.startDate <= mois) {
                         totalGrossRevenueInCurrentMonth += entry.revenue;
                     }
                 });
-                grossRevenueEvolutionData[currentMonth] = totalGrossRevenueInCurrentMonth;
+                grossRevenueEvolutionData[mois] = totalGrossRevenueInCurrentMonth;
             });
         }
 
@@ -730,12 +730,12 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
         // Appliquer le taux du jour à tout l'historique gonflerait les impôts
         // déjà payés sur les années au taux précédent.
         if (projectNetRevenueEntries.length > 0 || projectGrossRevenueEntries.length > 0) {
-            allMonthsInRange.forEach(currentMonth => {
-                const gross = grossRevenueEvolutionData[currentMonth] || 0;
-                const taux = tauxImpositionPour(currentMonth);
+            allMonthsInRange.forEach(mois => {
+                const gross = grossRevenueEvolutionData[mois] || 0;
+                const taux = tauxImpositionPour(mois);
 
-                netRevenueEvolutionData[currentMonth] = gross * (1 - taux);
-                taxAmountEvolutionData[currentMonth] = gross * taux;
+                netRevenueEvolutionData[mois] = gross * (1 - taux);
+                taxAmountEvolutionData[mois] = gross * taux;
             });
         }
 

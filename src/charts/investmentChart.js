@@ -4,6 +4,7 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { couleur } from './theme.js';
 
 /**
  * Crée le graphique d'évolution de l'investissement
@@ -52,13 +53,13 @@ export function createInvestmentChart(evolutionData, historiqueComplet = true) {
                 datasets: [{
                     label: 'Investissement cumulé',
                     data: data,
-                    borderColor: '#1d5fb0',
-                    backgroundColor: 'rgba(29, 95, 176, 0.08)',
+                    borderColor: couleur('--statut-financement'),
+                    backgroundColor: couleur('--graph-investissement-fond'),
                     borderWidth: 2,
                     fill: true,
                     tension: 0.25,
-                    pointBackgroundColor: '#1d5fb0',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: couleur('--statut-financement'),
+                    pointBorderColor: couleur('--surface'),
                     pointBorderWidth: 1.5,
                     // 37 gros points font une chenille : le repère suffit au survol
                     pointRadius: labels.length > 14 ? 0 : 4,

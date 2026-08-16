@@ -1529,8 +1529,8 @@ function createAlertesSection(property) {
     const recente = hasWarningInLastMonth(property);
     const classeAge = recente ? '' : ' est-ancienne';
     const nombre = property.warningsCount;
-    const pluriel = nombre > 1 ? 's' : '';
-    const mention = recente ? `récente${pluriel}` : `ancienne${pluriel}`;
+    const marque = pluriel(nombre);
+    const mention = recente ? `récente${marque}` : `ancienne${marque}`;
 
     const liste = property.warnings.map(w => {
         const date = new Date(w.date);
