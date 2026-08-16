@@ -257,8 +257,14 @@ async function chargerDemonstration() {
 
     } catch (err) {
         logger.error(LOG_CATEGORIES.EVENT, 'Demo portfolio unavailable', err);
-        showError(`Portefeuille de démonstration introuvable (${FICHIER_DEMO}).`
-            + ' Il se fabrique avec « npm run demo », et n\'est pas copié dans l\'image Docker.');
+        // Le cas courant n'est pas un fichier manquant mais un mauvais serveur :
+        // data/ reste sur la machine et n'entre pas dans l'image, donc « ?demo »
+        // ne répond pas derrière Docker. Le message nomme les deux causes et
+        // l'adresse où ça marche, plutôt que de laisser chercher.
+        showError(`Portefeuille de démonstration introuvable (${FICHIER_DEMO}). Il se fabrique`
+            + ' avec « npm run demo » et se regarde derrière « npm run serve », sur'
+            + ' http://127.0.0.1:8099/index.html?demo : le dossier data/ reste sur votre'
+            + ' machine et n\'entre pas dans l\'image Docker.');
         return false;
     }
 }

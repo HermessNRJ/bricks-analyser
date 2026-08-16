@@ -42,6 +42,12 @@ npm run serve   # puis http://127.0.0.1:8099/index.html?demo
 touché, et la page y revient dès que le paramètre disparaît. Un bandeau dit à l'écran que
 les chiffres sont inventés.
 
+**Sur le port 8099, pas sur 8080.** `data/` reste sur la machine et n'entre pas dans l'image
+Docker — c'est délibéré, elle n'a pas à emporter vos exports Bricks, et un jeu de
+démonstration figé au jour de la construction vieillirait à chaque mois qui passe. Derrière
+Docker, `?demo` répond donc par un message qui le dit, et le portefeuille enregistré reste
+affiché.
+
 Ce jeu fictif sert aux captures d'écran ; il est fabriqué au format brut de l'API puis
 passé par les vrais normaliseurs, donc il reste juste si ceux-ci changent. Voir
 [docs/captures](captures/README.md).
