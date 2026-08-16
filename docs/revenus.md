@@ -5,6 +5,8 @@ plusieurs lectures fiscales qui méritent une explication. Tout est ici.
 
 ## Attendu et perçu
 
+![Le graphique « Évolution des revenus nets » : le perçu en trait plein, l'attendu en pointillé à partir de septembre 2025, et l'écart du mois chiffré sous la courbe](captures/revenus.png)
+
 L'**attendu** se déduit des taux affichés : chaque projet détenu est supposé verser son
 coupon. C'est une espérance, utile pour les mois à venir.
 
@@ -21,6 +23,8 @@ Faute d'état de compte (cache d'une version antérieure), l'application retombe
 l'estimation et le dit à l'écran.
 
 ## Rendement annualisé
+
+![La bande « Rendement annualisé » : les cinq fenêtres — 1, 3, 6, 12 mois et depuis le début — chacune avec son taux net, son taux brut et les montants mensuels correspondants](captures/rendement.png)
 
 Le taux affiché par Bricks est **promis**, projet par projet. Celui-ci est **constaté** : ce
 qui est réellement tombé sur le compte, net de prélèvement et **hors capital remboursé**,
@@ -119,6 +123,8 @@ défaut.
 
 ## Carnet de versements
 
+![Le registre des propriétés : le bilan des versements du mois, la barre de filtres, puis deux rangées de fiches — cinq marquées « Versé », une « Rien reçu » avec sa bande de mois trouée](captures/registre.png)
+
 Chaque fiche dit ce que le projet a versé sur le dernier mois de l'état de compte :
 **Versé** (avec le montant), **Rien reçu** (avec le mois du dernier versement),
 **Pas encore** (projet en financement ou premier versement annoncé plus tard), **Soldé**
@@ -139,6 +145,8 @@ Le mois jugé est le dernier du relevé, pas celui de l'horloge — sans quoi un
 semaines mettrait tout le portefeuille en défaut d'un coup.
 
 ## Revenus par année
+
+![Le tableau des revenus par année : coupons, impôt prélevé, puis les colonnes teintées non prélevées à la source — impôt à venir, parrainage, solde boosté — le capital remboursé et les versements personnels](captures/revenus-annuels.png)
 
 Ventilation par année civile : coupons versés, impôt prélevé, parrainage et solde
 boosté.
@@ -179,6 +187,8 @@ déclare pas — c'est un mouvement de trésorerie, mis là parce que c'est le s
 les années se comparent. Elle vient du même journal, et se masque de même sans lui.
 
 ## D'où vient l'argent
+
+![Le graphique « D'où vient l'argent » : une barre par mois, vos versements en bleu, le parrainage en vert par-dessus, la moyenne mensuelle en pointillé](captures/origine-fonds.png)
 
 Le registre ne dit pas d'où vient l'argent : une brique achetée par virement et une brique
 achetée avec un coupon réinvesti se ressemblent exactement. Trois sources alimentent le
@@ -278,6 +288,8 @@ Changer la taille ramène à la première page : rester à la page 5 après êtr
 
 ### Période des courbes
 
+![Le sélecteur de période réglé sur « 12 derniers mois », et les deux graphiques en dessous — évolution de l'investissement et origine des fonds — cadrés sur la même fenêtre](captures/periode.png)
+
 Un réglage unique gouverne tous les graphiques datés — investissement, origine des fonds,
 revenus, arriérés, impôt. Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou
 mois de début et de fin au choix.
@@ -307,6 +319,8 @@ réellement. Au-delà, aucun projet ne commence à verser : répéter trois fois
 n'apprendrait rien, et la note dit à partir de quand il est stable.
 
 ## Simulateur
+
+![Le simulateur : les quatre hypothèses — apport, horizon, rendement, impayés — les quatre chiffres qui en découlent, et la courbe du capital investi et des revenus cumulés sur dix ans](captures/simulateur.png)
 
 Déroule mois par mois vos hypothèses d'apport, d'horizon, de rendement et d'impayés, avec
 ou sans réinvestissement. Les valeurs de départ sont celles de votre propre portefeuille.

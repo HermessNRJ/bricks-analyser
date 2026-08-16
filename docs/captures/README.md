@@ -37,6 +37,19 @@ redevient vierge.
 Fenêtre à **1360 px de large**, en clair. Les trois premières sont les plus utiles ; les
 autres viennent en complément si vous voulez étoffer la documentation.
 
+Le tableau de bord est centré et sa largeur plafonnée : au-delà de 1360 px, la capture
+gagne des marges vides qui écrasent le contenu une fois l'image réduite à la largeur du
+README. Recadrez-les, par exemple avec `sips --cropOffset 0 <gauche> -c <hauteur>
+<largeur> fichier.png`.
+
+Une capture d'écran sort deux à trois fois plus lourde qu'elle n'a besoin de l'être.
+Compressez-la avant de la committer — c'est sans perte, l'image reste pixel pour pixel la
+même, et elle restera dans l'historique pour toujours :
+
+```bash
+oxipng -o max --zopfli --strip safe docs/captures/*.png
+```
+
 | Fichier | Cadrage | Où l'insérer |
 | --- | --- | --- |
 | `vue-ensemble.png` | Du titre jusqu'au bas des tuiles de suivi des incidents — le mur, les huit chiffres clés, la bande de rendement, la répartition du risque | En tête du **README**, juste au-dessus de « Démarrer » |
@@ -56,8 +69,11 @@ juste.
 
 ## 3. Insérer une image
 
-Dans le README, les lignes sont déjà écrites en commentaire dans la section « Captures
-d'écran » : il suffit de les décommenter. Le chemin y est `docs/captures/registre.png`.
+Depuis le README, à la racine, le chemin passe par `docs/` :
+
+```markdown
+![Le registre des propriétés, avec le carnet de versements de chacune](docs/captures/registre.png)
+```
 
 Depuis un document de `docs/`, par exemple `revenus.md`, le chemin est relatif à ce
 dossier :
