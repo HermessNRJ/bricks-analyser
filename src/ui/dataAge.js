@@ -13,14 +13,25 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 const SEUIL_PERIME_JOURS = 14;
 
 /**
- * Nombre de jours entiers écoulés depuis une date
+ * Nombre de jours de calendrier écoulés depuis une date
+ *
+ * Des tranches de vingt-quatre heures ne conviennent pas : un relevé pris hier
+ * à 20 h 50 et consulté ce matin à 10 h en compte moins d'une, et s'annonçait
+ * donc « aujourd'hui à 20:50 » — une heure encore à venir. Ce sont les dates
+ * qui se comparent, minuit à minuit et en heure locale, celle qu'affiche le
+ * libellé.
+ *
  * @param {Date} date - Date de référence
  * @param {Date} [maintenant] - Instant de comparaison
  * @returns {number} Nombre de jours
  */
 export function joursDepuis(date, maintenant = new Date()) {
     const millisecondesParJour = 24 * 60 * 60 * 1000;
-    return Math.floor((maintenant.getTime() - date.getTime()) / millisecondesParJour);
+    const minuit = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+    // Arrondi et non troncature : les changements d'heure font des journées de
+    // 23 ou 25 heures, qui donneraient sinon un jour de moins deux fois l'an.
+    return Math.round((minuit(maintenant) - minuit(date)) / millisecondesParJour);
 }
 
 /**

@@ -53,7 +53,7 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
 ## Ce que ça montre
 
 * **Chiffres clés** — investissement, briques et propriétés actives, net perçu et
-  prélèvement retenu depuis le début, lus sur l'état de compte Bricks.
+  impôt prélevé depuis le début, lus sur l'état de compte Bricks.
 * **Perçu contre attendu** — ce qui est réellement tombé, face à ce que le portefeuille
   aurait dû verser. L'écart est le manque à gagner. → [Lire les chiffres](docs/revenus.md)
 * **Rendement annualisé** — ce que le capital rapporte vraiment, sur 1, 3, 6, 12 mois et
@@ -62,14 +62,18 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
   marque par mois sur treize mois, par propriété.
 * **Suivi des incidents** — défaut, impayé, contentieux, capital exposé, d'après le statut
   officiel de chaque projet. Cliquer sur une tuile filtre le registre.
-* **Revenus par année** — coupons, prélèvement retenu, impôt encore dû sur ce qui a été versé
-  brut, parrainage, solde boosté, capital rendu et versements personnels, par année civile.
+* **Revenus par année** — coupons, impôt prélevé, impôt encore dû sur ce qui a été versé
+  brut, parrainage, solde boosté, capital remboursé et versements personnels, par année civile.
 * **Origine des fonds** — ce que vous avez déposé, ce que le parrainage et le solde boosté
   ont ajouté, et la part du portefeuille qui vient de votre poche.
-* **Graphiques** — investissement, revenus, impôt, répartition, portefeuille en surface,
-  avec une période réglable commune aux trois courbes datées.
+* **Ce qui ne vous est pas parvenu** — les coupons que les échéances impayées n'ont pas
+  versés et les pénalités de retard, cumulés mois par mois. Une échéance rattrapée quitte
+  la courbe. → [Lire les chiffres](docs/revenus.md#ce-qui-ne-vous-est-pas-parvenu)
+* **Graphiques** — investissement, revenus, arriérés, impôt, répartition, portefeuille en
+  surface, avec une période réglable commune aux courbes datées.
 * **Registre des propriétés** — adresse, briques, rendement, alertes datées, fiche
-  cliquable vers Bricks. 24 par page, avec recherche libre, tri, et filtres par statut,
+  cliquable vers Bricks. 24, 48, 96 fiches par page ou tout d'un bloc, avec recherche
+  libre, tri, et filtres par statut,
   alerte, pays et versement, rappelés en puces et remisables à zéro.
 * **Simulateur** — apport, horizon, rendement, impayés, réinvestissement. Une calculette,
   pas une prévision.

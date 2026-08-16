@@ -10,7 +10,7 @@ import {
 } from '../business/forecast.js';
 import { moyenneVersements } from '../business/apports.js';
 import { createForecastChart } from '../charts/forecastChart.js';
-import { formatCurrency, formatPercentage } from '../utils/formatters.js';
+import { formatCurrency, formatNumber, formatPercentage } from '../utils/formatters.js';
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
@@ -65,6 +65,42 @@ function tuile(valeur, libelle, detail = '') {
 }
 
 /**
+ * Confronte le revenu du dernier mois simulé à celui d'aujourd'hui
+ *
+ * Deux montants côte à côte laissent le facteur à calculer de tête, et c'est
+ * pourtant lui qu'on vient chercher : « 207 € contre 42 € » ne dit pas
+ * spontanément qu'il s'agit d'un quintuplement. Au-delà d'un doublement le
+ * multiple parle mieux qu'un pourcentage — « +389 % » se convertit mal.
+ *
+ * @param {Object} resultat - Résultat de simulerProjection
+ * @param {Object} hypotheses - Hypothèses saisies
+ * @returns {string} Détail de la tuile
+ */
+function revenuFinalContreAujourdhui(resultat, hypotheses) {
+    const aujourdhui = resultat.capitalInitial
+        * (hypotheses.tauxAnnuelBrut / 100 / 12)
+        * (1 - hypotheses.tauxImpaye / 100)
+        * (1 - CONFIG.TAX_RATE);
+
+    const depart = `contre ${formatCurrency(aujourdhui)} aujourd'hui`;
+
+    // Sans capital de départ il n'y a pas de rapport à établir : tout part de zéro
+    if (!(aujourdhui > 0) || !(resultat.revenuNetMensuelFinal > 0)) {
+        return depart;
+    }
+
+    const facteur = resultat.revenuNetMensuelFinal / aujourdhui;
+
+    if (facteur >= 2) {
+        return `${depart}, soit ${formatNumber(facteur, 1)} fois plus`;
+    }
+
+    const evolution = (facteur - 1) * 100;
+
+    return `${depart}, soit ${evolution >= 0 ? '+' : ''}${formatPercentage(evolution)}`;
+}
+
+/**
  * Relance la simulation et rafraîchit l'affichage
  */
 function rejouer() {
@@ -88,7 +124,7 @@ function rejouer() {
         tuile(
             formatCurrency(resultat.revenuNetMensuelFinal),
             'Revenus nets le dernier mois',
-            `contre ${formatCurrency(resultat.capitalInitial * (hypotheses.tauxAnnuelBrut / 100 / 12) * (1 - hypotheses.tauxImpaye / 100) * (1 - CONFIG.TAX_RATE))} aujourd'hui`
+            revenuFinalContreAujourdhui(resultat, hypotheses)
         ),
         tuile(
             formatCurrency(resultat.cumulNet, 0),

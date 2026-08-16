@@ -71,7 +71,7 @@ export function createTaxChart(taxData, { reel = false } = {}) {
                 labels: labels,
                 datasets: [{
                     label: reel
-                        ? 'Prélèvement retenu par Bricks (€)'
+                        ? 'Impôt prélevé par Bricks (€)'
                         : `Montant de l'impôt (est. ${formatPercentage(CONFIG.TAX_RATE * 100)})`,
                     data: data,
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',

@@ -59,6 +59,28 @@ const fixture = {
     warnings: [
         { propertyId: 'proj-1', date: '2024-06-01', description: '<p>Retard&nbsp;de travaux</p>' }
     ],
+    // Suivi officiel de proj-1 : deux échéances jamais versées, précédées d'une
+    // régularisée. Celle-ci ne doit plus son coupon mais doit encore sa pénalité,
+    // recouvrée auprès de l'emprunteur et pas encore reversée — c'est le cas qui
+    // sépare les deux courbes des arriérés.
+    statuts: {
+        'proj-1': {
+            id: 'proj-1',
+            suivi: true,
+            statut: 'defaulted',
+            impayees: 2,
+            penalites: 8000,
+            briquesProjet: 100000,
+            premiereEcheanceImpayee: '2024-05-20',
+            derniereEcheanceImpayee: '2024-06-20',
+            contentieux: false,
+            echeances: [
+                { mois: '2024-04', statut: 'regularized', penalitesProjet: 8000 },
+                { mois: '2024-05', statut: 'unpaid', penalitesProjet: 0 },
+                { mois: '2024-06', statut: 'unpaid', penalitesProjet: 0 }
+            ]
+        }
+    },
     // État de compte réduit : proj-1 verse tous les mois, proj-2 s'est tu en juin,
     // proj-xss n'a jamais rien versé. De quoi voir les trois pastilles à l'écran.
     revenus: {
@@ -151,6 +173,26 @@ const snapshot = await page.evaluate(() => ({
             .find(c => c.canvas.id === 'origineFondsChart');
         return chart?.data.labels.length ?? 0;
     })(),
+    // Les arriérés : les deux courbes, et la barre du total que dresse le plugin
+    arrieresAffiche: document.getElementById('arrieresContainer').style.display !== 'none',
+    arrieresNote: document.getElementById('arrieresNote').textContent.trim(),
+    arrieresCourbes: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'arrieresChart');
+        return chart
+            ? chart.data.datasets.map(d => ({ label: d.label, fin: d.data[d.data.length - 1] }))
+            : [];
+    })(),
+    arrieresRepere: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'arrieresChart');
+        return chart?.options.plugins.repereTotal ?? null;
+    })(),
+    arrieresDernierMois: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'arrieresChart');
+        return chart?.data.labels.at(-1) ?? null;
+    })(),
     detailInvestissement: document.getElementById('detailInvestissement').textContent.trim(),
     colonneApportCachee: document.querySelector('th.colonne-apport').classList.contains('hidden'),
     apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
@@ -165,8 +207,8 @@ check('l\'investissement total est correct', /700/.test(snapshot.totalInvestment
 // ne commence à verser, répéter le même chiffre trois fois n'apprendrait rien.
 check('les projections s\'arrêtent au dernier changement de montant',
     snapshot.projectionCount >= 1 && snapshot.projectionCount <= 4, `${snapshot.projectionCount} mois`);
-check('la note dit à partir de quand le montant est stable',
-    /stable/i.test(snapshot.projectionNote), snapshot.projectionNote);
+check('la note dit pourquoi la série s\'arrête là',
+    /ne bouge plus ensuite/.test(snapshot.projectionNote), snapshot.projectionNote);
 check('le filtre pays détecte le Portugal', snapshot.countries.includes('Portugal'), snapshot.countries.join(','));
 check('la description du warning est nettoyée et affichée', snapshot.warningRendered);
 check('aucun HTML de l\'API n\'est exécuté', !snapshot.xssExecuted && snapshot.injectedNodes === 0);
@@ -223,6 +265,34 @@ check('la correspondance se confronte au constaté',
     /le constaté/.test(snapshot.correspondanceRendement), snapshot.correspondanceRendement);
 check('le repère ne dit pas « sur depuis le début »',
     !/sur depuis/.test(snapshot.repereRendement), snapshot.repereRendement);
+check('le graphique des arriérés est dessiné', snapshot.arrieresAffiche
+    && snapshot.arrieresCourbes.length === 2, JSON.stringify(snapshot.arrieresCourbes));
+// Trois échéances au dossier, mais la régularisée a fini par verser son coupon :
+// deux coupons manqués à 1,98 €, pas trois. C'est la règle que le graphique
+// existe pour montrer — ce qui arrive sort de la courbe.
+check('le coupon d\'une échéance régularisée quitte la courbe',
+    Math.abs(snapshot.arrieresCourbes[0]?.fin - 3.96) < 0.02,
+    `${snapshot.arrieresCourbes[0]?.fin} € de coupons`);
+// Sa pénalité, elle, reste due : recouvrée auprès de l'emprunteur n'est pas
+// encore arrivée chez l'obligataire. 8 000 € pour 100 000 briques, 25 détenues.
+check('la pénalité d\'une régularisée reste due',
+    Math.abs(snapshot.arrieresCourbes[1]?.fin - 2) < 0.02,
+    `${snapshot.arrieresCourbes[1]?.fin} € de pénalités`);
+// La barre se dresse sur les mois DESSINÉS : la lire ailleurs qu'au bout des
+// courbes annoncerait un total qu'elles n'atteignent jamais.
+check('la barre du total additionne les deux courbes',
+    Math.abs((snapshot.arrieresRepere?.coupons + snapshot.arrieresRepere?.penalites)
+        - (snapshot.arrieresCourbes[0]?.fin + snapshot.arrieresCourbes[1]?.fin)) < 0.01,
+    JSON.stringify(snapshot.arrieresRepere));
+// Un trou creusé en 2024 est toujours ouvert aujourd'hui : une courbe qui
+// s'arrêterait à la dernière échéance laisserait croire l'inverse.
+check('la courbe court jusqu\'au mois courant',
+    snapshot.arrieresDernierMois === new Date().toISOString().slice(0, 7),
+    snapshot.arrieresDernierMois);
+// Projet français : le prélèvement mordra sur ce qui finira par arriver
+check('la note chiffre ce que le prélèvement laisserait',
+    /le prélèvement en laisserait/.test(snapshot.arrieresNote), snapshot.arrieresNote);
+
 // Aucune part n'est annoncée : ce serait comparer un flux — tout ce qui est
 // entré depuis l'ouverture — à l'état du capital encore engagé aujourd'hui.
 check('la tuile du capital dit ce qui a été versé depuis l\'ouverture',
@@ -294,6 +364,10 @@ await page.selectOption('#propertyVersementFilter', 'all');
 await page.selectOption('#propertySortBy', 'bricks-desc');
 const firstCard = await page.locator('#propertiesList .property-name').first().textContent();
 check('le tri par briques place Porto en tête', firstCard.includes('Porto'), firstCard.trim());
+
+// Trois fiches tiennent sur une page : ni onglets ni réglage de taille à montrer
+check('la pagination se tait quand tout tient sur une page',
+    await page.locator('#pagination').evaluate(n => n.classList.contains('hidden')));
 
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));

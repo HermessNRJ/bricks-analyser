@@ -11,6 +11,13 @@ describe('joursDepuis', () => {
     it('ne compte pas une journée entamée', () => {
         expect(joursDepuis(new Date('2024-06-15T01:00:00Z'), LE_15_JUIN)).toBe(0);
     });
+
+    it('compte le passage de minuit, pas les vingt-quatre heures', () => {
+        // Quatorze heures séparent les deux instants, mais ils tombent de part
+        // et d'autre de minuit : c'était hier. Compté en tranches de 24 h, un
+        // relevé de la veille à 20 h 50 s'annonçait « aujourd'hui à 20:50 ».
+        expect(joursDepuis(new Date('2024-06-14T20:50:00'), new Date('2024-06-15T10:46:00'))).toBe(1);
+    });
 });
 
 describe('decrireAge', () => {
@@ -27,6 +34,14 @@ describe('decrireAge', () => {
 
     it('dit « hier » au singulier', () => {
         expect(decrireAge('2024-06-14T09:00:00Z', LE_15_JUIN).texte).toContain('hier à ');
+    });
+
+    it('dit « hier » pour un relevé de la veille au soir', () => {
+        // Le cas qui se lisait « aujourd'hui à 20:50 » un matin à 10 h 46
+        const age = decrireAge('2024-06-14T20:50:00', new Date('2024-06-15T10:46:00'));
+
+        expect(age.texte).toContain('hier à ');
+        expect(age.texte).not.toContain("aujourd'hui");
     });
 
     it('compte les jours au-delà', () => {

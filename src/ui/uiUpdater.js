@@ -12,8 +12,21 @@ import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
 import { ETATS, carnetVersements } from '../business/versements.js';
 import { netApresRetenue } from '../business/fiscalite.js';
 
-// Nombre de fiches par page : 241 fiches d'un bloc donnaient une page de 80 000 px
-const TAILLE_PAGE = 24;
+/**
+ * Nombres de fiches par page proposés
+ *
+ * 24 par défaut : 241 fiches d'un bloc donnaient une page de 80 000 px. Le
+ * choix reste ouvert parce que la bonne taille dépend de ce qu'on cherche —
+ * feuilleter demande des pages courtes, chercher à l'œil demande tout d'un
+ * coup. `Infinity` est la valeur de « Tout », et non un cas particulier à
+ * tester partout : elle traverse `slice` et `Math.ceil` sans rien casser.
+ */
+export const TAILLES_PAGE = [24, 48, 96, Infinity];
+
+const TAILLE_PAGE_DEFAUT = 24;
+const CLE_TAILLE_PAGE = 'registreTaillePage';
+
+let taillePage = lireTaillePage();
 
 // Stocker les propriétés pour le tri/filtrage
 let allProperties = [];
@@ -32,6 +45,63 @@ let versementsParPropriete = null;
 let moisVersements = null;
 
 /**
+ * Relit la taille de page enregistrée
+ * @returns {number} Taille valide, celle par défaut sinon
+ */
+function lireTaillePage() {
+    try {
+        const brut = localStorage.getItem(CLE_TAILLE_PAGE);
+
+        // « Tout » se sérialise en `null` par JSON : Infinity n'a pas de
+        // représentation. Le mot est donc écrit tel quel.
+        if (brut === 'all') {
+            return Infinity;
+        }
+
+        const valeur = Number(brut);
+        return TAILLES_PAGE.includes(valeur) ? valeur : TAILLE_PAGE_DEFAUT;
+    } catch {
+        return TAILLE_PAGE_DEFAUT;
+    }
+}
+
+/**
+ * Change le nombre de fiches par page et revient au début du registre
+ *
+ * Rester à la page 5 après être passé de 24 à 96 fiches ferait sauter par-dessus
+ * les trois quarts de la liste sans qu'on l'ait demandé.
+ *
+ * @param {number|string} valeur - Taille, ou 'all' pour tout afficher
+ */
+export function setTaillePage(valeur) {
+    const taille = valeur === 'all' || valeur === Infinity ? Infinity : Number(valeur);
+
+    if (!TAILLES_PAGE.includes(taille)) {
+        return;
+    }
+
+    taillePage = taille;
+    currentPage = 1;
+
+    try {
+        localStorage.setItem(CLE_TAILLE_PAGE, Number.isFinite(taille) ? String(taille) : 'all');
+    } catch {
+        // Préférence d'affichage : son échec ne doit rien interrompre
+    }
+
+    logger.debug(LOG_CATEGORIES.UI, 'Registry page size changed', { taillePage });
+    updatePropertyList(allProperties);
+}
+
+/**
+ * Renvoie le nombre de fiches par page en vigueur
+ * @returns {number} Taille courante, Infinity si tout est affiché
+ */
+export function taillePageCourante() {
+    return taillePage;
+}
+
+/**
  * Libellés des filtres, pour les puces de rappel
  * La clé 'all' n'apparaît jamais : c'est l'état neutre.
  */
@@ -43,7 +113,7 @@ const LIBELLES_FILTRES = {
     warningFilter: {
         'warning-current-month': 'Alerte ce mois-ci',
         'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
-        'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'Impayé ou retard',
+        'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'En retard, défaut non déclaré',
         'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
         'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
     },
@@ -257,7 +327,7 @@ export function focusProperty(propertyId) {
     // Retrouver sa position dans la liste triée pour ouvrir la bonne page
     const ordonnees = sortProperties(filterProperties(allProperties), currentSortBy);
     const position = ordonnees.findIndex(p => p.id === propertyId);
-    currentPage = position >= 0 ? Math.floor(position / TAILLE_PAGE) + 1 : 1;
+    currentPage = position >= 0 ? Math.floor(position / taillePage) + 1 : 1;
 
     updatePropertyList(allProperties);
 
@@ -502,25 +572,22 @@ function resumeRendement(fenetres, dernierMois) {
  */
 function noteRendement(rendements) {
     const phrases = [
-        'Ce qui est réellement tombé sur le compte, hors capital rendu, rapporté au'
-        + ' capital placé pour le gagner et ramené à l\'année. Le grand chiffre est net'
-        + ' de prélèvement ; la ligne au-dessous donne le même mois en brut, avant'
-        + ' impôt. Le mois en cours compte dès que Bricks a versé, vers le 8 ; avant'
-        + ' cela, il est écarté pour ne pas faire plonger toutes les fenêtres.'
+        'Ce qui est réellement tombé sur le compte, hors capital remboursé, rapporté au'
+        + ' capital placé pour le gagner et ramené à l\'année. Le grand chiffre est net,'
+        + ' la ligne au-dessous le brut. Le mois en cours n\'entre qu\'une fois Bricks'
+        + ' passé, vers le 8.'
     ];
 
     // Le simulateur, plus bas, part du taux ANNONCÉ par Bricks. Deux pourcentages
     // qui prétendent tous deux dire « ce que rapporte votre portefeuille » sans
     // qu'on sache lequel croire : la note fait le pont, en brut, puisque c'est en
-    // brut que le simulateur se saisit.
+    // brut que le simulateur se saisit. Le net promis a disparu de la phrase :
+    // elle renvoie à la ligne brute des tuiles, et donnait donc le pont deux fois.
     if (rendements.tauxPromis) {
-        const net = rendements.tauxPromis * (1 - CONFIG.TAX_RATE);
-        phrases.push(`Bricks annonce ${formatPercentage(rendements.tauxPromis)} brut en moyenne`
-            + ` sur vos projets, soit ${formatPercentage(net)} net au barème actuel — c'est une`
-            + ' promesse, calculée sur les seuls projets encore détenus. Comparez-la à la ligne'
-            + ' brute des tuiles : le constaté passe dessous à cause des échéances non versées'
-            + ' et des mois où le capital attend, et peut repasser dessus grâce au parrainage et'
-            + ' au solde boosté, qui ne viennent d\'aucune propriété.');
+        phrases.push(`Bricks annonce ${formatPercentage(rendements.tauxPromis)} brut sur vos`
+            + ' projets encore détenus : une promesse. Comparez-la à la ligne brute des tuiles —'
+            + ' le constaté passe dessous quand des échéances manquent ou que le capital attend,'
+            + ' dessus quand le parrainage et le solde boosté s\'en mêlent.');
     }
 
     if (!rendements.journalLu) {
@@ -571,13 +638,16 @@ function majDetailRevenus(results) {
  * la tuile gonflait le « net perçu » de tout ce qui n'était que la mise qui
  * revient — et sur un portefeuille réel, de 237 € sur 967 €.
  *
+ * « écartés » seul ne disait pas d'où : on lisait un retrait subi plutôt qu'une
+ * somme laissée hors du compte parce qu'elle n'est pas un gain.
+ *
  * @param {Object} results - Résultats des calculs
  */
 function majDetailNetCumule(results) {
     const capital = results.revenusReels?.capitalDansCoupons || 0;
 
     setDetail('detailNetCumule', capital > 0
-        ? `${formatCurrency(capital, 0)} de capital rendu écartés`
+        ? `hors ${formatCurrency(capital, 0)} de capital remboursé, qui n'est pas un gain`
         : '');
 }
 
@@ -683,11 +753,12 @@ function updatePropertyList(properties) {
     const triees = sortProperties(filtrees, currentSortBy);
 
     // Une page vidée par un changement de filtre doit reculer, pas rester vide
-    const nbPages = Math.max(1, Math.ceil(triees.length / TAILLE_PAGE));
+    const nbPages = Math.max(1, Math.ceil(triees.length / taillePage));
     currentPage = Math.min(Math.max(1, currentPage), nbPages);
 
-    const debut = (currentPage - 1) * TAILLE_PAGE;
-    const page = triees.slice(debut, debut + TAILLE_PAGE);
+    // (1 - 1) × Infinity vaut NaN : avec « Tout », le début se pose à la main
+    const debut = Number.isFinite(taillePage) ? (currentPage - 1) * taillePage : 0;
+    const page = triees.slice(debut, debut + taillePage);
 
     if (countElement) {
         countElement.textContent = triees.length;
@@ -713,7 +784,7 @@ function updatePropertyList(properties) {
 
     attachPropertyCardListener(container);
     renderFiltresActifs();
-    renderPagination(triees.length, nbPages, debut, page.length);
+    renderPagination(triees.length, nbPages);
     highlightCible(container);
 
     logger.debug(LOG_CATEGORIES.UI, 'Property list updated', {
@@ -874,31 +945,102 @@ function syncControls() {
 }
 
 /**
+ * Nombre de pages affichées de part et d'autre de la page courante
+ * Au-delà, un signe de troncature remplace la suite.
+ */
+const PAGES_VOISINES = 1;
+
+/** En deçà, toutes les pages tiennent sans troncature */
+const PAGES_SANS_TRONCATURE = 9;
+
+/**
+ * Choisit les pages à montrer, et où couper
+ *
+ * Vingt-quatre onglets alignés ne se lisent plus : la première, la dernière et
+ * les voisines de la courante suffisent à situer où l'on est et à revenir aux
+ * extrémités. Le reste se parcourt par « Précédent » et « Suivant ».
+ *
+ * @param {number} nbPages - Nombre total de pages
+ * @param {number} courante - Page affichée
+ * @returns {Array<number|null>} Numéros de page, null pour une coupure
+ */
+export function pagesAffichees(nbPages, courante) {
+    if (nbPages <= PAGES_SANS_TRONCATURE) {
+        return Array.from({ length: nbPages }, (_, i) => i + 1);
+    }
+
+    const retenues = new Set([1, nbPages]);
+
+    for (let p = courante - PAGES_VOISINES; p <= courante + PAGES_VOISINES; p++) {
+        if (p >= 1 && p <= nbPages) {
+            retenues.add(p);
+        }
+    }
+
+    const triees = [...retenues].sort((a, b) => a - b);
+    const avecCoupures = [];
+
+    triees.forEach((page, rang) => {
+        // Une coupure ne vaut que pour au moins deux pages sautées : mise pour
+        // une seule, elle occuperait la place de la page qu'elle cache.
+        if (rang > 0 && page - triees[rang - 1] > 1) {
+            avecCoupures.push(null);
+        }
+        avecCoupures.push(page);
+    });
+
+    return avecCoupures;
+}
+
+/**
  * Affiche la pagination
+ *
+ * Les onglets portent la PLAGE de fiches qu'ils ouvrent, non un numéro de page.
+ * Le registre est trié — par investissement, par nom, par rendement — et « 3 »
+ * ne dit alors rien de ce qu'on y trouvera, quand « 49–72 » situe d'emblée dans
+ * l'ordre choisi. C'est aussi ce que l'indicateur disait déjà en toutes lettres.
+ *
  * @param {number} total - Nombre de propriétés filtrées
  * @param {number} nbPages - Nombre de pages
- * @param {number} debut - Index de départ de la page courante
- * @param {number} affichees - Nombre de fiches sur la page
  */
-function renderPagination(total, nbPages, debut, affichees) {
+function renderPagination(total, nbPages) {
     const nav = document.getElementById('pagination');
-    const indicateur = document.getElementById('pageIndicator');
+    const onglets = document.getElementById('pageTabs');
     const precedent = document.getElementById('prevPage');
     const suivant = document.getElementById('nextPage');
 
-    if (!nav || !indicateur || !precedent || !suivant) {
+    if (!nav || !onglets || !precedent || !suivant) {
         return;
     }
 
-    if (total <= TAILLE_PAGE) {
-        nav.classList.add('hidden');
+    // Une seule page, mais le choix de la taille doit rester atteignable :
+    // sans lui, un registre réglé sur « Tout » n'aurait plus de quoi revenir.
+    if (nbPages <= 1 && taillePage >= total) {
+        nav.classList.toggle('hidden', total <= TAILLES_PAGE[0]);
+        onglets.innerHTML = '';
+        precedent.disabled = true;
+        suivant.disabled = true;
         return;
     }
 
     nav.classList.remove('hidden');
-    indicateur.textContent = `${debut + 1}–${debut + affichees} sur ${total}`;
     precedent.disabled = currentPage <= 1;
     suivant.disabled = currentPage >= nbPages;
+
+    onglets.innerHTML = pagesAffichees(nbPages, currentPage).map(page => {
+        if (page === null) {
+            return '<span class="pagination-coupure" aria-hidden="true">…</span>';
+        }
+
+        const premier = (page - 1) * taillePage + 1;
+        const dernier = Math.min(page * taillePage, total);
+        const plage = premier === dernier ? `${premier}` : `${premier}–${dernier}`;
+        const courante = page === currentPage;
+
+        return `<button type="button" class="pagination-onglet" data-page="${page}"
+            ${courante ? 'aria-current="page"' : ''}
+            aria-label="Propriétés ${plage}">${plage}</button>`;
+    }).join('');
 }
 
 /**
@@ -906,7 +1048,19 @@ function renderPagination(total, nbPages, debut, affichees) {
  * @param {number} delta - -1 pour reculer, +1 pour avancer
  */
 export function changePage(delta) {
-    currentPage += delta;
+    allerALaPage(currentPage + delta);
+}
+
+/**
+ * Ouvre une page du registre
+ * @param {number} page - Numéro de page, borné à l'affichage
+ */
+export function allerALaPage(page) {
+    if (!Number.isFinite(page)) {
+        return;
+    }
+
+    currentPage = page;
     idCible = null;
     updatePropertyList(allProperties);
 
@@ -1688,10 +1842,11 @@ function updateProjections(netRevenueData) {
 
     const note = document.getElementById('projectionsNote');
     if (note) {
-        const moisStable = addMonthsToYYYYMM(currentMonth, dernierChangement);
-        note.textContent = dernierChangement === 0
-            ? 'Versés autour du 8 du mois. Aucun nouveau projet ne commence à verser dans les mois à venir : le montant reste stable.'
-            : `Versés autour du 8 du mois. Stable à partir ${deMois(moisStable)}, aucun autre projet ne commence à verser ensuite.`;
+        // La série s'arrête au dernier mois qui change de montant : la note dit
+        // pourquoi elle s'arrête là, sans renommer un mois déjà écrit sur la
+        // dernière tuile.
+        note.textContent = 'Versés autour du 8 du mois. Le montant ne bouge plus ensuite :'
+            + ' aucun autre projet ne commence à verser.';
     }
 
     logger.debug(LOG_CATEGORIES.UI, 'Projections updated', { moisAffiches: cards.length });

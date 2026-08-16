@@ -7,6 +7,7 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { addMonthsToYYYYMM, generateMonthRange, getCurrentMonthYYYYMM, calculateRefundDate, isValidYYYYMM } from '../utils/dateHelpers.js';
 import { detectCountryFromProject } from '../utils/countryHelpers.js';
 import { repartitionRisque, niveauRisque, arrieresInvestisseur } from './riskAnalysis.js';
+import { serieArrieres } from './arrieres.js';
 import { serieMensuelle, moisEncoreOuvert } from './revenueHistory.js';
 import { annoterVersements } from './versements.js';
 import { serieOrigineFonds } from './apports.js';
@@ -462,6 +463,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         partRemboursees,
         partFinancement,
         risque: repartitionRisque(properties, statuts),
+        arrieres: serieArrieres(properties),
         versements,
         rendements,
         origineFonds,

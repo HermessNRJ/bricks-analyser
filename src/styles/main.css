@@ -1339,11 +1339,80 @@ details.alertes > summary:hover {
     border-top: var(--rule-width) solid var(--rule);
     font-size: 0.85rem;
     color: var(--ink-muted);
+    flex-wrap: wrap;
 }
 
-.pagination-position {
+/* Les onglets d'un registre : la plage se lit en chasse fixe comme tous les
+   nombres de l'application, et c'est un filet sous l'onglet courant qui marque
+   la page ouverte. Une pastille pleine aurait pris une couleur, réservée ici à
+   l'argent et au risque. */
+.pagination-onglets {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2px;
+}
+
+.pagination-onglet {
     font-family: var(--font-data);
     font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 4px 9px 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pagination-onglet:hover {
+    color: var(--ink);
+    border-bottom-color: var(--rule-strong);
+}
+
+.pagination-onglet[aria-current="page"] {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    cursor: default;
+}
+
+.pagination-coupure {
+    font-family: var(--font-data);
+    color: var(--ink-faint);
+    padding: 4px 2px 5px;
+    align-self: center;
+}
+
+.pagination-taille {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.pagination-taille select {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+    /* Les deux boutons encadrent les onglets sur une ligne à eux : empilés
+       dans le flux, ils se retrouvaient de part et d'autre d'une plage isolée. */
+    .pagination {
+        gap: 10px;
+    }
+
+    .pagination-onglets {
+        order: -1;
+        width: 100%;
+    }
+
+    .pagination-taille {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 /* --------------------------------------------------------------------------

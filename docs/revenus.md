@@ -23,7 +23,7 @@ l'estimation et le dit à l'écran.
 ## Rendement annualisé
 
 Le taux affiché par Bricks est **promis**, projet par projet. Celui-ci est **constaté** : ce
-qui est réellement tombé sur le compte, net de prélèvement et **hors capital rendu**,
+qui est réellement tombé sur le compte, net de prélèvement et **hors capital remboursé**,
 rapporté au capital placé pour le gagner et ramené à l'année.
 
 Cinq fenêtres — 1, 3, 6, 12 mois et depuis le début — parce qu'un chiffre unique ne dit pas
@@ -51,7 +51,7 @@ capital réellement placé est donc reconstruit mois par mois.
 
 L'évolution de l'investissement n'y suffit pas. Un projet remboursé vaut zéro euro
 aujourd'hui, et pèse donc zéro sur toute la série — y compris sur les mois où il était
-détenu et versait. Le capital rendu depuis, lu dans le journal des mouvements, est réinjecté
+détenu et versait. Le capital remboursé depuis, lu dans le journal des mouvements, est réinjecté
 pour combler ce trou. Sans le journal, les fenêtres longues sont flattées, et l'écran le dit.
 
 Il n'est pas réinjecté tel quel : le capital restant à rendre comprend des projets achetés
@@ -93,7 +93,7 @@ Deux garde-fous : les intérêts ne peuvent pas dépasser la ligne de coupons, e
 le moindre prélèvement garde ses coupons entiers, faute de preuve qu'il s'y cache du capital.
 
 Au survol d'une fenêtre : le montant, le capital moyen, la part venue du parrainage et du
-solde boosté, le capital rendu écarté, et le taux avant prélèvement.
+solde boosté, le capital remboursé écarté, et le taux avant prélèvement.
 
 ### Pourquoi ce taux diffère de celui du simulateur
 
@@ -113,9 +113,9 @@ côte à côte, pour qu'aucun des deux ne passe pour l'autre.
 En tête du registre : le mois jugé, et le décompte des propriétés versées, muettes et pas
 encore dues.
 
-Bricks règle autour du 8. Sur un relevé récupéré plus tôt dans le mois, les versements
-absents sont peut-être encore en route plutôt qu'en défaut — la réserve est écrite à
-l'écran.
+Bricks règle autour du 8, ce que rappelle la ligne sous le décompte. Sur un relevé récupéré
+plus tôt dans le mois, les versements absents sont peut-être encore en route plutôt qu'en
+défaut.
 
 ## Carnet de versements
 
@@ -140,7 +140,7 @@ semaines mettrait tout le portefeuille en défaut d'un coup.
 
 ## Revenus par année
 
-Ventilation par année civile : coupons versés, prélèvement retenu, parrainage et solde
+Ventilation par année civile : coupons versés, impôt prélevé, parrainage et solde
 boosté.
 
 Bricks ne prélève **que sur les coupons**. Le parrainage et le solde boosté — ces centimes
@@ -152,7 +152,7 @@ La colonne des coupons mêle intérêts et remboursements de capital, d'où un p
 effectif inférieur au barème (22 % en 2024, 25 % en 2026 pour un barème à 30 puis 31,4 %).
 Elle ne vaut donc pas montant imposable : **l'IFU transmis par Bricks reste la référence**.
 
-Le **capital rendu** a sa propre colonne, lue dans le journal des mouvements
+Le **capital remboursé** a sa propre colonne, lue dans le journal des mouvements
 (`/wallet-transactions`). C'est la mise qui revient, pas un gain — et l'état de compte la
 range pourtant avec les coupons : en juin 2026, Villa Gypsea y figure pour 34,67 € quand
 son coupon mensuel vaut 4,33 €. La colonne reste masquée tant que le journal n'a pas été
@@ -194,6 +194,46 @@ La tuile **Investissement total** porte la même lecture en un chiffre : *dont X
 poche*. Si l'investissement dépasse ce qui a été déposé, la différence ne peut venir que
 des gains remis au travail — l'argent n'a pas d'autre porte d'entrée.
 
+## Ce qui ne vous est pas parvenu
+
+Les tuiles d'incident disent combien de projets vont mal ; les fiches disent ce que chacun
+vous doit aujourd'hui. Ni les unes ni les autres ne disent depuis **quand**, ni si le trou
+se creuse ou se rebouche. Ce graphique cumule les deux dettes, mois par mois.
+
+Elles sont distinctes, et la nuance décide de ce qui reste sur la courbe :
+
+| Statut de l'échéance | Coupon | Pénalité |
+| --- | --- | --- |
+| `unpaid` — jamais versée | dû | due |
+| `pending_penalties` — versée en retard | reçu, sort de la courbe | due |
+| `regularized` — rattrapée | reçu, sort de la courbe | recouvrée, **pas encore reversée** |
+| `paid` — soldée | rien | rien |
+
+Une pénalité régularisée reste donc affichée. Bricks la range en
+`recovered_awaiting_distribution` : l'emprunteur a payé, l'obligataire n'a pas encore reçu,
+et le graphique répond à la question « qu'est-ce qui ne m'est pas parvenu », pas « qu'est-ce
+qui n'a pas été recouvré ». Vérifié sur les quatre projets en défaut du portefeuille : les
+pénalités des échéances impayées reconstituent au centime le `pending_recovery` du résumé,
+celles des régularisées le `recovered_awaiting_distribution`.
+
+Comme la série se reconstruit à chaque lecture des statuts, une régularisation ne se
+retranche pas : la ligne cesse d'avoir jamais existé, et le cumul du mois où elle tombait
+redescend — toute la courbe avec lui.
+
+La **barre verticale** au dernier mois porte la somme des deux courbes. Ses deux segments
+reprennent leurs couleurs : le premier s'arrête où finit la courbe des coupons, le second
+ajoute les pénalités. Elle se calcule sur les mois **dessinés**, et suit donc la période
+choisie.
+
+Les montants sont **bruts** — c'est ce que les projets doivent. La note chiffre ce que le
+prélèvement en laisserait sur le compte, projet français par projet français.
+
+Le coupon manqué se déduit du projet au taux annoncé, jamais du montant porté par
+l'échéance : celui-ci est la dette de l'emprunteur, échéancier et commission de plateforme
+compris. Les pénalités, elles, sont à l'échelle du projet entier et se ramènent au prorata
+des briques détenues. Sans le nombre total de briques — que les statuts mis en cache par
+une version antérieure ne portent pas — elles sont tues plutôt qu'estimées.
+
 ## Les graphiques
 
 * **Évolution de l'investissement** — la croissance du capital engagé au fil du temps.
@@ -204,6 +244,8 @@ des gains remis au travail — l'argent n'a pas d'autre porte d'entrée.
 * **Impôt mensuel prélevé** — le prélèvement effectivement retenu par Bricks. À défaut
   d'état de compte, l'estimation au taux en vigueur (30 % jusqu'en décembre 2025, 31,4 %
   ensuite, chaque mois au taux de son époque).
+* **Ce qui ne vous est pas parvenu** — [les deux dettes cumulées](#ce-qui-ne-vous-est-pas-parvenu)
+  des projets en retard, coupons manqués et pénalités, et la barre de leur somme.
 * **Répartition par propriété** — donut interactif.
 * **Portefeuille en surface** — treemap des propriétés actives, taille proportionnelle à
   l'investissement, couleur selon le rendement.
@@ -218,11 +260,27 @@ l'époque. En décembre 2024, il annonçait 13,59 € contre 36,41 € réelleme
 comparaison se lirait à l'envers de la vérité. Au-delà de la fenêtre, la courbe pointillée
 s'arrête plutôt que de mentir.
 
+### Parcourir le registre
+
+Les onglets sous la grille portent la **plage de fiches** qu'ils ouvrent — `1–24`, `25–48` —
+et non un numéro de page. Le registre est trié, par investissement, par nom, par rendement :
+« 3 » ne dit rien de ce qu'on y trouvera, quand `49–72` situe d'emblée dans l'ordre choisi.
+Au-delà de neuf pages, seules la première, la dernière et les voisines de la courante
+restent affichées.
+
+Le sélecteur au bout de la ligne règle le nombre de fiches par page : 24, 48, 96 ou tout
+d'un bloc. Le choix est retenu d'une visite à l'autre. « Tout » sur 241 propriétés donne
+une page de 56 000 px, rendue en une centaine de millisecondes — long à faire défiler, mais
+c'est le seul réglage qui permette de chercher à l'œil ou d'imprimer.
+
+Changer la taille ramène à la première page : rester à la page 5 après être passé de 24 à
+96 fiches sauterait par-dessus les trois quarts de la liste sans qu'on l'ait demandé.
+
 ### Période des courbes
 
-Un réglage unique gouverne les trois graphiques datés — investissement, revenus, impôt.
-Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou mois de début et de fin au
-choix.
+Un réglage unique gouverne tous les graphiques datés — investissement, origine des fonds,
+revenus, arriérés, impôt. Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou
+mois de début et de fin au choix.
 
 Un sélecteur par graphique aurait laissé les lire sur des fenêtres différentes, ce qui rend
 la comparaison trompeuse. Les bornes se calculent sur une référence commune, arrêtée au

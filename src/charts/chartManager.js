@@ -10,6 +10,7 @@ import { createRevenueChart } from './revenueChart.js';
 import { createTaxChart } from './taxChart.js';
 import { createTreemapChart } from './treemapChart.js';
 import { createOrigineFondsChart } from './origineFondsChart.js';
+import { createArrieresChart } from './arrieresChart.js';
 import { filtrerPeriode, periodeCourante, bornerAuxDonnees } from '../ui/periodeGraphiques.js';
 import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
 
@@ -105,6 +106,18 @@ function dessinerSeriesDatees(results) {
         }
         : null;
 
+    // Les trois séries d'arriérés se coupent ensemble, comme celles de
+    // l'origine des fonds : lire les coupons manqués sur deux ans et les
+    // pénalités sur six mois ferait conclure n'importe quoi de leur rapport.
+    const arrieres = results.arrieres
+        ? {
+            ...results.arrieres,
+            coupons: filtrerPeriode(results.arrieres.coupons, periode, reference),
+            penalites: filtrerPeriode(results.arrieres.penalites, periode, reference),
+            nets: filtrerPeriode(results.arrieres.nets, periode, reference)
+        }
+        : null;
+
     const optionsRevenus = {
         reel: Boolean(reels),
         moisPartiel: reels?.moisPartiel || null
@@ -120,6 +133,7 @@ function dessinerSeriesDatees(results) {
     createOrigineFondsChart(origine, {
         apportsConnus: Boolean(results.origineFonds?.apportsConnus)
     });
+    createArrieresChart(arrieres);
 }
 
 /**
@@ -175,6 +189,7 @@ export function destroyAllCharts() {
         revenueEvolution: null,
         taxAmount: null,
         origineFonds: null,
+        arrieres: null,
         treemap: null,
         forecast: null
     });
