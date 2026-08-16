@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { fetchProjectStatuses } from '../src/data/projectStatusClient.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { fetchProjectStatuses, fetchProjectStatus } from '../src/data/projectStatusClient.js';
 import {
     niveauDepuisStatutOfficiel,
     estDefautRegularise,
@@ -152,6 +152,90 @@ describe('fetchProjectStatuses', () => {
     it('tolère une liste vide', async () => {
         await expect(fetchProjectStatuses([], { fetcher: async () => ({}) })).resolves.toEqual({});
         await expect(fetchProjectStatuses(null, { fetcher: async () => ({}) })).resolves.toEqual({});
+    });
+});
+
+describe('fetchProjectStatus — lecture des échéances', () => {
+    // Échéancier réel de « Hôtel 4* Théoule sur mer », réduit à ses cas :
+    // les pénalités des impayées font le `pending_recovery`, celles des
+    // régularisées le `recovered_awaiting_distribution`.
+    const reponse = {
+        project: { status: 'defaulted' },
+        number_of_bricks: 110000,
+        investors_penalties_summary: { total_amount_in_cents: 122688 + 29376 },
+        echeances: [
+            { payment_date: '2026-07-20', status: 'unpaid', amount_due: 11000,
+                net_investors_penalties_in_cents: 0 },
+            { payment_date: '2026-06-20', status: 'unpaid', amount_due: 11530,
+                net_investors_penalties_in_cents: 53017 },
+            { payment_date: '2025-11-20', status: 'regularized', amount_due: 11294,
+                net_investors_penalties_in_cents: 29376 },
+            { payment_date: '2026-03-20', status: 'pending_penalties', amount_due: 11000,
+                net_investors_penalties_in_cents: 46383 },
+            { payment_date: '2026-02-20', status: 'paid', amount_due: 11000,
+                net_investors_penalties_in_cents: 0 }
+        ]
+    };
+
+    const repondre = (corps, ok = true, status = 200) => {
+        global.fetch = vi.fn(async () => ({ ok, status, json: async () => corps }));
+    };
+
+    afterEach(() => {
+        delete global.fetch;
+    });
+
+    it('garde le détail daté de ce qui reste dû', async () => {
+        repondre(reponse);
+
+        const statut = await fetchProjectStatus('theoule');
+
+        // Triées, et l'échéance soldée écartée : elle ne pèse plus rien et
+        // remplirait le localStorage de zéros.
+        expect(statut.echeances.map(e => e.mois))
+            .toEqual(['2025-11', '2026-03', '2026-06', '2026-07']);
+        expect(statut.echeances.map(e => e.statut))
+            .toEqual(['regularized', 'pending_penalties', 'unpaid', 'unpaid']);
+    });
+
+    it('convertit les pénalités des centimes vers les euros', async () => {
+        repondre(reponse);
+
+        const statut = await fetchProjectStatus('theoule');
+        const juin = statut.echeances.find(e => e.mois === '2026-06');
+
+        expect(juin.penalitesProjet).toBeCloseTo(530.17, 2);
+    });
+
+    it('ne compte comme impayées que les échéances jamais versées', async () => {
+        // Une `pending_penalties` a fini par être versée : la compter parmi les
+        // impayées ferait payer deux fois son coupon au décompte.
+        repondre(reponse);
+
+        const statut = await fetchProjectStatus('theoule');
+
+        expect(statut.impayees).toBe(2);
+        expect(statut.briquesProjet).toBe(110000);
+    });
+
+    it('écarte une échéance sans date exploitable', async () => {
+        repondre({
+            ...reponse,
+            echeances: [
+                { payment_date: null, status: 'unpaid', net_investors_penalties_in_cents: 100 },
+                { payment_date: '2026-06-20', status: 'unpaid', net_investors_penalties_in_cents: 0 }
+            ]
+        });
+
+        const statut = await fetchProjectStatus('theoule');
+
+        expect(statut.echeances.map(e => e.mois)).toEqual(['2026-06']);
+    });
+
+    it('lit un 404 comme une absence d\'incident, non comme une panne', async () => {
+        repondre(null, false, 404);
+
+        await expect(fetchProjectStatus('sain')).resolves.toEqual({ id: 'sain', suivi: false });
     });
 });
 

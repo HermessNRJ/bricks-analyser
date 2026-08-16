@@ -393,6 +393,45 @@ function construireAlertes(portefeuille) {
 }
 
 /**
+ * Compose l'échéancier d'un projet en défaut
+ *
+ * Deux régularisées avant les impayées : elles ne doivent plus leur coupon,
+ * seulement leur pénalité, recouvrée auprès de l'emprunteur mais pas encore
+ * reversée. C'est le cas qui distingue les deux courbes du graphique des
+ * arriérés, et sans lui la démonstration passerait à côté.
+ *
+ * Les pénalités sont écrites À L'ÉCHELLE DU PROJET, comme celles de l'API :
+ * c'est la dette envers les milliers d'obligataires. Elles se tirent donc à
+ * rebours de la part détenue, pour qu'une fois ramenées aux quelques briques du
+ * portefeuille elles pèsent l'euro ou deux qu'elles pèsent en vrai — sur un
+ * Château de Chicamour, 37 402 € répartis sur 175 000 briques.
+ *
+ * @param {number} impayees - Nombre d'échéances jamais versées
+ * @param {number} briquesProjet - Briques émises, pour l'échelle des pénalités
+ * @param {number} briquesDetenues - Briques du portefeuille dans ce projet
+ * @returns {Array<Object>} Échéances dues, de la plus ancienne à la plus récente
+ */
+function construireEcheancier(impayees, briquesProjet, briquesDetenues) {
+    const echelle = briquesProjet / Math.max(briquesDetenues, 1);
+    const penalite = () => Math.round(entre(40, 250) / 100 * echelle * 100) / 100;
+
+    const regularisees = [2, 1].map(recul => ({
+        mois: decaler(MOIS_FIN, -(impayees + recul)),
+        statut: 'regularized',
+        penalitesProjet: penalite()
+    }));
+
+    const dues = Array.from({ length: impayees }, (_, i) => ({
+        mois: decaler(MOIS_FIN, -(impayees - i)),
+        statut: 'unpaid',
+        // La plus récente n'a pas encore couru assez longtemps pour en porter
+        penalitesProjet: i === impayees - 1 ? 0 : penalite()
+    }));
+
+    return [...regularisees, ...dues];
+}
+
+/**
  * Construit le suivi officiel des projets
  * Trois cas : aucun dossier, un incident réglé, un défaut en cours.
  * @param {Array} portefeuille - Propriétés tirées
@@ -404,12 +443,18 @@ function construireStatuts(portefeuille) {
     portefeuille.forEach((p, rang) => {
         if (rang === 7 || rang === 19) {
             // Défaut en cours, avec échéances dues et pénalités
+            const impayees = entre(2, 5);
+            const briquesProjet = entre(40, 175) * 1000;
+
             statuts[p.id] = {
                 id: p.id,
                 suivi: true,
                 statut: 'defaulted',
-                impayees: entre(2, 5),
+                impayees,
                 penalites: entre(40, 320),
+                briquesProjet,
+                echeances: construireEcheancier(impayees, briquesProjet, p.briques),
+                premiereEcheanceImpayee: `${decaler(MOIS_FIN, -impayees)}-08`,
                 derniereEcheanceImpayee: `${decaler(MOIS_FIN, -1)}-08`,
                 contentieux: rang === 19,
                 actualites: [{
@@ -422,7 +467,9 @@ function construireStatuts(portefeuille) {
             // Incident passé, plus rien de dû
             statuts[p.id] = {
                 id: p.id, suivi: true, statut: 'defaulted', impayees: 0,
-                penalites: 0, derniereEcheanceImpayee: null, contentieux: false,
+                penalites: 0, briquesProjet: 90000, echeances: [],
+                premiereEcheanceImpayee: null, derniereEcheanceImpayee: null,
+                contentieux: false,
                 actualites: [{
                     date: `${decaler(MOIS_FIN, -4)}-02T09:00:00.000Z`,
                     texte: 'L\'exploitant a repris le paiement des échéances courantes.',

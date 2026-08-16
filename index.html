@@ -295,7 +295,7 @@
                         <input type="month" id="periodeFin">
                     </label>
                 </div>
-                <p class="note">S'applique à l'investissement, aux revenus et à l'impôt. La répartition et le portefeuille en surface sont des états d'aujourd'hui, sans axe temporel.</p>
+                <p class="note">S'applique aux courbes datées : investissement, origine des fonds, revenus, arriérés, impôt. La répartition et le portefeuille en surface sont des états d'aujourd'hui, sans axe temporel.</p>
             </div>
 
             <div class="charts-section">
@@ -320,6 +320,12 @@
                     <h3 class="chart-title">Évolution des revenus nets</h3>
                     <canvas id="revenueEvolutionChart" width="400" height="300"></canvas>
                     <p class="chart-note" id="revenusSourceNote"></p>
+                </div>
+
+                <div class="chart-container" id="arrieresContainer">
+                    <h3 class="chart-title">Ce qui ne vous est pas parvenu</h3>
+                    <canvas id="arrieresChart" width="400" height="300"></canvas>
+                    <p class="chart-note" id="arrieresNote"></p>
                 </div>
 
                 <div class="chart-container">

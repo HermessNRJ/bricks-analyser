@@ -194,6 +194,46 @@ La tuile **Investissement total** porte la même lecture en un chiffre : *dont X
 poche*. Si l'investissement dépasse ce qui a été déposé, la différence ne peut venir que
 des gains remis au travail — l'argent n'a pas d'autre porte d'entrée.
 
+## Ce qui ne vous est pas parvenu
+
+Les tuiles d'incident disent combien de projets vont mal ; les fiches disent ce que chacun
+vous doit aujourd'hui. Ni les unes ni les autres ne disent depuis **quand**, ni si le trou
+se creuse ou se rebouche. Ce graphique cumule les deux dettes, mois par mois.
+
+Elles sont distinctes, et la nuance décide de ce qui reste sur la courbe :
+
+| Statut de l'échéance | Coupon | Pénalité |
+| --- | --- | --- |
+| `unpaid` — jamais versée | dû | due |
+| `pending_penalties` — versée en retard | reçu, sort de la courbe | due |
+| `regularized` — rattrapée | reçu, sort de la courbe | recouvrée, **pas encore reversée** |
+| `paid` — soldée | rien | rien |
+
+Une pénalité régularisée reste donc affichée. Bricks la range en
+`recovered_awaiting_distribution` : l'emprunteur a payé, l'obligataire n'a pas encore reçu,
+et le graphique répond à la question « qu'est-ce qui ne m'est pas parvenu », pas « qu'est-ce
+qui n'a pas été recouvré ». Vérifié sur les quatre projets en défaut du portefeuille : les
+pénalités des échéances impayées reconstituent au centime le `pending_recovery` du résumé,
+celles des régularisées le `recovered_awaiting_distribution`.
+
+Comme la série se reconstruit à chaque lecture des statuts, une régularisation ne se
+retranche pas : la ligne cesse d'avoir jamais existé, et le cumul du mois où elle tombait
+redescend — toute la courbe avec lui.
+
+La **barre verticale** au dernier mois porte la somme des deux courbes. Ses deux segments
+reprennent leurs couleurs : le premier s'arrête où finit la courbe des coupons, le second
+ajoute les pénalités. Elle se calcule sur les mois **dessinés**, et suit donc la période
+choisie.
+
+Les montants sont **bruts** — c'est ce que les projets doivent. La note chiffre ce que le
+prélèvement en laisserait sur le compte, projet français par projet français.
+
+Le coupon manqué se déduit du projet au taux annoncé, jamais du montant porté par
+l'échéance : celui-ci est la dette de l'emprunteur, échéancier et commission de plateforme
+compris. Les pénalités, elles, sont à l'échelle du projet entier et se ramènent au prorata
+des briques détenues. Sans le nombre total de briques — que les statuts mis en cache par
+une version antérieure ne portent pas — elles sont tues plutôt qu'estimées.
+
 ## Les graphiques
 
 * **Évolution de l'investissement** — la croissance du capital engagé au fil du temps.
@@ -204,6 +244,8 @@ des gains remis au travail — l'argent n'a pas d'autre porte d'entrée.
 * **Impôt mensuel prélevé** — le prélèvement effectivement retenu par Bricks. À défaut
   d'état de compte, l'estimation au taux en vigueur (30 % jusqu'en décembre 2025, 31,4 %
   ensuite, chaque mois au taux de son époque).
+* **Ce qui ne vous est pas parvenu** — [les deux dettes cumulées](#ce-qui-ne-vous-est-pas-parvenu)
+  des projets en retard, coupons manqués et pénalités, et la barre de leur somme.
 * **Répartition par propriété** — donut interactif.
 * **Portefeuille en surface** — treemap des propriétés actives, taille proportionnelle à
   l'investissement, couleur selon le rendement.
@@ -220,9 +262,9 @@ s'arrête plutôt que de mentir.
 
 ### Période des courbes
 
-Un réglage unique gouverne les trois graphiques datés — investissement, revenus, impôt.
-Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou mois de début et de fin au
-choix.
+Un réglage unique gouverne tous les graphiques datés — investissement, origine des fonds,
+revenus, arriérés, impôt. Raccourcis (3, 6, 12, 24 derniers mois, tout l'historique) ou
+mois de début et de fin au choix.
 
 Un sélecteur par graphique aurait laissé les lire sur des fenêtres différentes, ce qui rend
 la comparaison trompeuse. Les bornes se calculent sur une référence commune, arrêtée au

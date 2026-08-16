@@ -287,24 +287,55 @@ export function repartitionRisque(properties, statuts = {}) {
 }
 
 /**
+ * Le coupon mensuel qu'une propriété verse quand tout va bien
+ *
+ * Il se déduit du projet lui-même, au taux annoncé. Le montant porté par
+ * l'échéance officielle ne conviendrait pas : c'est la dette de l'emprunteur,
+ * échéancier et commission de plateforme compris, sans rapport fixe avec le
+ * coupon reversé. Vérifié sur deux projets réels : Villa Cap d'Antibes annonce
+ * 11 % mais son échéance revient à 9,1 % du capital, quand Mas de Souvignargues
+ * en fait 12,45 % pour le même taux affiché.
+ *
+ * @param {Object} property - Propriété détenue
+ * @returns {number} Coupon mensuel brut, en euros
+ */
+export function couponMensuel(property) {
+    return (property?.investment || 0) * (property?.yearlyReturn || 0) / 100 / 12;
+}
+
+/**
+ * La fraction du projet que vos briques représentent
+ *
+ * Seule clé de répartition d'une émission obligataire : chaque brique porte la
+ * même part du droit. Sur un Château de Chicamour à 175 000 briques et 4 471
+ * investisseurs, s'en passer reviendrait à s'attribuer la dette de tout le monde
+ * — d'où le `null` plutôt qu'un prorata inventé quand le total des briques du
+ * projet manque, ce qu'un statut récupéré par une version antérieure ne porte pas.
+ *
+ * @param {Object} property - Propriété détenue
+ * @param {Object} [suivi] - Suivi officiel du projet
+ * @returns {number|null} Part détenue entre 0 et 1, ou null si incalculable
+ */
+export function partDuProjet(property, suivi) {
+    const briquesProjet = suivi?.briquesProjet || 0;
+    const detenues = property?.ownedBricks || 0;
+
+    return briquesProjet > 0 && detenues > 0 ? detenues / briquesProjet : null;
+}
+
+/**
  * Chiffre ce qu'un projet en défaut ne vous a pas versé
  *
  * Deux montants, et deux sources qu'il ne faut pas confondre.
  *
  * Les **coupons manqués** se déduisent du projet lui-même : autant d'échéances
- * impayées que de coupons non tombés, au taux annoncé. Le montant dû par
- * l'emprunteur, que porte le suivi officiel, ne convient pas — c'est sa dette à
- * lui, échéancier et commission de plateforme compris, sans rapport fixe avec
- * le coupon versé. Vérifié sur deux projets réels : Villa Cap d'Antibes annonce
- * 11 % mais son échéance revient à 9,1 % du capital, quand Mas de Souvignargues
- * en fait 12,45 % pour le même taux affiché. La part de l'un donnait 1,90 €
- * quand le coupon mensuel valait 2,29 €, celle de l'autre l'inverse.
+ * impayées que de coupons non tombés, au taux annoncé — voir `couponMensuel`.
+ * La part de Villa Cap d'Antibes donnait 1,90 € quand le coupon mensuel valait
+ * 2,29 €, celle de Mas de Souvignargues l'inverse.
  *
  * Les **pénalités**, elles, sont explicitement celles des investisseurs :
  * `investors_penalties_summary`. Elles se répartissent au prorata des briques,
- * seule clé d'une émission obligataire — chacune porte la même fraction du
- * droit. Sur un Château de Chicamour à 175 000 briques et 4 471 investisseurs,
- * les afficher brutes reviendrait à annoncer la dette de tout le monde.
+ * que donne `partDuProjet`.
  *
  * @param {Object} property - Propriété détenue
  * @param {Object} [suivi] - Suivi officiel du projet
@@ -316,15 +347,9 @@ export function arrieresInvestisseur(property, suivi) {
     }
 
     const impayees = suivi.impayees || 0;
-    const coupon = (property?.investment || 0) * (property?.yearlyReturn || 0) / 100 / 12;
-    const montant = impayees * coupon;
+    const montant = impayees * couponMensuel(property);
 
-    // Sans le nombre total de briques, aucun prorata : un statut récupéré par
-    // une version antérieure ne le porte pas, et mieux vaut taire la pénalité
-    // qu'annoncer celle du projet entier comme étant la sienne.
-    const briquesProjet = suivi.briquesProjet || 0;
-    const detenues = property?.ownedBricks || 0;
-    const part = briquesProjet > 0 && detenues > 0 ? detenues / briquesProjet : null;
+    const part = partDuProjet(property, suivi);
     const penalites = part === null ? 0 : (suivi.penalites || 0) * part;
 
     if (montant <= 0 && penalites <= 0) {

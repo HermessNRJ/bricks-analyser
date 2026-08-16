@@ -14,6 +14,26 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 
 const BASE = '/projects-api/api';
 
+/**
+ * Statuts d'échéance qui laissent encore quelque chose à recevoir
+ *
+ * Vérifié sur les quatre projets en défaut du portefeuille : les pénalités
+ * portées par ces trois statuts reconstituent au centime le résumé du projet.
+ * Mas de Souvignargues additionne 1 405,35 € d'impayées et 463,83 € de
+ * `pending_penalties` pour les 1 869,18 € de `pending_recovery_in_cents`, ses
+ * 438,75 € de régularisées pour les 438,75 € de
+ * `recovered_awaiting_distribution_in_cents`.
+ *
+ *  - `unpaid` : ni l'échéance ni sa pénalité ne sont tombées ;
+ *  - `pending_penalties` : l'échéance a fini par arriver, la pénalité non ;
+ *  - `regularized` : l'échéance a été rattrapée et la pénalité recouvrée auprès
+ *    de l'emprunteur, mais pas encore redistribuée aux obligataires.
+ *
+ * `paid` ne figure pas dans la liste : plus rien n'y est dû, et c'est ce qui
+ * fait disparaître une ligne du décompte le jour où elle est soldée.
+ */
+const ECHEANCES_DUES = ['unpaid', 'pending_penalties', 'regularized'];
+
 /** Nombre d'appels simultanés : assez pour ne pas traîner, assez peu pour ne
  *  pas marteler l'API de Bricks. */
 export const CONCURRENCE = 5;
@@ -72,6 +92,20 @@ export async function fetchProjectStatus(projectId) {
             // le nombre total de briques conservé avec eux.
             montantDu,
             briquesProjet: Number(data.number_of_bricks) || 0,
+            // Le détail daté de ce qui reste dû, seule matière d'où une courbe
+            // d'arriérés puisse se tracer : le décompte `impayees` dit combien,
+            // jamais depuis quand. Les échéances soldées sont écartées — elles
+            // ne pèsent plus rien et rempliraient le localStorage de zéros.
+            echeances: echeances
+                .filter(e => ECHEANCES_DUES.includes(e.status))
+                .map(e => ({
+                    mois: String(e.payment_date || '').slice(0, 7),
+                    statut: e.status,
+                    // À L'ÉCHELLE DU PROJET, comme `penalites` ci-dessus
+                    penalitesProjet: (e.net_investors_penalties_in_cents || 0) / 100
+                }))
+                .filter(e => /^\d{4}-\d{2}$/.test(e.mois))
+                .sort((a, b) => a.mois.localeCompare(b.mois)),
             derniereEcheanceImpayee: impayees
                 .map(e => e.payment_date)
                 .sort()

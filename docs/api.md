@@ -83,9 +83,25 @@ localStorage.removeItem('bricksLogLevel');
 que du texte libre :
 
 * `GET /api/projects/{id}/echeances-investors` — statut du projet (`defaulted`, `active`),
-  détail des échéances (`unpaid`, `paid`, `regularized`), pénalités et étapes de procédure.
-  Un `404 PAGE_NOT_AVAILABLE` signifie qu'aucun incident n'est ouvert : c'est une réponse
-  utile, pas une erreur.
+  détail des échéances (`unpaid`, `pending_penalties`, `regularized`, `paid`), pénalités et
+  étapes de procédure. Un `404 PAGE_NOT_AVAILABLE` signifie qu'aucun incident n'est ouvert :
+  c'est une réponse utile, pas une erreur.
+
+  Chaque échéance porte sa date, son statut et sa propre pénalité
+  (`net_investors_penalties_in_cents`, à l'échelle du projet). Ces trois champs sont
+  conservés pour les seules échéances qui doivent encore quelque chose : c'est la seule
+  matière d'où [la courbe des arriérés](revenus.md#ce-qui-ne-vous-est-pas-parvenu) puisse
+  se tracer, le décompte `unpaid_count` disant combien mais jamais depuis quand. Les
+  soldées sont écartées — elles ne pèsent plus rien et rempliraient le localStorage de
+  zéros.
+
+  Le résumé `investors_penalties_summary.by_status` se retrouve exactement en additionnant
+  ces pénalités par statut : `pending_recovery` pour les `unpaid` et `pending_penalties`,
+  `recovered_awaiting_distribution` pour les `regularized`. Vérifié au centime sur les
+  quatre projets en défaut du portefeuille.
+
+  `amount_due` n'est pas le coupon : c'est la dette de l'emprunteur, pénalité comprise —
+  sur une échéance de Théoule, 11 530 € pour 11 000 € d'échéance et 530 € de pénalité.
 * `GET /api/project-activities/public/{id}?limit=3` — actualités du projet, bien plus
   circonstanciées que les alertes du portefeuille. Seules les trois dernières sont
   conservées, tronquées à 600 caractères : le flux complet sur 138 projets dépasserait

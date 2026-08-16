@@ -66,8 +66,11 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
   brut, parrainage, solde boosté, capital rendu et versements personnels, par année civile.
 * **Origine des fonds** — ce que vous avez déposé, ce que le parrainage et le solde boosté
   ont ajouté, et la part du portefeuille qui vient de votre poche.
-* **Graphiques** — investissement, revenus, impôt, répartition, portefeuille en surface,
-  avec une période réglable commune aux trois courbes datées.
+* **Ce qui ne vous est pas parvenu** — les coupons que les échéances impayées n'ont pas
+  versés et les pénalités de retard, cumulés mois par mois. Une échéance rattrapée quitte
+  la courbe. → [Lire les chiffres](docs/revenus.md#ce-qui-ne-vous-est-pas-parvenu)
+* **Graphiques** — investissement, revenus, arriérés, impôt, répartition, portefeuille en
+  surface, avec une période réglable commune aux courbes datées.
 * **Registre des propriétés** — adresse, briques, rendement, alertes datées, fiche
   cliquable vers Bricks. 24 par page, avec recherche libre, tri, et filtres par statut,
   alerte, pays et versement, rappelés en puces et remisables à zéro.

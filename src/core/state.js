@@ -18,6 +18,7 @@ class AppState {
             charts: {
                 investment: null,
                 origineFonds: null,
+                arrieres: null,
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,
@@ -175,6 +176,7 @@ class AppState {
             charts: {
                 investment: null,
                 origineFonds: null,
+                arrieres: null,
                 distribution: null,
                 revenueEvolution: null,
                 taxAmount: null,
