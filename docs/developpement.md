@@ -8,7 +8,10 @@
 * **Serveur :** nginx (via Docker)
 * **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
 
-Node 22 ou plus est requis (voir le champ `engines` de `package.json`).
+Node 22.12 ou plus est requis (voir le champ `engines` de `package.json`). La borne n'est
+pas ronde parce qu'elle vient de deux besoins précis : Vitest 4 s'appuie sur Rolldown, dont
+npm refuse d'installer le binaire natif en deçà, et jsdom 30 charge un module ESM depuis du
+CommonJS — ce que `require()` ne sait faire que depuis 22.12.
 
 ## Données locales
 

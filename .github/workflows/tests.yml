@@ -16,7 +16,7 @@ jobs:
         # La borne basse de "engines" et une version courante : une montée de
         # dépendance qui exigerait un node plus récent doit échouer ici, pas
         # sur la machine de quelqu'un après la fusion.
-        node: ['22.0.0', '22']
+        node: ['22.12.0', '22']
 
     steps:
       - uses: actions/checkout@v4
