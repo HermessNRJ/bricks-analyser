@@ -23,7 +23,7 @@ l'estimation et le dit à l'écran.
 ## Rendement annualisé
 
 Le taux affiché par Bricks est **promis**, projet par projet. Celui-ci est **constaté** : ce
-qui est réellement tombé sur le compte, net de prélèvement et **hors capital rendu**,
+qui est réellement tombé sur le compte, net de prélèvement et **hors capital remboursé**,
 rapporté au capital placé pour le gagner et ramené à l'année.
 
 Cinq fenêtres — 1, 3, 6, 12 mois et depuis le début — parce qu'un chiffre unique ne dit pas
@@ -51,7 +51,7 @@ capital réellement placé est donc reconstruit mois par mois.
 
 L'évolution de l'investissement n'y suffit pas. Un projet remboursé vaut zéro euro
 aujourd'hui, et pèse donc zéro sur toute la série — y compris sur les mois où il était
-détenu et versait. Le capital rendu depuis, lu dans le journal des mouvements, est réinjecté
+détenu et versait. Le capital remboursé depuis, lu dans le journal des mouvements, est réinjecté
 pour combler ce trou. Sans le journal, les fenêtres longues sont flattées, et l'écran le dit.
 
 Il n'est pas réinjecté tel quel : le capital restant à rendre comprend des projets achetés
@@ -93,7 +93,7 @@ Deux garde-fous : les intérêts ne peuvent pas dépasser la ligne de coupons, e
 le moindre prélèvement garde ses coupons entiers, faute de preuve qu'il s'y cache du capital.
 
 Au survol d'une fenêtre : le montant, le capital moyen, la part venue du parrainage et du
-solde boosté, le capital rendu écarté, et le taux avant prélèvement.
+solde boosté, le capital remboursé écarté, et le taux avant prélèvement.
 
 ### Pourquoi ce taux diffère de celui du simulateur
 
@@ -113,9 +113,9 @@ côte à côte, pour qu'aucun des deux ne passe pour l'autre.
 En tête du registre : le mois jugé, et le décompte des propriétés versées, muettes et pas
 encore dues.
 
-Bricks règle autour du 8. Sur un relevé récupéré plus tôt dans le mois, les versements
-absents sont peut-être encore en route plutôt qu'en défaut — la réserve est écrite à
-l'écran.
+Bricks règle autour du 8, ce que rappelle la ligne sous le décompte. Sur un relevé récupéré
+plus tôt dans le mois, les versements absents sont peut-être encore en route plutôt qu'en
+défaut.
 
 ## Carnet de versements
 
@@ -140,7 +140,7 @@ semaines mettrait tout le portefeuille en défaut d'un coup.
 
 ## Revenus par année
 
-Ventilation par année civile : coupons versés, prélèvement retenu, parrainage et solde
+Ventilation par année civile : coupons versés, impôt prélevé, parrainage et solde
 boosté.
 
 Bricks ne prélève **que sur les coupons**. Le parrainage et le solde boosté — ces centimes
@@ -152,7 +152,7 @@ La colonne des coupons mêle intérêts et remboursements de capital, d'où un p
 effectif inférieur au barème (22 % en 2024, 25 % en 2026 pour un barème à 30 puis 31,4 %).
 Elle ne vaut donc pas montant imposable : **l'IFU transmis par Bricks reste la référence**.
 
-Le **capital rendu** a sa propre colonne, lue dans le journal des mouvements
+Le **capital remboursé** a sa propre colonne, lue dans le journal des mouvements
 (`/wallet-transactions`). C'est la mise qui revient, pas un gain — et l'état de compte la
 range pourtant avec les coupons : en juin 2026, Villa Gypsea y figure pour 34,67 € quand
 son coupon mensuel vaut 4,33 €. La colonne reste masquée tant que le journal n'a pas été
@@ -259,6 +259,22 @@ sous-estime : les projets remboursés depuis n'y figurent plus alors qu'ils vers
 l'époque. En décembre 2024, il annonçait 13,59 € contre 36,41 € réellement perçus — la
 comparaison se lirait à l'envers de la vérité. Au-delà de la fenêtre, la courbe pointillée
 s'arrête plutôt que de mentir.
+
+### Parcourir le registre
+
+Les onglets sous la grille portent la **plage de fiches** qu'ils ouvrent — `1–24`, `25–48` —
+et non un numéro de page. Le registre est trié, par investissement, par nom, par rendement :
+« 3 » ne dit rien de ce qu'on y trouvera, quand `49–72` situe d'emblée dans l'ordre choisi.
+Au-delà de neuf pages, seules la première, la dernière et les voisines de la courante
+restent affichées.
+
+Le sélecteur au bout de la ligne règle le nombre de fiches par page : 24, 48, 96 ou tout
+d'un bloc. Le choix est retenu d'une visite à l'autre. « Tout » sur 241 propriétés donne
+une page de 56 000 px, rendue en une centaine de millisecondes — long à faire défiler, mais
+c'est le seul réglage qui permette de chercher à l'œil ou d'imprimer.
+
+Changer la taille ramène à la première page : rester à la page 5 après être passé de 24 à
+96 fiches sauterait par-dessus les trois quarts de la liste sans qu'on l'ait demandé.
 
 ### Période des courbes
 

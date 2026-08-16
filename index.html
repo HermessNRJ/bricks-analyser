@@ -87,7 +87,7 @@
             <section class="stats-grid" aria-label="Chiffres clés">
                 <div class="stat-card">
                     <div class="stat-value" id="totalInvestment">0€</div>
-                    <div class="stat-label">Capital encore engagé</div>
+                    <div class="stat-label">Capital actuellement engagé</div>
                     <div class="stat-detail" id="detailInvestissement"></div>
                 </div>
                 <div class="stat-card">
@@ -155,7 +155,7 @@
                 </button>
                 <button type="button" class="stat-card stat-cliquable" data-risque="impaye">
                     <div class="stat-value stat-alerte-faible" id="impayeCount">0</div>
-                    <div class="stat-label">Impayé ou retard</div>
+                    <div class="stat-label">En retard, défaut non déclaré</div>
                     <div class="stat-detail" id="detailImpaye"></div>
                 </button>
                 <button type="button" class="stat-card stat-cliquable" data-risque="signale">
@@ -183,18 +183,18 @@
                             <tr>
                                 <th scope="col">Année</th>
                                 <th scope="col">Coupons <span class="entete-note">versés</span></th>
-                                <th scope="col">Prélèvement <span class="entete-note">retenu</span></th>
+                                <th scope="col">Impôt <span class="entete-note">prélevé</span></th>
                                 <th scope="col" class="colonne-brute colonne-avenir hidden">Impôt <span class="entete-note">à venir</span></th>
                                 <th scope="col" class="colonne-brute">Parrainage <span class="entete-note">brut</span></th>
                                 <th scope="col" class="colonne-brute">Solde boosté <span class="entete-note">brut</span></th>
-                                <th scope="col" class="colonne-capital hidden">Capital <span class="entete-note">rendu</span></th>
+                                <th scope="col" class="colonne-capital hidden">Capital <span class="entete-note">remboursé</span></th>
                                 <th scope="col" class="colonne-apport hidden">De votre poche <span class="entete-note">versé</span></th>
                             </tr>
                         </thead>
                         <tbody id="revenusAnnuelsCorps"></tbody>
                     </table>
                 </div>
-                <p class="note">Le capital remboursé est votre mise qui revient : il n'est pas imposable, et Bricks le range pourtant avec les coupons dans son état de compte. Les colonnes teintées n'ont subi aucune retenue à la source : Bricks les verse bruts. La colonne des coupons mêle intérêts et remboursements de capital — d'où un prélèvement effectif inférieur au barème — et ne vaut donc pas montant imposable. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
+                <p class="note">Le capital remboursé est votre mise qui revient : il n'est pas imposable. Les colonnes teintées n'ont subi aucune retenue à la source : Bricks les verse bruts. L'IFU transmis par Bricks reste la référence pour votre déclaration.</p>
             </section>
 
             <section class="projections-section" aria-labelledby="titreProjections">
@@ -295,7 +295,9 @@
                         <input type="month" id="periodeFin">
                     </label>
                 </div>
-                <p class="note">S'applique aux courbes datées : investissement, origine des fonds, revenus, arriérés, impôt. La répartition et le portefeuille en surface sont des états d'aujourd'hui, sans axe temporel.</p>
+                <!-- Pas d'énumération des graphiques concernés : elle se périme
+                     au premier ajouté, et le lecteur a les titres sous les yeux. -->
+                <p class="note">S'applique à toutes les courbes datées. La répartition par propriété et le portefeuille en surface sont des états d'aujourd'hui : aucune période ne s'y applique.</p>
             </div>
 
             <div class="charts-section">
@@ -352,10 +354,7 @@
 
                 <div class="versements-bilan hidden" id="versementsBilan">
                     <p class="versements-compte" id="versementsCompte"></p>
-                    <p class="versements-reserve">
-                        Bricks règle autour du 8 du mois. Sur un relevé récupéré plus tôt,
-                        les versements absents sont peut-être encore en route.
-                    </p>
+                    <p class="versements-reserve">Bricks règle autour du 8 du mois.</p>
                 </div>
 
                 <div class="properties-controls">
@@ -413,7 +412,7 @@
                             <option value="has-warning">Avec alerte</option>
                             <option value="no-warning">Sans alerte</option>
                             <option value="risk-procedure">En défaut, échéances dues</option>
-                            <option value="risk-impaye">Impayé ou retard</option>
+                            <option value="risk-impaye">En retard, défaut non déclaré</option>
                             <option value="risk-signale">Signalé, sans incident</option>
                             <option value="risk-sain">Sans signalement</option>
                             <option value="warning-last-month">Alerte sous 30 jours</option>
@@ -438,10 +437,23 @@
 
                 <div id="propertiesList" class="properties-grid"></div>
 
+                <!-- Les onglets portent la plage de fiches qu'ils ouvrent, non un
+                     numéro de page : le registre est trié, et « 3 » ne dit rien de
+                     ce qu'on y trouvera là où « 49–72 » situe dans l'ordre choisi.
+                     Le total, lui, est déjà au-dessus de la grille. -->
                 <nav class="pagination hidden" id="pagination" aria-label="Pagination du registre">
                     <button id="prevPage" class="bouton bouton-secondaire">Précédent</button>
-                    <span class="pagination-position" id="pageIndicator"></span>
+                    <div class="pagination-onglets" id="pageTabs"></div>
                     <button id="nextPage" class="bouton bouton-secondaire">Suivant</button>
+                    <label class="pagination-taille" for="propertyPageSize">
+                        <select id="propertyPageSize">
+                            <option value="24">24</option>
+                            <option value="48">48</option>
+                            <option value="96">96</option>
+                            <option value="all">Tout</option>
+                        </select>
+                        par page
+                    </label>
                 </nav>
             </section>
         </div>

@@ -207,8 +207,8 @@ check('l\'investissement total est correct', /700/.test(snapshot.totalInvestment
 // ne commence à verser, répéter le même chiffre trois fois n'apprendrait rien.
 check('les projections s\'arrêtent au dernier changement de montant',
     snapshot.projectionCount >= 1 && snapshot.projectionCount <= 4, `${snapshot.projectionCount} mois`);
-check('la note dit à partir de quand le montant est stable',
-    /stable/i.test(snapshot.projectionNote), snapshot.projectionNote);
+check('la note dit pourquoi la série s\'arrête là',
+    /ne bouge plus ensuite/.test(snapshot.projectionNote), snapshot.projectionNote);
 check('le filtre pays détecte le Portugal', snapshot.countries.includes('Portugal'), snapshot.countries.join(','));
 check('la description du warning est nettoyée et affichée', snapshot.warningRendered);
 check('aucun HTML de l\'API n\'est exécuté', !snapshot.xssExecuted && snapshot.injectedNodes === 0);
@@ -364,6 +364,10 @@ await page.selectOption('#propertyVersementFilter', 'all');
 await page.selectOption('#propertySortBy', 'bricks-desc');
 const firstCard = await page.locator('#propertiesList .property-name').first().textContent();
 check('le tri par briques place Porto en tête', firstCard.includes('Porto'), firstCard.trim());
+
+// Trois fiches tiennent sur une page : ni onglets ni réglage de taille à montrer
+check('la pagination se tait quand tout tient sur une page',
+    await page.locator('#pagination').evaluate(n => n.classList.contains('hidden')));
 
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));

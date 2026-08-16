@@ -34,7 +34,7 @@ export const NIVEAUX_RISQUE = {
  */
 export const LIBELLES_RISQUE = {
     [NIVEAUX_RISQUE.PROCEDURE]: 'En défaut ou procédure',
-    [NIVEAUX_RISQUE.IMPAYE]: 'Impayé ou retard',
+    [NIVEAUX_RISQUE.IMPAYE]: 'En retard, défaut non déclaré',
     [NIVEAUX_RISQUE.SIGNALE]: 'Signalé',
     [NIVEAUX_RISQUE.SAIN]: 'Sans signalement'
 };

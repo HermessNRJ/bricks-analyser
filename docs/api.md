@@ -61,7 +61,7 @@ précédent ne recompte pas ses lignes, et un lot entièrement déjà vu arrête
 lieu de relire les mêmes cent lignes jusqu'au garde-fou. Les doublons écartés sont
 journalisés.
 
-### Deux sources pour le capital rendu
+### Deux sources pour le capital remboursé
 
 Le journal nomme chaque remboursement ; l'état de compte le laisse deviner, par le
 prélèvement qui manque sur la ligne de coupons. Les deux devraient s'accorder, et un contrôle

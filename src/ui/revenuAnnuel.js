@@ -75,11 +75,11 @@ export function afficherRevenusParAnnee(results) {
             : 'Aucun revenu versé sans retenue à la source pour le moment.'];
 
         if (capitalConnu) {
-            phrases.push(`${formatCurrency(cumul.capital)} de capital vous ont par ailleurs été rendus : c'est votre mise qui revient, pas un gain.`);
+            phrases.push(`${formatCurrency(cumul.capital)} de capital vous ont par ailleurs été remboursés : c'est votre mise qui revient, pas un gain.`);
         }
 
         if (apportsConnus) {
-            phrases.push(`Vous avez versé ${formatCurrency(cumul.apport)} de votre poche sur la période — un mouvement de trésorerie, qui ne se déclare pas.`);
+            phrases.push(`Vous avez versé ${formatCurrency(cumul.apport)} de votre poche sur la période.`);
         }
 
         resume.textContent = phrases.join(' ');

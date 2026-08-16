@@ -16,7 +16,10 @@ import { setupStatusHandler } from './statusHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
-import { updatePropertySortAndFilter, showResults, setSearch, changePage } from '../ui/uiUpdater.js';
+import {
+    updatePropertySortAndFilter, showResults, setSearch, changePage,
+    allerALaPage, setTaillePage, taillePageCourante
+} from '../ui/uiUpdater.js';
 import { afficherAgeDonnees } from '../ui/dataAge.js';
 
 /**
@@ -207,6 +210,8 @@ function setupSearchControl() {
 function setupPaginationControls() {
     const precedent = document.getElementById('prevPage');
     const suivant = document.getElementById('nextPage');
+    const onglets = document.getElementById('pageTabs');
+    const taille = document.getElementById('propertyPageSize');
 
     if (precedent) {
         precedent.addEventListener('click', () => changePage(-1));
@@ -214,6 +219,24 @@ function setupPaginationControls() {
 
     if (suivant) {
         suivant.addEventListener('click', () => changePage(1));
+    }
+
+    // Délégation : les onglets sont réécrits à chaque rendu, et poser un
+    // écouteur sur chacun en aurait laissé autant derrière à chaque page.
+    if (onglets) {
+        onglets.addEventListener('click', (evenement) => {
+            const page = Number(evenement.target.closest('.pagination-onglet')?.dataset.page);
+
+            if (Number.isFinite(page)) {
+                allerALaPage(page);
+            }
+        });
+    }
+
+    if (taille) {
+        const courante = taillePageCourante();
+        taille.value = Number.isFinite(courante) ? String(courante) : 'all';
+        taille.addEventListener('change', () => setTaillePage(taille.value));
     }
 
     logger.debug(LOG_CATEGORIES.EVENT, 'Pagination controls configured');

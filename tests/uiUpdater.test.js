@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { updateUI, updatePropertySortAndFilter } from '../src/ui/uiUpdater.js';
+import {
+    updateUI, updatePropertySortAndFilter, pagesAffichees,
+    allerALaPage, setTaillePage, taillePageCourante
+} from '../src/ui/uiUpdater.js';
 import { niveauRisque } from '../src/business/riskAnalysis.js';
 
 /**
@@ -27,6 +30,12 @@ function setupDOM() {
             <span id="propertyCount">0</span>
             <div id="activeFilters"></div>
             <div id="propertiesList"></div>
+            <nav class="pagination hidden" id="pagination">
+                <button id="prevPage"></button>
+                <div id="pageTabs"></div>
+                <button id="nextPage"></button>
+                <select id="propertyPageSize"></select>
+            </nav>
         </div>
     `;
 }
@@ -317,7 +326,7 @@ describe('updateUI — projections', () => {
 
         const projections = document.querySelectorAll('#projectedRevenuesDisplay .stat-card');
         expect(projections).toHaveLength(2);
-        expect(document.getElementById('projectionsNote').textContent).toMatch(/Stable à partir de/);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/ne bouge plus ensuite/);
     });
 
     it('n\'affiche qu\'un mois quand le montant ne bouge jamais', () => {
@@ -326,7 +335,7 @@ describe('updateUI — projections', () => {
         }));
 
         expect(document.querySelectorAll('#projectedRevenuesDisplay .stat-card')).toHaveLength(1);
-        expect(document.getElementById('projectionsNote').textContent).toMatch(/reste stable/);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/ne bouge plus ensuite/);
     });
 
     it('affiche N/D pour un mois sans donnée', () => {
@@ -503,5 +512,93 @@ describe('updateUI — alerte du mois en cours', () => {
 
         const puces = [...document.querySelectorAll('#activeFilters .puce')].map(p => p.textContent.trim());
         expect(puces.join(' ')).toContain('Alerte ce mois-ci');
+    });
+});
+
+describe('pagesAffichees', () => {
+    it('montre toutes les pages tant qu\'elles tiennent', () => {
+        // 191 propriétés à 24 par page font huit onglets : le registre courant
+        // se parcourt donc d'un coup d'œil, sans troncature.
+        expect(pagesAffichees(8, 1)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    });
+
+    it('coupe autour de la page courante au-delà', () => {
+        expect(pagesAffichees(20, 10)).toEqual([1, null, 9, 10, 11, null, 20]);
+    });
+
+    it('garde les extrémités atteignables', () => {
+        expect(pagesAffichees(20, 1)).toEqual([1, 2, null, 20]);
+        expect(pagesAffichees(20, 20)).toEqual([1, null, 19, 20]);
+    });
+
+    it('ne coupe pas pour une seule page sautée', () => {
+        // La coupure prendrait la place de la page qu'elle cache
+        expect(pagesAffichees(12, 3)).toEqual([1, 2, 3, 4, null, 12]);
+    });
+});
+
+describe('updateUI — pagination du registre', () => {
+    const lot = (nombre) => Array.from({ length: nombre }, (_, i) =>
+        property({ id: `p${i}`, name: `Bien ${i}`, investment: 1000 - i }));
+
+    const onglets = () => [...document.querySelectorAll('.pagination-onglet')]
+        .map(o => o.textContent.trim());
+
+    beforeEach(() => {
+        setTaillePage(24);
+    });
+
+    it('reste caché tant qu\'une seule page suffit', () => {
+        updateUI(results(lot(10)));
+
+        expect(document.getElementById('pagination').classList.contains('hidden')).toBe(true);
+    });
+
+    it('nomme chaque onglet par la plage de fiches qu\'il ouvre', () => {
+        updateUI(results(lot(60)));
+
+        expect(onglets()).toEqual(['1–24', '25–48', '49–60']);
+    });
+
+    it('marque la page ouverte', () => {
+        updateUI(results(lot(60)));
+        allerALaPage(2);
+
+        expect(document.querySelector('.pagination-onglet[aria-current="page"]').textContent.trim())
+            .toBe('25–48');
+        expect(cardNames()).toHaveLength(24);
+    });
+
+    it('borne la dernière plage au nombre réellement filtré', () => {
+        updateUI(results(lot(25)));
+
+        // Une seconde page d'une fiche : « 25–25 » se dirait deux fois le même
+        expect(onglets()).toEqual(['1–24', '25']);
+    });
+
+    it('change le nombre de fiches par page et revient au début', () => {
+        updateUI(results(lot(60)));
+        allerALaPage(3);
+
+        setTaillePage(96);
+
+        expect(cardNames()).toHaveLength(60);
+        expect(document.querySelectorAll('.pagination-onglet')).toHaveLength(0);
+    });
+
+    it('affiche tout d\'un bloc sur « Tout »', () => {
+        updateUI(results(lot(60)));
+        setTaillePage('all');
+
+        expect(taillePageCourante()).toBe(Infinity);
+        expect(cardNames()).toHaveLength(60);
+        // Le sélecteur reste atteignable : sans lui, pas de retour en arrière
+        expect(document.getElementById('pagination').classList.contains('hidden')).toBe(false);
+    });
+
+    it('refuse une taille qu\'elle ne propose pas', () => {
+        setTaillePage(7);
+
+        expect(taillePageCourante()).toBe(24);
     });
 });
