@@ -53,12 +53,12 @@ export function mergeDatasets(existingData, newData) {
     // Fusionner les nouvelles données
     newData.forEach(newMonthEntry => {
         // Chercher si ce mois existe déjà
-        let monthInMergedData = mergedData.find(m => m.yearMonthDate === newMonthEntry.yearMonthDate);
+        const monthInMergedData = mergedData.find(m => m.yearMonthDate === newMonthEntry.yearMonthDate);
 
         if (monthInMergedData) {
             // Le mois existe, fusionner les projets
             newMonthEntry.projects.forEach(newProject => {
-                let existingProject = monthInMergedData.projects.find(p => p.id === newProject.id);
+                const existingProject = monthInMergedData.projects.find(p => p.id === newProject.id);
 
                 if (existingProject) {
                     // Projet existe, mettre à jour

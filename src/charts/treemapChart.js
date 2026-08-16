@@ -199,7 +199,7 @@ export function createTreemapChart(properties) {
                                     // Sinon, ne rien afficher (trop petit)
                                     return '';
                                 }
-                            } catch (e) {
+                            } catch {
                                 // En cas d'erreur, ne rien faire
                             }
 

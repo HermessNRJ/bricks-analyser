@@ -109,6 +109,11 @@ export function showError(message) {
 
     if (!errorDiv) {
         logger.error(LOG_CATEGORIES.UI, 'Error div not found');
+        // Le seul console de l'application, et il est délibéré : l'endroit où
+        // afficher le message a disparu, et le logger ci-dessus se tait au
+        // niveau réglé pour la production. Sans cette ligne, l'erreur
+        // n'apparaîtrait nulle part.
+        // eslint-disable-next-line no-console
         console.error(message);
         return;
     }

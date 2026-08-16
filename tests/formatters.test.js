@@ -10,7 +10,7 @@ import {
 
 // Les séparateurs fr-FR sont des espaces insécables (U+202F / U+00A0) selon la
 // version d'ICU : on normalise avant de comparer.
-const norm = (s) => s.replace(/[  ]/g, ' ');
+const norm = (s) => s.replace(/[\u202f\u00a0]/g, ' ');
 
 describe('formatCurrency', () => {
     it('formate un montant en euros', () => {

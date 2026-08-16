@@ -32,6 +32,25 @@ jobs:
 
       - run: npm test
 
+  lint:
+    # Sans bundler, rien ne relit le code avant que le navigateur ne l'exécute :
+    # un import mort ou une variable oubliée ne se voyait qu'à l'ouverture de la
+    # page, et seulement si le chemin fautif était emprunté.
+    name: Linter
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
   e2e:
     # Les tests unitaires ne touchent pas src/events/ ni les modales : ce job est
     # le seul à ouvrir vraiment la page, donc le seul à voir qu'un gestionnaire

@@ -28,6 +28,23 @@ Ce jeu fictif sert aux captures d'écran ; il est fabriqué au format brut de l'
 passé par les vrais normaliseurs, donc il reste juste si ceux-ci changent. Voir
 [docs/captures](captures/README.md).
 
+## Linter
+
+```bash
+npm run lint         # ESLint sur src/, tests/ et tools/
+npm run lint:fix     # corrige ce qui se corrige tout seul
+```
+
+Le projet n'a pas de bundler : rien ne relit le code avant que le navigateur ne l'exécute.
+Un import mort ou une variable oubliée ne se voyait donc qu'à l'ouverture de la page, et
+seulement si le chemin fautif était emprunté.
+
+La configuration (`eslint.config.js`) ne norme pas le style : indentation, guillemets et
+points-virgules restent l'affaire de l'auteur. Les règles ajoutées à `recommended` ne visent
+que ce qui est faux ou mort — `no-unused-vars`, `no-var`, `prefer-const`, `eqeqeq`,
+`require-atomic-updates` — plus `no-console`, le module `logger` étant la seule sortie
+prévue. Deux exceptions sont marquées dans le code, chacune avec sa raison.
+
 ## Tests
 
 Les tests couvrent la logique métier — calculs financiers, fusion des données, filtres,
@@ -54,10 +71,10 @@ Variables d'environnement du smoke test : `BASE_URL` (défaut `http://127.0.0.1:
 `CHROMIUM_PATH` (Chromium déjà installé sur la machine), `SCREENSHOT` (chemin de capture).
 
 Chaque poussée et chaque pull request déclenchent la CI (`.github/workflows/tests.yml`) :
-tests unitaires sur la borne basse de `engines` et sur node 22 courant, smoke test dans un
-Chromium, et `npm audit`. Une montée de dépendance exigeant un node plus récent échoue donc
-là, et non sur la machine de quelqu'un après la fusion. Quand le smoke test échoue en CI,
-la capture de la page au moment de l'échec est publiée en artefact du job.
+tests unitaires sur la borne basse de `engines` et sur node 22 courant, linter, smoke test
+dans un Chromium, et `npm audit`. Une montée de dépendance exigeant un node plus récent
+échoue donc là, et non sur la machine de quelqu'un après la fusion. Quand le smoke test
+échoue en CI, la capture de la page au moment de l'échec est publiée en artefact du job.
 
 **Ce qui n'est pas couvert par les tests unitaires :** les gestionnaires d'événements du
 DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le

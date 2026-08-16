@@ -29,6 +29,14 @@ version, puis à reporter dans `index.html` :
 curl -sfL <url-du-script> | openssl dgst -sha384 -binary | openssl base64 -A
 ```
 
+L'image de base du `Dockerfile` est épinglée de la même façon, à son digest et non au tag
+flottant `nginx:alpine` : c'est elle qui sert la page où le cookie de session est saisi.
+Pour monter de version :
+
+```bash
+docker image inspect nginx:<version>-alpine --format '{{index .RepoDigests 0}}'
+```
+
 ## Journalisation
 
 `CONFIG.DEBUG` et `CONFIG.LOG_LEVEL` sont réglés pour la production. Aux niveaux `debug` et

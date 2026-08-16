@@ -52,7 +52,7 @@
  */
 
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { generateMonthRange, getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
+import { generateMonthRange } from '../utils/dateHelpers.js';
 import { tauxImpositionPour } from '../core/config.js';
 import { moisEncoreOuvert } from './revenueHistory.js';
 

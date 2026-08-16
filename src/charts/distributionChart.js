@@ -124,10 +124,10 @@ export function createDistributionChart(properties) {
     const sortedProperties = [...properties].sort((a, b) => b.investment - a.investment);
 
     // Préparer les données
-    let chartLabels = [];
-    let chartData = [];
-    let chartColors = [];
-    let propertyDetails = []; // Pour la légende enrichie
+    const chartLabels = [];
+    const chartData = [];
+    const chartColors = [];
+    const propertyDetails = []; // Pour la légende enrichie
 
     if (sortedProperties.length > CONFIG.MAX_CHART_SEGMENTS) {
         // Prendre les N-1 premières propriétés
