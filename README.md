@@ -5,6 +5,8 @@ qui est investi, ce qui a réellement été versé, ce qui manque à l'appel, et
 donnerait sous d'autres hypothèses. Les données sont récupérées depuis l'API Bricks et ne
 quittent pas votre machine.
 
+![Le tableau de bord : le mur des propriétés, les huit chiffres clés, le rendement annualisé sur cinq fenêtres et le suivi des incidents](docs/captures/vue-ensemble.png)
+
 ## Démarrer
 
 ### 1. Lancer l'application
@@ -78,19 +80,14 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
 * **Simulateur** — apport, horizon, rendement, impayés, réinvestissement. Une calculette,
   pas une prévision.
 
+![Le registre des propriétés : le bilan des versements du mois, la barre de filtres, puis deux rangées de fiches — cinq marquées « Versé », une « Rien reçu » avec sa bande de mois trouée](docs/captures/registre.png)
+
 ## Captures d'écran
 
-À venir. `npm run demo` fabrique un portefeuille fictif de 42 propriétés à photographier —
-inutile de publier le vôtre. Mode d'emploi, liste des captures utiles et emplacement de
-chacune : [docs/captures](docs/captures/README.md).
-
-Les lignes ci-dessous n'attendent que d'être décommentées ; la première a sa place tout en
-haut du fichier, au-dessus de « Démarrer ».
-
-<!--
-![Vue d'ensemble du tableau de bord](docs/captures/vue-ensemble.png)
-![Le registre des propriétés et leurs carnets de versements](docs/captures/registre.png)
--->
+Les images de cette page et de [Lire les chiffres](docs/revenus.md) montrent le portefeuille
+de démonstration : `npm run demo` fabrique 42 propriétés fictives à photographier, inutile
+de publier le vôtre. Mode d'emploi, cadrages et emplacements :
+[docs/captures](docs/captures/README.md).
 
 ## Aller plus loin
 
