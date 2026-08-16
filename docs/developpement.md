@@ -135,7 +135,17 @@ src/
 │   ├── projectStatusClient.js # Suivi officiel (projects.bricks.co)
 │   └── storage.js           # localStorage
 ├── events/           # Gestionnaires d'événements
-├── ui/               # Rendu de l'interface
+├── ui/
+│   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections
+│   ├── tuiles.js            # Chiffres clés, rendement annualisé, incidents
+│   ├── registre.js          # État de la liste : tri, filtres, pages
+│   ├── fiche.js             # Le HTML d'une carte de propriété
+│   ├── alertes.js           # Fraîcheur des alertes, partagée liste/fiche
+│   ├── libelles.js          # Pluriels et mois en incise
+│   ├── revenuAnnuel.js      # Tableau des revenus par année
+│   ├── periodeGraphiques.js # Fenêtre commune aux graphiques datés
+│   ├── dataAge.js           # Âge des données affichées
+│   └── modals.js            # Modale de suppression, bandeau d'erreur
 ├── utils/            # Formatage, dates, échappement, journalisation
 └── styles/main.css
 
