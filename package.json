@@ -2,6 +2,14 @@
   "name": "bricks-analyser",
   "version": "1.0.0",
   "description": "Tableau de bord d'analyse des investissements Bricks.co",
+  "license": "AGPL-3.0-only",
+  "author": "Rémi BOIDET",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HermessNRJ/bricks-analyser.git"
+  },
+  "homepage": "https://github.com/HermessNRJ/bricks-analyser#readme",
+  "bugs": "https://github.com/HermessNRJ/bricks-analyser/issues",
   "private": true,
   "type": "module",
   "engines": {

@@ -2091,3 +2091,31 @@ details.alertes > summary:hover {
     font-size: 0.78rem;
     color: var(--ink-muted);
 }
+
+/* ---------------------------------------------------------------------------
+   Pied de page
+
+   Deux lignes qu'on ne lit qu'une fois, et qui doivent pourtant rester
+   atteignables : l'avertissement sur l'origine des chiffres, et le lien vers
+   les sources que l'AGPL demande de tenir à disposition. Le corps est en
+   colonne flex avec un conteneur qui s'étire, ce qui colle le pied en bas même
+   sur une page vide.
+   --------------------------------------------------------------------------- */
+
+.pied {
+    border-top: var(--rule-width) solid var(--rule);
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 24px 28px;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+}
+
+.pied p + p {
+    margin-top: 4px;
+}
+
+.pied a {
+    color: inherit;
+}

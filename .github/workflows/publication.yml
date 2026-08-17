@@ -1,0 +1,131 @@
+name: Publication
+
+# Un tag « v1.2.3 » suffit à tout déclencher : l'image part sur GHCR et la
+# release est créée dans la foulée. Rien ne se publie depuis une branche, pour
+# qu'une version publiée corresponde toujours à un point nommé de l'historique.
+#
+#   git tag -a v1.2.3 -m "..." && git push origin v1.2.3
+on:
+  push:
+    tags: ['v*']
+  # Les pull requests construisent l'image sans la pousser : le Dockerfile est
+  # épinglé à un digest, et une base retirée du registre doit se voir avant la
+  # fusion, pas au moment de publier.
+  pull_request:
+    paths: ['Dockerfile', 'nginx.conf', 'index.html', 'src/**', '.github/workflows/publication.yml']
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}
+
+jobs:
+  image:
+    name: Image de conteneur
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deux architectures : les serveurs sont en amd64, les Mac récents en
+      # arm64. Construire arm64 sur un exécutant amd64 demande l'émulation.
+      - uses: docker/setup-qemu-action@v3
+        if: startsWith(github.ref, 'refs/tags/')
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Se connecter à GHCR
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # « v1.2.3 » donne les tags 1.2.3, 1.2, 1 et latest : on peut suivre une
+      # version exacte, une ligne mineure, ou la dernière en date.
+      - name: Calculer les tags et les étiquettes
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=pr
+
+      - name: Construire et pousser
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ startsWith(github.ref, 'refs/tags/') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Construire n'est pas servir : on démarre l'image et on vérifie que nginx
+      # rend bien la page. Une erreur de chemin dans les COPY passerait sinon
+      # inaperçue jusqu'à ce que quelqu'un tire l'image.
+      - name: Vérifier que l'image sert la page
+        run: |
+          docker build -t bricks-verif .
+          docker run -d --name bricks-verif -p 8080:80 bricks-verif
+          for _ in $(seq 20); do
+            if curl -sf http://127.0.0.1:8080/index.html | grep -q "Analyseur d'investissements"; then
+              curl -sf http://127.0.0.1:8080/src/styles/main.css -o /dev/null
+              echo "La page et la feuille de style répondent."
+              docker rm -f bricks-verif
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "L'image ne sert pas la page :" >&2
+          docker logs bricks-verif >&2
+          exit 1
+
+  release:
+    name: Release
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Les notes générées comparent au tag précédent : sans l'historique
+          # complet, la comparaison n'a rien à se mettre sous la dent.
+          fetch-depth: 0
+
+      - name: Créer la release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > notes.md <<EOF
+          ## Image de conteneur
+
+          \`\`\`bash
+          docker run -d -p 8080:80 ghcr.io/${{ github.repository }}:${TAG#v}
+          \`\`\`
+
+          L'application répond sur http://localhost:8080. Le proxy vers l'API
+          Bricks est intégré à l'image : rien d'autre à installer.
+
+          ---
+          EOF
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag
