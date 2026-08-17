@@ -6,11 +6,48 @@ Ce cookie donne un **accès complet au compte Bricks** : solde, IBAN, état civi
 comme un mot de passe — ne jamais le committer, ni le coller dans un ticket ou un export
 HAR partagé.
 
-L'application ne le persiste jamais : il est effacé du champ de saisie après usage, et
-n'est écrit ni dans le localStorage ni dans les logs.
+### La voie qui ne le manipule pas
 
-Le proxy `/api/` ne transporte que la session fournie par l'appelant : il ne détient aucun
-identifiant. Exposer le port 8080 hors de la machine reste toutefois déconseillé.
+Le favori de collecte a été fait pour n'avoir jamais à le toucher. Le cookie est `HttpOnly`,
+donc illisible par un script — mais depuis une page de `bricks.co`, le navigateur le joint
+lui-même à chaque requête. Le favori s'exécute là-bas et n'a rien à extraire : la session ne
+quitte pas l'onglet qui la détenait, et l'analyseur ne la voit à aucun moment.
+
+Ce qui traverse est alors un fichier de données : le portefeuille en clair, qui ne donne
+accès à rien et qui s'efface. Le compromis a changé de nature — d'une clé confiée à un
+tiers, on passe à une copie de ce que la clé ouvrait.
+
+Deux propriétés du favori sont tenues par des tests, parce que la promesse ne vaut que si
+elles le restent : sa source ne contient jamais `document.cookie`, et elle ne joint aucun
+hôte en dehors de `api.bricks.co`. Le smoke test refait la vérification sur le lien
+réellement construit par la page, emballage compris.
+
+Le code installé vient de `src/collecte/extracteur.js`, lu sur votre machine au moment où
+vous posez le lien. Il ne se recharge pas à l'exécution : un favori posé aujourd'hui
+contient le code de la version que vous faites tourner, et ne changera pas sous vos pieds.
+C'est la différence qui compte avec un chargeur distant — un favori qui va chercher son
+script sur un serveur à chaque clic donne à ce serveur un accès complet au compte, en
+permanence, sans version à épingler et sans relecture possible.
+
+### La voie qui le manipule
+
+Coller le cookie reste soutenu, et le restera : c'est le chargement en une fois, sans
+fichier intermédiaire, et le repli quand l'API change de forme avant qu'un favori ancien
+n'ait été reposé.
+
+Sur ce chemin, l'application ne persiste jamais le cookie : il est effacé du champ de
+saisie après usage, et n'est écrit ni dans le localStorage ni dans les logs. Le proxy
+`/api/` ne transporte que la session fournie par l'appelant et ne détient aucun
+identifiant.
+
+Les deux voies ne demandent pas la même confiance, et c'est le seul point à retenir pour
+choisir : le favori ne fait passer que des données, celle-ci fait passer la clé.
+
+Le proxy `/projects-api/`, lui, ne porte **aucun** identifiant : l'API de suivi de projet
+répond sans authentification. Il n'existe que parce qu'elle n'active pas le CORS et que
+Cloudflare la garde.
+
+Exposer le port 8080 hors de la machine reste déconseillé dans tous les cas.
 
 ## Rendu et injection
 

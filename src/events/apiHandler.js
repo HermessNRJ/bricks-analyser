@@ -1,11 +1,22 @@
 /**
  * Gestionnaire de récupération des données via API
+ *
+ * Ce chemin demande de coller le cookie de session, et le relaie au proxy
+ * nginx. Le favori de collecte (src/collecte/extracteur.js) fait la même chose
+ * sans jamais sortir la session de l'onglet Bricks : c'est la voie à proposer
+ * en premier.
+ *
+ * Celle-ci est maintenue à côté, et non en sursis : elle charge tout d'une
+ * traite sans fichier intermédiaire, et elle reste le repli le jour où l'API
+ * change de forme avant qu'un favori posé depuis une version ancienne n'ait été
+ * reposé. Les deux entrées se rejoignent sur traiterCollecte().
  */
 
-import { fetchFinancedProjects, fetchAllProjects, mergeAPIProjects, fetchWarnings, fetchHistoriqueRevenus, fetchTransactionsPortefeuille, normalizeSessionCookie, hasSessionCookie } from '../data/apiClient.js';
-import { normaliserTransactions } from '../business/walletHistory.js';
-import { normaliserApports, reconcilierJournal } from '../business/apports.js';
-import { processData } from '../business/processor.js';
+import {
+    fetchFinancedProjects, fetchAllProjects, fetchWarnings, fetchRevenusBruts,
+    fetchTransactionsPortefeuille, normalizeSessionCookie, hasSessionCookie
+} from '../data/apiClient.js';
+import { traiterCollecte } from '../business/collecte.js';
 import { showError, hideError } from '../ui/modals.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { rafraichirStatuts } from './statusHandler.js';
@@ -51,41 +62,25 @@ export function setupAPIHandler() {
 
         try {
             // Récupérer les projets financés : sans eux, rien à afficher
-            const financedData = await fetchFinancedProjects(session);
+            const financed = await fetchFinancedProjects(session);
 
             // Récupérer les projets en cours/à venir
-            let allProjectsData;
+            let projets;
             try {
-                allProjectsData = await fetchAllProjects(session);
+                projets = await fetchAllProjects(session);
             } catch (secondErr) {
                 logger.warn(LOG_CATEGORIES.EVENT, 'Failed to fetch ongoing/upcoming projects', secondErr);
                 showError(`Données des projets financés chargées, mais échec de la récupération des projets en cours/à venir: ${secondErr.message}`);
                 // Continuer avec les données partielles
-                allProjectsData = { ongoing: { projects: [] }, upcoming: { projects: [] } };
+                projets = { ongoing: { projects: [] }, upcoming: { projects: [] } };
             }
 
-            // Fusionner les données
-            const combinedData = mergeAPIProjects(financedData, allProjectsData);
-
-            // Les warnings sont accessoires : fetchWarnings renvoie [] en cas d'échec
-            const warningsData = await fetchWarnings(session);
-            logger.info(LOG_CATEGORIES.EVENT, 'Warnings retrieved', {
-                count: warningsData.length,
-                propertyIds: warningsData.map(w => w.propertyId)
-            });
+            // Les alertes sont accessoires : fetchWarnings renvoie [] en cas d'échec
+            const alertes = await fetchWarnings(session);
 
             // L'état de compte dit ce qui a RÉELLEMENT été versé : sans lui on
             // retombe sur l'estimation, qui compte les impayés comme encaissés.
-            const revenus = await fetchHistoriqueRevenus(session);
-
-            if (revenus) {
-                logger.info(LOG_CATEGORIES.EVENT, 'Revenue history retrieved', {
-                    months: Object.keys(revenus.mensuel).length,
-                    netTotal: revenus.total.net
-                });
-            } else {
-                logger.warn(LOG_CATEGORIES.EVENT, 'Revenue history unavailable, falling back to estimate');
-            }
+            const revenus = await fetchRevenusBruts(session);
 
             // Le journal des mouvements nomme chaque versement : lui seul
             // distingue un remboursement de capital d'un coupon.
@@ -97,24 +92,9 @@ export function setupAPIHandler() {
                 }
             });
 
-            const capital = normaliserTransactions(transactions);
-            const apports = normaliserApports(transactions);
-
-            // Additionner toutes les lignes doit rendre le solde du portefeuille :
-            // le seul contrôle qui dise si une nature de mouvement nous échappe.
-            reconcilierJournal(transactions);
-
-            if (capital) {
-                logger.info(LOG_CATEGORIES.EVENT, 'Capital repayments retrieved', {
-                    total: capital.total,
-                    transactions: capital.nombre
-                });
-            }
-
-            loadingMsg.textContent = 'Chargement des données…';
-
-            // Traiter les données avec les warnings
-            await processData(combinedData, warningsData, { revenus, capital, apports });
+            await traiterCollecte({ financed, projets, alertes, revenus, transactions }, {
+                surAvancement: (texte) => { loadingMsg.textContent = texte; }
+            });
 
             // Ne pas laisser la session dans le DOM
             tokenInput.value = '';

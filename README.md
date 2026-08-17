@@ -34,25 +34,54 @@ Sans cloner le dépôt, une image prête à l'emploi est publiée à chaque vers
 docker run -d -p 8080:80 --name bricks ghcr.io/hermessnrj/bricks-analyser:latest
 ```
 
-### 2. Récupérer sa session Bricks
+### 2. Récupérer ses données
 
-L'authentification se fait par cookie de session (better-auth, posé après le SSO Google) —
-il n'y a plus de Bearer token.
+Trois gestes, et rien à copier :
+
+1. Sur la page d'accueil, **glissez le lien « Collecter mes données Bricks »** dans votre
+   barre de favoris.
+2. Ouvrez `app.bricks.co`, connectez-vous, puis **cliquez ce favori**. Il lit vos données
+   sur place et écrit un fichier `bricks-AAAA-MM-JJ-HHMM.json`.
+3. **Déposez ce fichier** sur l'analyseur.
+
+Les données s'affichent et sont conservées dans le localStorage pour les visites suivantes.
+
+**Pourquoi cette gymnastique plutôt qu'un mot de passe.** Le cookie de session de Bricks
+donne un accès complet au compte — solde, IBAN, état civil. Il est `HttpOnly` : aucun
+script ne peut le lire, y compris celui-ci. Mais depuis une page de `bricks.co`, le
+navigateur le joint de lui-même à chaque requête. Le favori s'exécute donc *là-bas*, et
+n'a rien à extraire : votre session ne quitte jamais l'onglet qui la détenait, et
+l'analyseur ne la voit à aucun moment.
+
+Le code du favori est celui de `src/collecte/extracteur.js`, servi par votre propre machine
+au moment où vous posez le lien. Il ne va rien chercher ailleurs à l'exécution, et il ne
+joint aucun hôte en dehors de `api.bricks.co` — [un test le vérifie](tests/favori.test.js)
+à chaque build.
+
+Le fichier produit, lui, contient votre portefeuille en clair. C'est une donnée, pas une
+clé : elle ne donne accès à rien, et elle s'efface.
+
+<details>
+<summary>Ou coller le cookie de session, comme avant</summary>
 
 1. Connectez-vous sur `app.bricks.co`.
 2. Outils de développement → onglet **Réseau** → cliquez sur une requête vers
    `api.bricks.co` → dans les en-têtes de requête, copiez la valeur de `Cookie`. Elle
    contient `cf_clearance` et `__Secure-better-auth.session_token`, tous deux nécessaires.
 3. Collez-la dans le champ prévu. Le préfixe `Cookie:` et les espaces sont tolérés.
-4. **Charger les données API** (ou Entrée).
+4. **Charger les données** (ou Entrée).
 
-Les données s'affichent immédiatement et sont conservées dans le localStorage pour les
-visites suivantes. La session dure environ 30 jours ; se déconnecter de Bricks l'invalide
-aussitôt.
+La session dure environ 30 jours ; se déconnecter de Bricks l'invalide aussitôt.
 
-> Ce cookie donne un accès complet au compte — solde, IBAN, état civil. Le traiter comme un
-> mot de passe : ne jamais le committer ni le coller dans un ticket ou un export HAR
-> partagé. L'application ne le persiste jamais. [Détails](docs/securite.md)
+> Ce cookie donne un accès complet au compte. Le traiter comme un mot de passe : ne jamais
+> le committer ni le coller dans un ticket ou un export HAR partagé. L'application ne le
+> persiste jamais. [Détails](docs/securite.md)
+
+Cette voie reste pleinement soutenue. Elle charge tout en une fois, sans passer par un
+fichier, et elle est le repli si l'API de Bricks change de forme avant qu'un favori posé
+depuis une version ancienne n'ait été reposé.
+
+</details>
 
 ### 3. Tenir les données à jour
 

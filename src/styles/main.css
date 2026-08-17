@@ -290,6 +290,127 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   Voie du favori
+
+   La règle du système — la couleur est réservée à l'argent et au risque —
+   interdit de peindre ce lien pour le rendre visible. Son affordance passe donc
+   par la forme : une poignée, un curseur de préhension, et un léger décollement
+   au survol. Il faut qu'on ait envie de le tirer, pas de le cliquer.
+   -------------------------------------------------------------------------- */
+
+.voie-favori {
+    margin-bottom: 20px;
+}
+
+/* Le numéro porte une information — l'ordre des gestes — et n'est donc pas un
+   ornement : le premier ne se fait qu'une fois, le deuxième se fait sur un
+   autre site, le troisième revient à chaque mise à jour. */
+.favori-etapes {
+    list-style: none;
+    counter-reset: etape;
+    margin: 0 0 14px;
+    padding: 0;
+}
+
+.favori-etapes li {
+    counter-increment: etape;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 0 7px 30px;
+    position: relative;
+}
+
+.favori-etapes li::before {
+    content: counter(etape);
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-data);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+}
+
+.favori-dit {
+    color: var(--ink-muted);
+    font-size: 0.9rem;
+}
+
+.favori {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px 9px 12px;
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--surface-sunken);
+    color: var(--ink);
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: grab;
+}
+
+/* La poignée : trois points doublés, le signe convenu de ce qui se saisit */
+.favori::before {
+    content: '⠿';
+    font-size: 1.05rem;
+    line-height: 1;
+    color: var(--ink-faint);
+}
+
+.favori:hover {
+    border-color: var(--ink-muted);
+    box-shadow: var(--ombre-carte);
+}
+
+.favori:active {
+    cursor: grabbing;
+}
+
+/* Tant que la source n'est pas lue, le lien ne mène nulle part : le dire */
+.favori[aria-disabled="true"] {
+    cursor: default;
+    color: var(--ink-faint);
+    border-style: dashed;
+}
+
+.upload-section .aide-fine {
+    font-size: 0.83rem;
+    color: var(--ink-faint);
+    margin-bottom: 0;
+}
+
+/* Le dépôt d'un fichier vise la section entière : une cible large vaut mieux
+   qu'un rectangle à trouver, et le retour visuel confirme qu'on est dedans. */
+.upload-section.depot-actif {
+    border-color: var(--ink-muted);
+    background: var(--surface-sunken);
+}
+
+.voie-cookie {
+    border-top: var(--rule-width) solid var(--rule-faible);
+    padding-top: 16px;
+    margin-bottom: 18px;
+}
+
+.voie-cookie > summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+    margin-bottom: 12px;
+}
+
+/* Repliée une fois les données chargées, comme le reste de la saisie */
+.upload-section.est-repliee .voie-favori,
+.upload-section.est-repliee .voie-cookie {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
    Boutons
    -------------------------------------------------------------------------- */
 

@@ -14,6 +14,8 @@ import { redessinerSeriesDatees } from '../charts/chartManager.js';
 import { setupForecastHandler } from './forecastHandler.js';
 import { setupStatusHandler } from './statusHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
+import { setupFichierHandler } from './fichierHandler.js';
+import { initFavori } from '../ui/favori.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
 import {
@@ -31,6 +33,7 @@ function initializeApp() {
 
     // Configurer tous les gestionnaires d'événements
     setupAPIHandler();
+    setupFichierHandler();
     setupScrollToTop();
     setupResetCache();
     setupPropertyControls();
@@ -48,6 +51,11 @@ function initializeApp() {
     window.addEventListener('resize', () => {
         resizeAllCharts();
     });
+
+    // Le favori est construit depuis la source servie par cette machine : il
+    // n'est donc prêt qu'après un aller-retour. Rien ne dépend de lui, on ne
+    // fait pas attendre le reste de l'initialisation.
+    initFavori();
 
     // Charger les données depuis localStorage si disponibles
     loadInitialData();

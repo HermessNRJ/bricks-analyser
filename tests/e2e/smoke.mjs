@@ -133,7 +133,27 @@ await page.addInitScript(payload => {
 await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#propertiesList .property-card', { timeout: 10000 });
 
+// Le favori est bâti après un aller-retour vers la source : il n'est pas prêt
+// au même instant que le reste de la page.
+await page.waitForFunction(
+    () => document.getElementById('favoriCollecte')?.getAttribute('href')?.startsWith('javascript:'),
+    { timeout: 10000 }
+);
+
 const snapshot = await page.evaluate(() => ({
+    // Le favori tel qu'il partirait dans la barre : c'est la seule vérification
+    // qui porte sur le code réellement installé, l'emballage compris.
+    favori: (() => {
+        const href = document.getElementById('favoriCollecte').getAttribute('href');
+        const source = decodeURIComponent(href.slice('javascript:'.length));
+
+        return {
+            analysable: (() => { try { new Function(source); return true; } catch { return false; } })(),
+            hotes: [...new Set([...source.matchAll(/https?:\/\/([\w.-]+)/g)].map(m => m[1]))],
+            avecIdentifiants: source.includes("credentials: 'include'"),
+            litLeCookie: source.includes('document.cookie')
+        };
+    })(),
     resultsVisible: !document.getElementById('results').classList.contains('hidden'),
     totalBricks: document.getElementById('totalBricks').textContent,
     totalInvestment: document.getElementById('totalInvestment').textContent,
@@ -200,6 +220,12 @@ const snapshot = await page.evaluate(() => ({
     apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
         .map(e => e.textContent.trim())
 }));
+
+check('le favori installé est du JavaScript valide', snapshot.favori.analysable);
+check('le favori ne joint que Bricks', snapshot.favori.hotes.join(',') === 'api.bricks.co',
+    snapshot.favori.hotes.join(','));
+check('le favori laisse le navigateur joindre la session',
+    snapshot.favori.avecIdentifiants && !snapshot.favori.litLeCookie);
 
 check('la section résultats est affichée', snapshot.resultsVisible);
 check('les 3 propriétés sont rendues', snapshot.cardCount === 3, `${snapshot.cardCount} cartes`);
