@@ -83,21 +83,30 @@ export function oublierCouleurs() {
 }
 
 /**
- * Prévient quand le thème du système bascule
+ * Prévient quand le thème bascule, d'où que vienne la bascule
  *
  * Les canevas déjà tracés gardent leurs couleurs : il faut les redessiner,
  * ce dont l'appelant se charge.
  *
+ * Deux sources, parce qu'il y a deux façons de changer de thème : le réglage du
+ * bureau, et l'interrupteur de l'en-tête. La seconde ne touche pas la requête
+ * média — elle change l'attribut du <link> qui charge nuit.css — et n'aurait
+ * donc rien déclenché ici.
+ *
  * @param {Function} auChangement - Appelée après vidage du cache
  */
 export function surChangementDeTheme(auChangement) {
+    const redessiner = (source) => {
+        oublierCouleurs();
+        logger.debug(LOG_CATEGORIES.CHART, 'Color scheme changed', { source });
+        auChangement();
+    };
+
+    document.addEventListener('apparence:changee', () => redessiner('bouton'));
+
     if (typeof matchMedia !== 'function') {
         return;
     }
 
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        oublierCouleurs();
-        logger.debug(LOG_CATEGORIES.CHART, 'Color scheme changed', { sombre: e.matches });
-        auChangement();
-    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => redessiner('système'));
 }

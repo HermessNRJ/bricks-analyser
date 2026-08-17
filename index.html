@@ -10,8 +10,14 @@
          un carré gris autour de l'icône dans les onglets clairs. -->
     <link rel="icon" type="image/png" sizes="128x128" href="./favicon.png">
 
-    <!-- External CSS -->
+    <!-- External CSS.
+         La palette de nuit est une feuille à part, mise en service par son
+         attribut media : le navigateur honore le réglage du système dès le
+         premier rendu, et src/ui/apparence.js n'a que cet attribut à retoucher
+         pour imposer un thème. Voir l'en-tête de nuit.css. -->
     <link rel="stylesheet" href="./src/styles/main.css">
+    <link id="feuilleNuit" rel="stylesheet" href="./src/styles/nuit.css"
+          media="(prefers-color-scheme: dark)">
 
     <!-- Chart.js et son plugin treemap.
          Les empreintes SRI sont obligatoires ici : cette page manipule un
@@ -33,8 +39,22 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>Analyseur d'investissements Bricks</h1>
-            <p>Vos briques, vos revenus et vos alertes, en un seul écran.</p>
+            <div class="header-titre">
+                <h1>Analyseur d'investissements Bricks</h1>
+                <p>Vos briques, vos revenus et vos alertes, en un seul écran.</p>
+            </div>
+
+            <!-- Deux positions et non trois : le bouton fait toujours le
+                 contraire de ce qui est affiché. Sans choix explicite, la page
+                 suit le réglage du système ; le premier appui le fixe. -->
+            <button type="button" id="basculeTheme" class="bascule-theme"
+                    aria-pressed="false" aria-label="Passer au thème sombre">
+                <span class="bascule-piste" aria-hidden="true">
+                    <span class="bascule-astre bascule-jour">☀</span>
+                    <span class="bascule-astre bascule-nuit">☾</span>
+                    <span class="bascule-pastille"></span>
+                </span>
+            </button>
         </header>
 
         <section class="upload-section" id="uploadSection" aria-labelledby="titreSession">
@@ -340,7 +360,7 @@
                 </div>
                 <!-- Pas d'énumération des graphiques concernés : elle se périme
                      au premier ajouté, et le lecteur a les titres sous les yeux. -->
-                <p class="note">S'applique à toutes les courbes datées. La répartition par propriété et le portefeuille en surface sont des états d'aujourd'hui : aucune période ne s'y applique.</p>
+                <p class="note">S'applique à toutes les courbes datées. La répartition des versements et le portefeuille en surface sont des états d'aujourd'hui : aucune période ne s'y applique.</p>
             </div>
 
             <div class="charts-section">
@@ -355,10 +375,14 @@
                     <p class="chart-note" id="origineFondsNote"></p>
                 </div>
 
+                <!-- Les quatre états forment une partition des propriétés
+                     détenues : chacune en occupe un et un seul. « Déjà
+                     remboursé » commence décoché — sur un portefeuille ancien
+                     il écrase les trois états sur lesquels on a prise. -->
                 <div class="chart-container">
-                    <h3 class="chart-title">Répartition par propriété</h3>
-                    <canvas id="distributionChart" width="400" height="320"></canvas>
-                    <p class="chart-note">Cliquez sur « Autres » pour voir le détail.</p>
+                    <h3 class="chart-title">Répartition des versements</h3>
+                    <canvas id="statutsChart" width="400" height="320"></canvas>
+                    <p class="chart-note">Cliquez une entrée de la légende pour l'ôter du disque ou l'y remettre.</p>
                 </div>
 
                 <div class="chart-container">
@@ -391,6 +415,66 @@
                     <span>Rendement élevé</span>
                 </div>
             </section>
+
+            <!-- Repliée, et dessinée seulement au premier dépliage : le tableau
+                 fait une ligne par commune, et sur 241 biens il s'en compose une
+                 centaine qu'on ne regarde pas à chaque visite. -->
+            <details class="geographie hidden" id="geographieSection">
+                <summary>
+                    <h2 id="titreGeographie">Géographie</h2>
+                    <span class="geo-invite">Où le capital est engagé, et à quel point il est groupé</span>
+                </summary>
+
+                <div class="geo-compteurs">
+                    <div class="stat-card">
+                        <div class="stat-value" id="geoDepartements">0</div>
+                        <div class="stat-label">Départements couverts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="geoVilles">0</div>
+                        <div class="stat-label">Communes distinctes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value stat-value-texte" id="geoPremiereRegion">—</div>
+                        <div class="stat-label">Première région</div>
+                        <div class="stat-detail" id="geoPremierePart"></div>
+                    </div>
+                </div>
+
+                <p class="note hidden" id="geoNote"></p>
+
+                <h3 class="chart-title">Capital par région</h3>
+                <!-- Les barres se mesurent à la plus longue, non au total :
+                     treize régions rapportées au total donneraient treize
+                     traits également écrasés. -->
+                <div class="geo-regions" id="geoRegions"></div>
+
+                <div class="geo-lieux-entete">
+                    <h3 class="chart-title">Détail par localisation</h3>
+                    <label class="champ-recherche" for="geoRecherche">
+                        Filtrer
+                        <input type="search" id="geoRecherche" placeholder="Commune, département ou région…"
+                               autocomplete="off" spellcheck="false">
+                    </label>
+                    <p class="note" id="geoLieuxCompte"></p>
+                </div>
+                <div class="tableau-defilant geo-lieux-cadre">
+                    <table class="tableau-revenus geo-lieux">
+                        <thead>
+                            <tr>
+                                <th scope="col">Commune</th>
+                                <th scope="col">Département</th>
+                                <th scope="col">Région</th>
+                                <th scope="col">Biens</th>
+                                <th scope="col">Capital <span class="entete-note">engagé</span></th>
+                                <th scope="col">Part</th>
+                            </tr>
+                        </thead>
+                        <tbody id="geoLieuxCorps"></tbody>
+                    </table>
+                </div>
+                <p class="note">Cliquez une ligne pour n'afficher que ses biens dans le registre. Région et département sont déduits du code postal de l'adresse publiée par Bricks. Les projets remboursés n'y figurent pas : ils ne portent plus de capital.</p>
+            </details>
 
             <section class="properties-list" aria-labelledby="titreRegistre">
                 <h2 id="titreRegistre">Registre des propriétés</h2>
@@ -466,6 +550,23 @@
                     <label for="propertyCountryFilter">
                         Pays
                         <select id="propertyCountryFilter">
+                            <option value="all">Tous</option>
+                        </select>
+                    </label>
+
+                    <!-- Les deux menus ne listent que ce que le portefeuille
+                         contient : proposer les 101 départements de France
+                         obligerait à chercher les quarante qui répondent. -->
+                    <label for="propertyRegionFilter">
+                        Région
+                        <select id="propertyRegionFilter">
+                            <option value="all">Toutes</option>
+                        </select>
+                    </label>
+
+                    <label for="propertyDepartementFilter">
+                        Département
+                        <select id="propertyDepartementFilter">
                             <option value="all">Tous</option>
                         </select>
                     </label>

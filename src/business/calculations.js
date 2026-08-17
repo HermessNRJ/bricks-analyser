@@ -10,6 +10,7 @@ import { repartitionRisque, niveauRisque, arrieresInvestisseur } from './riskAna
 import { serieArrieres } from './arrieres.js';
 import { serieMensuelle, moisEncoreOuvert } from './revenueHistory.js';
 import { annoterVersements } from './versements.js';
+import { annoterGeographie } from './geographie.js';
 import { serieOrigineFonds } from './apports.js';
 import { calculerRendements, capitalImpliciteParMois } from './rendement.js';
 import { rendementMoyenPondere } from './forecast.js';
@@ -273,6 +274,12 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     // de compte. Sans relevé, aucune fiche n'est annotée : mieux vaut ne rien
     // dire que de peindre en rouge un portefeuille dont on ignore les recettes.
     const versements = annoterVersements(properties, revenus?.versements);
+
+    // Où se trouve chaque bien, déduit du code postal de son adresse. Annoté ici
+    // plutôt que calculé à l'affichage : le registre filtre dessus, et refaire
+    // l'analyse à chaque frappe dans la recherche coûterait 241 expressions
+    // régulières pour un résultat qui ne bouge pas.
+    annoterGeographie(properties);
 
     // Les briques d'un projet remboursé ne sont plus détenues : le compte ne se
     // tient qu'une fois les propriétés rassemblées et leur statut connu.

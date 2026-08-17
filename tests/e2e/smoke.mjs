@@ -26,7 +26,9 @@ const fixture = {
             {
                 id: 'proj-1',
                 name: { fr: 'Immeuble Lyon 3e' },
-                address: { fr: '12 rue Garibaldi, Lyon' },
+                // Le code postal porte toute la déduction géographique : sans
+                // lui la section n'aurait qu'une ligne « Localisation imprécise »
+                address: { fr: '12 rue Garibaldi, 69003 Lyon' },
                 ownedBricks: 25,
                 brickPrice: 1000,
                 yearlyTotalRentabilityPercentage: 9.5,
@@ -215,6 +217,30 @@ const snapshot = await page.evaluate(() => ({
             .find(c => c.canvas.id === 'arrieresChart');
         return chart?.data.labels.at(-1) ?? null;
     })(),
+    // Le camembert des versements : la partition doit retomber sur les
+    // pastilles des fiches, et les projets soldés commencer hors du disque.
+    statuts: (() => {
+        const chart = Object.values(window.Chart?.instances || {})
+            .find(c => c.canvas.id === 'statutsChart');
+
+        if (!chart) {
+            return null;
+        }
+
+        return {
+            libelles: chart.data.labels,
+            valeurs: chart.data.datasets[0].data,
+            visibles: chart.data.labels.map((_, i) => chart.getDataVisibility(i))
+        };
+    })(),
+    // La section Géographie avant tout dépliage : présente mais vide, c'est
+    // tout l'intérêt du rendu différé.
+    geoAvant: {
+        cachee: document.getElementById('geographieSection').classList.contains('hidden'),
+        lignes: document.querySelectorAll('#geoLieuxCorps tr').length
+    },
+    regionsMenu: [...document.getElementById('propertyRegionFilter').options].map(o => o.value),
+    departementsMenu: [...document.getElementById('propertyDepartementFilter').options].map(o => o.textContent),
     detailInvestissement: document.getElementById('detailInvestissement').textContent.trim(),
     colonneApportCachee: document.querySelector('th.colonne-apport').classList.contains('hidden'),
     apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
@@ -355,6 +381,20 @@ check('le graphique et le simulateur donnent le même rythme',
     snapshot.repereApport.replace(/\s/g, ' ')
         .includes(`${Math.round(snapshot.repereGraphique)} €`),
     `${snapshot.repereApport} — trait à ${snapshot.repereGraphique} €`);
+// Le camembert reprend la même partition que les pastilles : une propriété qui
+// verse, deux muettes, aucune soldée. Un total qui s'en écarterait voudrait dire
+// qu'un état échappe au disque.
+check('le camembert reprend les quatre états de versement',
+    snapshot.statuts?.libelles.join(' / ')
+        === 'À jour / Démarrage en attente / En retard / Déjà remboursé',
+    snapshot.statuts?.libelles.join(' / ') ?? 'aucun graphique');
+check('le camembert compte comme les pastilles',
+    snapshot.statuts?.valeurs.join(',') === '1,0,2,0',
+    snapshot.statuts?.valeurs.join(','));
+check('les projets soldés commencent décochés',
+    snapshot.statuts?.visibles.join(',') === 'true,true,true,false',
+    snapshot.statuts?.visibles.join(','));
+
 check('la colonne des versements personnels est ouverte', !snapshot.colonneApportCachee);
 check('le tableau annuel porte les versements personnels',
     snapshot.apportsAnnuels.every(v => /600/.test(v)), snapshot.apportsAnnuels.join(' / '));
@@ -401,6 +441,151 @@ check('le tri par briques place Porto en tête', firstCard.includes('Porto'), fi
 // Trois fiches tiennent sur une page : ni onglets ni réglage de taille à montrer
 check('la pagination se tait quand tout tient sur une page',
     await page.locator('#pagination').evaluate(n => n.classList.contains('hidden')));
+
+// La géographie. Les trois cas du portefeuille de test se retrouvent ici : un
+// bien situé par son code postal, un bien étranger rangé sous son pays, et une
+// adresse dont on n'a rien pu tirer — comptée, jamais fondue dans une région.
+check('la section Géographie est proposée', !snapshot.geoAvant.cachee);
+check('elle ne se dessine pas tant qu\'elle est repliée',
+    snapshot.geoAvant.lignes === 0, `${snapshot.geoAvant.lignes} lignes`);
+check('le menu des régions liste ce que le portefeuille contient, l\'imprécis en dernier',
+    snapshot.regionsMenu.join(' / ') === 'all / Auvergne-Rhône-Alpes / Portugal / Localisation imprécise',
+    snapshot.regionsMenu.join(' / '));
+check('le menu des départements nomme le code',
+    snapshot.departementsMenu.join(' / ') === 'Tous / 69 — Rhône',
+    snapshot.departementsMenu.join(' / '));
+
+await page.click('#geographieSection summary');
+await page.waitForTimeout(300);
+
+const geo = await page.evaluate(() => ({
+    departements: document.getElementById('geoDepartements').textContent,
+    villes: document.getElementById('geoVilles').textContent,
+    premiere: document.getElementById('geoPremiereRegion').textContent,
+    note: document.getElementById('geoNote').textContent.replace(/\s+/g, ' ').trim(),
+    regions: [...document.querySelectorAll('.geo-region-nom')].map(e => e.textContent),
+    lignes: document.querySelectorAll('#geoLieuxCorps tr').length,
+    communes: [...document.querySelectorAll('#geoLieuxCorps .geo-lieu-bouton')].map(e => e.textContent),
+    // L'adresse piégée passe par le tableau : elle doit y arriver échappée
+    injectes: document.querySelectorAll('#geoLieuxCorps script, #geoLieuxCorps img[onerror]').length
+}));
+
+check('le dépliage compose le tableau', geo.lignes === 3, `${geo.lignes} lignes`);
+check('le code postal situe le bien lyonnais',
+    geo.departements === '1' && geo.villes === '1' && geo.communes.includes('Lyon'),
+    `${geo.departements} départements, ${geo.villes} communes, ${geo.communes.join(' / ')}`);
+check('le bien étranger passe en tête, sous son pays',
+    geo.premiere === 'Portugal' && geo.regions[0] === 'Portugal',
+    `${geo.premiere} — ${geo.regions.join(' / ')}`);
+check('l\'adresse illisible est comptée, pas rangée dans une région',
+    geo.regions.includes('Localisation imprécise')
+    && /1 propriété n'a pas d'adresse exploitable/.test(geo.note),
+    geo.note);
+check('aucun HTML de l\'API n\'est exécuté dans le tableau des localisations',
+    !geo.injectes && !(await page.evaluate(() => Boolean(window.__XSS__))));
+
+// La recherche du tableau mord sur les colonnes de texte, département compris
+await page.fill('#geoRecherche', 'rhône');
+await page.waitForTimeout(200);
+
+const cherche = await page.evaluate(() => ({
+    lignes: document.querySelectorAll('#geoLieuxCorps tr[data-lieu]').length,
+    communes: [...document.querySelectorAll('#geoLieuxCorps tr[data-lieu] .geo-lieu-bouton')]
+        .map(e => e.textContent),
+    compte: document.getElementById('geoLieuxCompte').textContent.replace(/\s+/g, ' ').trim()
+}));
+
+check('la recherche mord sur le nom du département',
+    cherche.lignes === 1 && cherche.communes[0] === 'Lyon',
+    `${cherche.lignes} lignes : ${cherche.communes.join(' / ')}`);
+check('le décompte rappelle le total quand la recherche filtre',
+    cherche.compte === '1 sur 3 localisations', cherche.compte);
+
+await page.fill('#geoRecherche', 'zzz');
+await page.waitForTimeout(200);
+check('une recherche sans réponse le dit',
+    await page.locator('.geo-lieux-vide').isVisible());
+
+await page.fill('#geoRecherche', '');
+await page.waitForTimeout(200);
+
+// Le clic sur une ligne renvoie au registre, filtré sur ce lieu précis
+await page.click('#geoLieuxCorps tr[data-lieu] .geo-lieu-bouton:has-text("Lyon")');
+await page.waitForTimeout(400);
+
+const apresClic = await page.evaluate(() => ({
+    fiches: [...document.querySelectorAll('#propertiesList .property-name')].map(e => e.textContent.trim()),
+    puces: [...document.querySelectorAll('.puce')].map(e => e.textContent.trim().replace(/\s+/g, ' ')),
+    retenu: localStorage.getItem('propertyLieuFilter')
+}));
+
+check('cliquer une localisation ne garde que ses biens au registre',
+    apresClic.fiches.length === 1 && apresClic.fiches[0].includes('Lyon'),
+    apresClic.fiches.join(' / '));
+check('le filtre de lieu est rappelé en puce, nommé',
+    apresClic.puces.some(p => p.startsWith('Lyon (69)')), apresClic.puces.join(' / '));
+check('la clé du lieu est celle du tableau', apresClic.retenu === '69/Lyon', apresClic.retenu);
+
+// La puce se retire comme les autres
+await page.click('[data-clear="lieuFilter"]');
+await page.waitForTimeout(300);
+check('retirer la puce rouvre le registre',
+    await page.evaluate(() => document.querySelectorAll('#propertiesList .property-card').length) === 3);
+
+await page.click('#geographieSection summary');
+
+// L'interrupteur de thème. Ce qui se vérifie ici n'est pas la couleur — un
+// canevas ne se relit pas — mais que la feuille de nuit change d'état, que la
+// préférence soit écrite, et que le basculement fasse redessiner les graphiques
+// sans réveiller d'instance détruite.
+const themeAvant = await page.evaluate(() => ({
+    affiche: document.documentElement.dataset.themeAffiche,
+    media: document.getElementById('feuilleNuit').media
+}));
+
+check('la feuille de nuit part sur la préférence du système',
+    themeAvant.media === '(prefers-color-scheme: dark)', themeAvant.media);
+
+const erreursAvantTheme = pageErrors.length;
+
+await page.click('#basculeTheme');
+await page.waitForTimeout(700);
+
+const themeApres = await page.evaluate(() => ({
+    affiche: document.documentElement.dataset.themeAffiche,
+    demande: document.documentElement.dataset.theme,
+    media: document.getElementById('feuilleNuit').media,
+    retenu: localStorage.getItem('theme'),
+    // Le canevas est retracé : l'instance ne doit pas être celle d'avant
+    statutsVivant: Object.values(window.Chart?.instances || {})
+        .some(c => c.canvas.id === 'statutsChart')
+}));
+
+check('l\'interrupteur mène au thème opposé',
+    themeApres.affiche !== themeAvant.affiche,
+    `${themeAvant.affiche} → ${themeApres.affiche}`);
+check('la feuille de nuit est mise en service ou désarmée',
+    ['all', 'not all'].includes(themeApres.media), themeApres.media);
+check('le thème choisi est retenu pour la prochaine visite',
+    themeApres.retenu === themeApres.demande,
+    `${themeApres.retenu} / ${themeApres.demande}`);
+check('les graphiques sont redessinés après le basculement', themeApres.statutsVivant);
+check('basculer le thème ne lève aucune exception',
+    pageErrors.length === erreursAvantTheme,
+    pageErrors.slice(erreursAvantTheme).join(' | '));
+
+// Un second appui doit ramener à ce qui était affiché : c'est ce qui rend un
+// bouton à deux positions suffisant. Il remet aussi la page d'aplomb pour la
+// suite du test et pour une éventuelle capture.
+await page.click('#basculeTheme');
+await page.waitForTimeout(400);
+
+const themeRetour = await page.evaluate(() => document.documentElement.dataset.themeAffiche);
+
+check('un second appui revient au thème de départ',
+    themeRetour === themeAvant.affiche, `${themeApres.affiche} → ${themeRetour}`);
+
+await page.evaluate(() => localStorage.removeItem('theme'));
 
 // Deux tracés rapprochés, comme lorsque les résultats s'affichent une seconde
 // fois : le treemap est reconstruit avant que ses redessins différés se soient

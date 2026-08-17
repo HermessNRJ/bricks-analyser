@@ -5,7 +5,7 @@
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { createInvestmentChart } from './investmentChart.js';
-import { createDistributionChart } from './distributionChart.js';
+import { createStatutsChart } from './statutsChart.js';
 import { createRevenueChart } from './revenueChart.js';
 import { createTaxChart } from './taxChart.js';
 import { createTreemapChart } from './treemapChart.js';
@@ -73,7 +73,7 @@ export function createCharts(results) {
     // un calendrier ouvert laisserait choisir des mois sans données.
     bornerAuxDonnees(moisCouverts(results));
 
-    createDistributionChart(results.properties);
+    createStatutsChart(results.versements);
     createTreemapChart(results.properties);
     dessinerSeriesDatees(results);
 
@@ -82,7 +82,7 @@ export function createCharts(results) {
 
 /**
  * Redessine les seuls graphiques datés, sur la période courante
- * Le donut et la treemap sont des états du portefeuille, sans axe temporel :
+ * Le camembert et la treemap sont des états du portefeuille, sans axe temporel :
  * les redessiner à chaque changement de fenêtre ne ferait que clignoter.
  */
 export function redessinerSeriesDatees() {
@@ -199,7 +199,7 @@ export function destroyAllCharts() {
     // Mettre à jour l'état
     state.set('charts', {
         investment: null,
-        distribution: null,
+        statuts: null,
         revenueEvolution: null,
         taxAmount: null,
         origineFonds: null,

@@ -15,16 +15,38 @@ CommonJS — ce que `require()` ne sait faire que depuis 22.12.
 
 ## Système visuel
 
-`src/styles/main.css` s'ouvre sur deux blocs de jetons : `:root` pour le thème clair, et
-un `@media (prefers-color-scheme: dark)` qui redéfinit les mêmes noms. Tout ce qui suit
-vaut pour les deux — aucune règle de mise en page n'est dupliquée. Le thème suit le
-réglage du système, sans bascule dans l'interface.
+`src/styles/main.css` s'ouvre sur les jetons du thème clair, dans `:root`. La palette de
+nuit vit dans `src/styles/nuit.css`, qui redéfinit les mêmes noms et rien d'autre : tout ce
+qui suit dans main.css vaut pour les deux thèmes, aucune règle de mise en page n'est
+dupliquée.
+
+Deux fichiers plutôt qu'un `@media`, parce que c'est l'attribut `media` du `<link>` qui met
+la seconde feuille en service, et que `src/ui/apparence.js` n'a que lui à retoucher pour
+imposer un thème :
+
+| Thème retenu | `media` du `<link>` | Effet |
+| --- | --- | --- |
+| `auto` (défaut) | `(prefers-color-scheme: dark)` | la page suit le réglage du système |
+| `sombre` | `all` | la feuille de nuit s'applique toujours |
+| `clair` | `not all` | elle ne s'applique jamais |
+
+Écrite dans un `@media`, la palette aurait dû être recopiée sous un sélecteur
+`[data-theme="sombre"]` pour que le bouton puisse contredire le système — une règle CSS ne
+pouvant pas porter les deux conditions à la fois. Deux copies d'une palette, c'est une
+couleur corrigée d'un seul côté. Le corollaire vaut d'être noté : la préférence du système
+est honorée **dès le premier rendu**, avant tout script, donc sans page blanche qui
+clignote sur un bureau sombre.
+
+L'interrupteur de l'en-tête n'a que deux positions et fait toujours le contraire de ce qui
+est affiché : depuis `auto`, le premier appui fixe explicitement l'opposé du système. Le
+basculement passe par une transition de vue quand le navigateur la connaît — un rideau
+circulaire parti du bouton, désarmé sous `prefers-reduced-motion`.
 
 Chart.js dessine dans un canevas et n'accepte donc pas de variable CSS : `src/charts/
 theme.js` résout les jetons au moment du tracé (`couleur('--statut-actif')`) et redessine
-tout quand le système bascule. Une couleur de graphique écrite en dur ne suivrait pas le
-thème — c'est le seul endroit du code où une couleur peut apparaître, sous forme de valeur
-de repli pour les tests, qui tournent sans mise en page.
+tout quand le thème change, qu'il vienne du système ou du bouton. Une couleur de graphique
+écrite en dur ne suivrait pas le thème — c'est le seul endroit du code où une couleur peut
+apparaître, sous forme de valeur de repli pour les tests, qui tournent sans mise en page.
 
 ## Données locales
 
@@ -218,6 +240,7 @@ src/
 │   ├── dataProcessor.js     # Fusion et traitement des données
 │   ├── fiscalite.js         # Ce que Bricks n'a pas prélevé, et qu'il faudra payer
 │   ├── forecast.js          # Simulateur
+│   ├── geographie.js        # Département et région, déduits du code postal
 │   ├── processor.js         # Orchestration du traitement
 │   ├── rendement.js         # Rendement constaté, annualisé par fenêtre
 │   ├── revenueHistory.js    # État de compte : revenus réellement versés
@@ -227,12 +250,13 @@ src/
 ├── charts/           # Gestion des graphiques
 │   ├── arrieresChart.js     # Coupons manqués et pénalités, cumulés
 │   ├── chartManager.js      # Gestionnaire principal
-│   ├── distributionChart.js # Donut de répartition
 │   ├── forecastChart.js     # Projection du simulateur
 │   ├── investmentChart.js   # Évolution de l'investissement
 │   ├── origineFondsChart.js # Versements, parrainage et solde boosté
 │   ├── revenueChart.js      # Revenus perçus et attendus
+│   ├── statutsChart.js      # Camembert des états de versement
 │   ├── taxChart.js          # Impôt prélevé
+│   ├── theme.js             # Résout les jetons CSS pour Chart.js
 │   └── treemapChart.js      # Portefeuille en surface
 ├── collecte/
 │   └── extracteur.js        # Tourne sur app.bricks.co, pas ici (voir plus haut)
@@ -246,7 +270,9 @@ src/
 │   └── storage.js           # localStorage
 ├── events/           # Gestionnaires d'événements
 ├── ui/
+│   ├── apparence.js         # Bascule clair / sombre, préférence retenue
 │   ├── favori.js            # Emballe l'extracteur en lien à glisser
+│   ├── geographie.js        # La section repliable, dessinée au premier dépliage
 │   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections
 │   ├── tuiles.js            # Chiffres clés, rendement annualisé, incidents
 │   ├── registre.js          # État de la liste : tri, filtres, pages
@@ -258,7 +284,9 @@ src/
 │   ├── dataAge.js           # Âge des données affichées
 │   └── modals.js            # Modale de suppression, bandeau d'erreur
 ├── utils/            # Formatage, dates, échappement, journalisation
-└── styles/main.css
+└── styles/
+    ├── main.css             # Système visuel, jetons du thème clair
+    └── nuit.css             # Les mêmes jetons, palette de nuit
 
 tests/                # Tests unitaires (Vitest)
 └── e2e/smoke.mjs     # Smoke test navigateur (Playwright)

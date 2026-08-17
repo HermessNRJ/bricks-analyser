@@ -256,7 +256,12 @@ une version antérieure ne portent pas — elles sont tues plutôt qu'estimées.
   ensuite, chaque mois au taux de son époque).
 * **Ce qui ne vous est pas parvenu** — [les deux dettes cumulées](#ce-qui-ne-vous-est-pas-parvenu)
   des projets en retard, coupons manqués et pénalités, et la barre de leur somme.
-* **Répartition par propriété** — donut interactif.
+* **Répartition des versements** — camembert des quatre états du carnet : à jour, démarrage
+  en attente, en retard, déjà remboursé. Les quatre forment une partition des propriétés
+  détenues — chacune en occupe un et un seul — et l'effectif au centre suit les tranches
+  cochées. « Déjà remboursé » commence décoché : sur un portefeuille ancien, les projets
+  soldés écrasent les trois états sur lesquels on a prise. Un clic sur la légende les
+  rappelle.
 * **Portefeuille en surface** — treemap des propriétés actives, taille proportionnelle à
   l'investissement, couleur selon le rendement.
 * **Le mur** — une brique par propriété, largeur proportionnelle à l'investissement.
@@ -299,8 +304,55 @@ la comparaison trompeuse. Les bornes se calculent sur une référence commune, a
 mois courant : sans cela, « les trois derniers mois » auraient désigné une fenêtre
 entièrement future pour la série estimée, qui se prolonge de trois mois.
 
-La répartition par propriété et le portefeuille en surface sont des états d'aujourd'hui :
+La répartition des versements et le portefeuille en surface sont des états d'aujourd'hui :
 aucun axe temporel, donc aucune période à leur appliquer.
+
+## Géographie
+
+Repliée par défaut, et dessinée seulement au premier dépliage : le tableau fait une ligne
+par commune, et sur 241 biens il s'en compose une centaine qu'on ne regarde pas à chaque
+visite. La question à laquelle elle répond n'est pas « où sont mes biens » — le registre le
+dit déjà, fiche par fiche — mais **à quel point ils sont au même endroit**.
+
+Département et région sont déduits du **code postal** contenu dans l'adresse publiée par
+Bricks, dernier groupe de cinq chiffres de la chaîne. Les projets remboursés en sont
+exclus : ils ne portent plus de capital, et les compter annoncerait une présence là où il
+n'y a plus rien d'engagé. Les biens à l'étranger sont rangés sous leur pays, qui tient lieu
+de région.
+
+Ce que la déduction vaut : un code postal désigne une zone de distribution postale, pas une
+commune. Il suffit pour le département ; il ne suffirait pas pour poser un point sur une
+carte. La Corse n'ayant pas de département 20, les codes sont coupés à 20190 entre 2A et
+2B — la convention usuelle, qui se trompe sur quelques communes limitrophes.
+
+Ce qu'elle ne devine pas, elle le dit. Une adresse sans code postal exploitable n'est pas
+interprétée d'après son texte : elle est comptée, rangée sous « Localisation imprécise », et
+le nombre est annoncé sous les compteurs. Une région déduite d'un nom de lieu serait
+invérifiable, et un portefeuille dont un dixième des biens échappe au classement doit le
+montrer plutôt que de le fondre dans « Autre ».
+
+Aucun seuil de concentration n'est affiché : dire « concentration élevée » au-delà d'un
+chiffre choisi ici serait un jugement que rien dans les données ne fonde. La part de la
+première région est donnée, la lecture appartient au lecteur.
+
+Le champ **Filtrer** au-dessus du tableau tamise les lignes sur les colonnes de texte —
+commune, code et nom de département, région. Pas sur les montants : chercher dans les
+chiffres ferait répondre « 250 » à qui tape un code de département, et la colonne Capital
+les trie déjà. Le décompte rappelle alors le total, faute de quoi on ne saurait pas si la
+recherche a écarté trois lignes ou quatre-vingts.
+
+**Cliquer une ligne** ne garde que ses biens dans le registre, comme cliquer une tuile
+d'incident : un chiffre agrégé doit pouvoir être vérifié sur pièces, et la pièce est ici la
+fiche de chaque bien. Le filtre est rappelé en puce — « Cahors (46) » — et se retire comme
+les autres. La clé qui identifie le lieu est la même des deux côtés, si bien que la ligne et
+le registre comptent forcément les mêmes biens ; deux communes homonymes de départements
+différents restent distinctes.
+
+Les menus **Région** et **Département** du registre ne listent que ce que le portefeuille
+contient. Un réglage retenu d'une visite précédente qui ne correspond plus à rien est
+rouvert d'office : sans cela, un portefeuille dont le dernier bien breton vient d'être
+remboursé afficherait un registre vide sans que le menu ne montre pourquoi. Le filtre de
+localisation, qui n'a pas de menu, est vérifié de la même façon.
 
 ## Suivi des incidents
 

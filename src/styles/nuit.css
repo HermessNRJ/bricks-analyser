@@ -1,0 +1,80 @@
+/* ==========================================================================
+   Palette de nuit
+   --------------------------------------------------------------------------
+   Le même système que main.css, retourné : encre claire sur papier de nuit.
+   Les tons sémantiques ne changent pas de sens, seulement de luminosité — un
+   vert de projet actif à 20 % de clarté disparaîtrait sur ce fond, et le rouge
+   d'un défaut y virerait au brun. Les aplats pâles deviennent des teintes
+   sourdes du même ton, jamais des gris : c'est leur couleur qui porte
+   l'information.
+
+   Aucune règle de mise en page ici, uniquement des jetons redéfinis : tout ce
+   qui est écrit dans main.css vaut pour les deux thèmes.
+
+   Pourquoi un fichier à part, et non un bloc @media dans main.css : c'est
+   l'attribut « media » du <link> qui décide si cette feuille s'applique, et
+   src/ui/apparence.js n'a que lui à retoucher pour imposer un thème. Écrite
+   dans un @media, la palette aurait dû être recopiée sous un sélecteur
+   [data-theme="sombre"] pour que le bouton puisse contredire le système, une
+   règle CSS ne pouvant pas porter les deux conditions à la fois. Deux copies
+   d'une palette, c'est une couleur corrigée d'un seul côté.
+
+   Le <link> porte « media="(prefers-color-scheme: dark)" » dans index.html :
+   la préférence du système est donc honorée dès le premier rendu, sans
+   attendre le moindre script.
+   ========================================================================== */
+
+:root {
+    --paper: #11171d;
+    --surface: #19212a;
+    --surface-sunken: #141b22;
+    --ink: #e4eaf0;
+    --ink-fort: #f2f6f9;
+    --ink-muted: #9dabb8;
+    --ink-faint: #76858f;
+    --rule: #2b353f;
+    --rule-strong: #4a5967;
+    --rule-faible: #232c35;
+    --champ: #0d1216;
+
+    --statut-actif: #4fb589;
+    --statut-financement: #6aa6ec;
+    --statut-avenir: #d4a13f;
+    --statut-rembourse: #7f8b98;
+
+    --alerte: #ef7059;
+    --alerte-texte: #f5a795;
+    --alerte-faible: #d4a13f;
+    --alerte-fond: #2c1c18;
+    --alerte-faible-fond: #2b2413;
+    --alerte-faible-texte: #e3c179;
+
+    --fond-actif: #14291f;
+    --fond-financement: #16243a;
+    --fond-avenir: #2b2413;
+    --fond-brut: #26221a;
+
+    --risque-median: #9bb055;
+
+    /* Sur fond sombre, une ombre portée ne se voit pas : c'est le noir
+       dense qui creuse, et il faut l'appuyer pour que la carte décolle. */
+    --ombre-carte: 0 2px 10px rgba(0, 0, 0, 0.35);
+    --ombre-flottant: 0 4px 14px rgba(0, 0, 0, 0.5);
+    --ombre-modale: 0 18px 50px rgba(0, 0, 0, 0.65);
+    --ombre-chargement: rgba(106, 166, 236, 0.35);
+    --voile-modale: rgba(5, 8, 11, 0.7);
+    --anneau-cible: rgba(106, 166, 236, 0.28);
+
+    --graph-revenus: #57c7c7;
+    --graph-revenus-fond: rgba(87, 199, 199, 0.14);
+    --graph-attendu: #97a2b3;
+    --graph-impot: #ef6b83;
+    --graph-impot-fond: rgba(239, 107, 131, 0.2);
+    --graph-autres: #7f8b98;
+    --graph-investissement-fond: rgba(106, 166, 236, 0.12);
+    --graph-parrainage-fond: rgba(79, 181, 137, 0.12);
+    --graph-etiquette-fond: rgba(25, 33, 42, 0.9);
+    --graph-infobulle: rgba(8, 12, 16, 0.95);
+
+    color-scheme: dark;
+}
