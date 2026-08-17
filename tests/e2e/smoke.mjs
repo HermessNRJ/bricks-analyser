@@ -133,7 +133,27 @@ await page.addInitScript(payload => {
 await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#propertiesList .property-card', { timeout: 10000 });
 
+// Le favori est bâti après un aller-retour vers la source : il n'est pas prêt
+// au même instant que le reste de la page.
+await page.waitForFunction(
+    () => document.getElementById('favoriCollecte')?.getAttribute('href')?.startsWith('javascript:'),
+    { timeout: 10000 }
+);
+
 const snapshot = await page.evaluate(() => ({
+    // Le favori tel qu'il partirait dans la barre : c'est la seule vérification
+    // qui porte sur le code réellement installé, l'emballage compris.
+    favori: (() => {
+        const href = document.getElementById('favoriCollecte').getAttribute('href');
+        const source = decodeURIComponent(href.slice('javascript:'.length));
+
+        return {
+            analysable: (() => { try { new Function(source); return true; } catch { return false; } })(),
+            hotes: [...new Set([...source.matchAll(/https?:\/\/([\w.-]+)/g)].map(m => m[1]))],
+            avecIdentifiants: source.includes("credentials: 'include'"),
+            litLeCookie: source.includes('document.cookie')
+        };
+    })(),
     resultsVisible: !document.getElementById('results').classList.contains('hidden'),
     totalBricks: document.getElementById('totalBricks').textContent,
     totalInvestment: document.getElementById('totalInvestment').textContent,
@@ -200,6 +220,12 @@ const snapshot = await page.evaluate(() => ({
     apportsAnnuels: [...document.querySelectorAll('#revenusAnnuelsCorps td.colonne-apport')]
         .map(e => e.textContent.trim())
 }));
+
+check('le favori installé est du JavaScript valide', snapshot.favori.analysable);
+check('le favori ne joint que Bricks', snapshot.favori.hotes.join(',') === 'api.bricks.co',
+    snapshot.favori.hotes.join(','));
+check('le favori laisse le navigateur joindre la session',
+    snapshot.favori.avecIdentifiants && !snapshot.favori.litLeCookie);
 
 check('la section résultats est affichée', snapshot.resultsVisible);
 check('les 3 propriétés sont rendues', snapshot.cardCount === 3, `${snapshot.cardCount} cartes`);
@@ -375,6 +401,31 @@ check('le tri par briques place Porto en tête', firstCard.includes('Porto'), fi
 // Trois fiches tiennent sur une page : ni onglets ni réglage de taille à montrer
 check('la pagination se tait quand tout tient sur une page',
     await page.locator('#pagination').evaluate(n => n.classList.contains('hidden')));
+
+// Deux tracés rapprochés, comme lorsque les résultats s'affichent une seconde
+// fois : le treemap est reconstruit avant que ses redessins différés se soient
+// exécutés. Ils réveillaient l'instance détruite, et Chart.js levait trois fois
+// la même exception — rien ne manquait à l'écran, mais la console en devenait
+// inutilisable. L'attente dépasse le dernier des redessins.
+const erreursAvantRetrace = pageErrors.length;
+
+await page.evaluate(async () => {
+    const [chartManager, coeur] = await Promise.all([
+        import('/src/charts/chartManager.js'),
+        import('/src/core/state.js')
+    ]);
+
+    const resultats = coeur.state.get('lastResults');
+
+    chartManager.createCharts(resultats);
+    chartManager.createCharts(resultats);
+});
+
+await page.waitForTimeout(800);
+
+check('retracer les graphiques ne réveille aucune instance détruite',
+    pageErrors.length === erreursAvantRetrace,
+    pageErrors.slice(erreursAvantRetrace).join(' | '));
 
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));

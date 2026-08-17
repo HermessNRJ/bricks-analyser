@@ -39,20 +39,61 @@
 
         <section class="upload-section" id="uploadSection" aria-labelledby="titreSession">
             <h2 id="titreSession">Charger vos données</h2>
-            <p class="aide">
-                Sur <strong>app.bricks.co</strong>, ouvrez les outils de développement, onglet Réseau,
-                cliquez sur une requête vers <code>api.bricks.co</code> et copiez la valeur de l'en-tête
-                <code>Cookie</code>. Elle reste valable environ 30 jours.
-            </p>
 
             <div id="error" class="error hidden" role="alert"></div>
 
+            <!-- Voie principale : le favori.
+                 Le cookie de session de Bricks est HttpOnly — aucun script ne
+                 peut le lire — mais depuis app.bricks.co le navigateur l'attache
+                 lui-même. Un script exécuté là-bas n'a donc rien à extraire, et
+                 la session ne quitte jamais l'onglet qui la détenait. -->
+            <div class="voie-favori">
+                <!-- Numéroté parce que c'en est vraiment une : le premier pas ne
+                     se fait qu'une fois, le deuxième se fait ailleurs, et le
+                     troisième revient à chaque mise à jour. Les présenter côte à
+                     côte laissait croire à deux boutons interchangeables. -->
+                <ol class="favori-etapes">
+                    <li>
+                        <span class="favori-dit">Glissez ce lien dans votre barre de favoris</span>
+                        <a id="favoriCollecte" class="favori" href="#" aria-disabled="true">Collecter mes données Bricks</a>
+                    </li>
+                    <li>
+                        <span class="favori-dit">Cliquez-le depuis un onglet ouvert sur <strong>app.bricks.co</strong>.
+                        Il y lit vos données et écrit un fichier.</span>
+                    </li>
+                    <li>
+                        <span class="favori-dit">Déposez ce fichier sur cette page</span>
+                        <label class="bouton bouton-secondaire" for="collecteFichier">ou ouvrez-le…</label>
+                        <input type="file" id="collecteFichier" accept="application/json,.json" class="sr-only">
+                    </li>
+                </ol>
+                <p class="aide aide-fine">
+                    Votre session n'est ni lue, ni copiée, ni transmise&nbsp;: le favori s'exécute sur
+                    le site de Bricks, où le navigateur la joint lui-même. Son code est celui de cette
+                    page, servi par votre machine — il ne se recharge pas ailleurs. Le fichier produit
+                    contient votre portefeuille en clair&nbsp;: c'est une donnée, pas une clé, et elle
+                    s'efface.
+                </p>
+            </div>
+
+            <details class="voie-cookie">
+                <summary>Ou coller le cookie de session</summary>
+                <p class="aide">
+                    Sur <strong>app.bricks.co</strong>, ouvrez les outils de développement, onglet Réseau,
+                    cliquez sur une requête vers <code>api.bricks.co</code> et copiez la valeur de l'en-tête
+                    <code>Cookie</code>. Elle reste valable environ 30 jours, et donne accès à tout le
+                    compte&nbsp;: le favori ci-dessus évite d'avoir à la manipuler.
+                </p>
+                <div class="session-ligne">
+                    <label class="sr-only" for="apiTokenInput">Cookie de session Bricks</label>
+                    <input type="password" id="apiTokenInput"
+                           placeholder="cf_clearance=…; __Secure-better-auth.session_token=…"
+                           autocomplete="off" spellcheck="false">
+                    <button id="fetchApiDataBtn" class="bouton bouton-principal">Charger les données</button>
+                </div>
+            </details>
+
             <div class="session-ligne">
-                <label class="sr-only" for="apiTokenInput">Cookie de session Bricks</label>
-                <input type="password" id="apiTokenInput"
-                       placeholder="cf_clearance=…; __Secure-better-auth.session_token=…"
-                       autocomplete="off" spellcheck="false">
-                <button id="fetchApiDataBtn" class="bouton bouton-principal">Charger les données</button>
                 <button id="refreshStatusBtn" class="bouton bouton-secondaire">Vérifier les statuts</button>
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
             </div>

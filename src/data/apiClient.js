@@ -5,7 +5,6 @@
 import { CONFIG } from '../core/config.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { getCurrentMonthYYYYMM } from '../utils/dateHelpers.js';
-import { normaliserHistoriqueRevenus } from '../business/revenueHistory.js';
 
 /**
  * Nom du cookie de session posé par better-auth après le SSO Google
@@ -149,12 +148,16 @@ export async function fetchWarnings(session) {
 }
 
 /**
- * Récupère l'historique des revenus réellement versés
+ * Récupère l'historique des revenus réellement versés, tel que l'API le rend
  *
  * C'est l'état de compte de Bricks : ce qui a été encaissé mois par mois, avec
  * le prélèvement effectivement retenu. Il remplace l'estimation déduite des
  * taux affichés, qui compte les échéances impayées comme si elles avaient été
  * versées.
+ *
+ * Rend la réponse brute, sans la normaliser : le favori de collecte écrit lui
+ * aussi du brut, et les deux chemins doivent arriver à `traiterCollecte` avec
+ * les mêmes octets. La normalisation vit dans business/revenueHistory.js.
  *
  * Ne rejette jamais : sans historique l'application retombe sur l'estimation,
  * ce qui vaut mieux qu'un écran vide.
@@ -163,14 +166,14 @@ export async function fetchWarnings(session) {
  * @param {Object} [options]
  * @param {string} [options.debut] - Premier mois demandé (YYYY-MM)
  * @param {string} [options.fin] - Dernier mois demandé (YYYY-MM)
- * @returns {Promise<Object|null>} Historique normalisé, null en cas d'échec
+ * @returns {Promise<Object|null>} Relevé brut, null en cas d'échec
  */
-export async function fetchHistoriqueRevenus(session, { debut, fin } = {}) {
+export async function fetchRevenusBruts(session, { debut, fin } = {}) {
     const startDate = debut || CONFIG.REVENUE_HISTORY_START;
     const endDate = fin || getCurrentMonthYYYYMM();
 
     try {
-        const data = await requestJSON(
+        return await requestJSON(
             `${CONFIG.API_ENDPOINTS.REVENUE}?startDate=${startDate}&endDate=${endDate}`,
             session,
             {
@@ -178,8 +181,6 @@ export async function fetchHistoriqueRevenus(session, { debut, fin } = {}) {
                 context: 'récupération historique des revenus'
             }
         );
-
-        return normaliserHistoriqueRevenus(data);
 
     } catch {
         // Erreur déjà loguée par requestJSON : on ne bloque pas l'application

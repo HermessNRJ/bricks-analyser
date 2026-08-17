@@ -52,6 +52,61 @@ Ce jeu fictif sert aux captures d'écran ; il est fabriqué au format brut de l'
 passé par les vrais normaliseurs, donc il reste juste si ceux-ci changent. Voir
 [docs/captures](captures/README.md).
 
+## Le favori de collecte
+
+`src/collecte/extracteur.js` ne tourne pas dans l'application : `src/ui/favori.js` l'emballe
+en URL `javascript:` et le rend sous forme de lien à glisser dans la barre de favoris, d'où
+il s'exécutera **dans la page `app.bricks.co`**.
+
+Toute la raison d'être du procédé tient en une ligne : `credentials: 'include'`. Le cookie
+de session est `HttpOnly`, donc illisible par un script — mais depuis une origine `bricks.co`
+le navigateur le joint tout seul. Il n'y a rien à extraire, rien à coller, rien à confier.
+
+Deux règles y sont tenues par des tests plutôt que par la discipline :
+
+* **L'extracteur ne calcule rien.** Il appelle, il ramasse, il écrit du JSON brut. La
+  normalisation vit dans `src/business/`, en un seul exemplaire — `traiterCollecte()`
+  (`src/business/collecte.js`) est le point de passage commun aux deux chemins d'entrée, le
+  fichier et l'appel direct. Une seconde copie dans le favori dériverait en silence, et
+  personne ne s'en apercevrait avant de lire un chiffre faux.
+* **Le favori ne joint que Bricks.** `tests/favori.test.js` extrait tous les hôtes de la
+  source dégraissée et exige exactement `api.bricks.co` ; le smoke test refait la même
+  vérification sur le lien réellement construit par la page.
+
+`tests/extracteur.test.js` exécute la source **sans la modifier** : `new Function` reçoit
+`location`, `document`, `fetch` et le reste en paramètres, si bien que le code éprouvé est
+celui qui part dans la barre de favoris — garde-fou de domaine compris. Le test va jusqu'au
+bout de l'aller-retour : l'enveloppe écrite par l'extracteur est repassée à
+`validerEnveloppe()` puis à `traiterCollecte()`.
+
+Le dégraissage mérite un mot. `degraisser()` ne retire que les lignes qui sont *entièrement*
+du commentaire, jamais ce qui suit un `//` en milieu de ligne : un retrait naïf couperait
+`'https://api.bricks.co'` en deux, et le favori mourrait sans bruit chez l'utilisateur.
+
+### Ce que le favori ne couvre pas
+
+Les statuts officiels. `projects.bricks.co` n'émet aucun en-tête
+`Access-Control-Allow-Origin` et pose un `Cross-Origin-Resource-Policy: same-origin` — les
+valeurs par défaut de Helmet, le CORS n'y est simplement pas activé. Aucune page d'une autre
+origine ne peut lire ses réponses, `app.bricks.co` comprise, et `frame-ancestors 'self'`
+ferme aussi la voie de l'iframe.
+
+Ils continuent donc de passer par `location /projects-api/`. Ce proxy-là ne porte **aucun**
+identifiant et n'en a pas besoin : l'API de suivi répond sans authentification.
+
+Ce qui décide de son passage est le **User-Agent**, que nginx relaie tel quel depuis le
+navigateur. C'est reproductible dans les deux sens, l'image tournant :
+
+```bash
+curl -s -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36" \
+  "http://127.0.0.1:8080/projects-api/api/projects/x/echeances-investors"
+# {"error":"Projet non trouvé","code":"PROJECT_NOT_FOUND",…}
+```
+
+Le même appel sans en-tête `User-Agent` reçoit une page de challenge Cloudflare. En usage
+réel la requête part du navigateur, donc le cas qui compte est le premier — mais qui teste
+le proxy en ligne de commande sans y penser conclura à une panne qui n'existe pas.
+
 ## Linter
 
 ```bash
@@ -159,6 +214,7 @@ src/
 ├── business/         # Logique métier
 │   ├── apports.js           # Ce qui vient de votre poche, et non de Bricks
 │   ├── calculations.js      # Calculs financiers et statistiques
+│   ├── collecte.js          # Brut → normalisé → écran, commun aux deux entrées
 │   ├── dataProcessor.js     # Fusion et traitement des données
 │   ├── fiscalite.js         # Ce que Bricks n'a pas prélevé, et qu'il faudra payer
 │   ├── forecast.js          # Simulateur
@@ -178,6 +234,8 @@ src/
 │   ├── revenueChart.js      # Revenus perçus et attendus
 │   ├── taxChart.js          # Impôt prélevé
 │   └── treemapChart.js      # Portefeuille en surface
+├── collecte/
+│   └── extracteur.js        # Tourne sur app.bricks.co, pas ici (voir plus haut)
 ├── core/
 │   ├── config.js            # Configuration globale, barème d'imposition
 │   └── state.js             # État centralisé
@@ -188,6 +246,7 @@ src/
 │   └── storage.js           # localStorage
 ├── events/           # Gestionnaires d'événements
 ├── ui/
+│   ├── favori.js            # Emballe l'extracteur en lien à glisser
 │   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections
 │   ├── tuiles.js            # Chiffres clés, rendement annualisé, incidents
 │   ├── registre.js          # État de la liste : tri, filtres, pages
