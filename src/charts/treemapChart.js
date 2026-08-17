@@ -80,6 +80,46 @@ function getDarkerColor(color) {
 }
 
 /**
+ * Délais des redessins qui suivent le tracé, en millisecondes
+ *
+ * Le treemap est construit avant que la section des résultats soit dévoilée :
+ * son canevas n'a alors aucune dimension, et le plugin place les étiquettes
+ * dans un rectangle vide. Les redessins qui suivent l'affichage remettent les
+ * libellés en place.
+ */
+const REDESSINS_DIFFERES = [50, 200, 500];
+
+// Redessins encore en attente : ils doivent être annulés quand le graphique
+// est remplacé. Réveiller une instance détruite lève une exception dans
+// Chart.js — `update()` y rattache ses écouteurs à un canevas devenu null —
+// et trois lignes rouges par affichage rendaient la console illisible.
+let redessinsEnAttente = [];
+
+/**
+ * Annule les redessins encore en attente
+ */
+function annulerRedessins() {
+    redessinsEnAttente.forEach(clearTimeout);
+    redessinsEnAttente = [];
+}
+
+/**
+ * Programme les redessins qui suivent l'affichage
+ *
+ * Le garde-fou sur le canevas double l'annulation : une destruction venue
+ * d'ailleurs (destroyAllCharts) ne passe pas par ce module.
+ *
+ * @param {Object} chart - Instance Chart.js fraîchement tracée
+ */
+function programmerRedessins(chart) {
+    redessinsEnAttente = REDESSINS_DIFFERES.map(delai => setTimeout(() => {
+        if (chart.canvas) {
+            chart.update('none');
+        }
+    }, delai));
+}
+
+/**
  * Crée le graphique Treemap
  * @param {Array} properties - Liste des propriétés
  */
@@ -90,10 +130,13 @@ export function createTreemapChart(properties) {
         return;
     }
 
+    annulerRedessins();
+
     // Détruire l'instance existante
     const charts = state.get('charts');
     if (charts.treemap) {
         charts.treemap.destroy();
+        charts.treemap = null;
     }
 
     const chartContainer = ctx.canvas.closest('div');
@@ -262,27 +305,7 @@ export function createTreemapChart(properties) {
         charts.treemap = chart;
         state.set('charts', charts);
 
-        // Forcer plusieurs updates pour que les labels s'affichent correctement
-        // Le premier update rapide
-        setTimeout(() => {
-            if (chart) {
-                chart.update('none');
-            }
-        }, 50);
-
-        // Un deuxième update pour s'assurer que les dimensions sont correctes
-        setTimeout(() => {
-            if (chart) {
-                chart.update('none');
-            }
-        }, 200);
-
-        // Un troisième update pour être sûr
-        setTimeout(() => {
-            if (chart) {
-                chart.update('none');
-            }
-        }, 500);
+        programmerRedessins(chart);
 
         logger.info(LOG_CATEGORIES.CHART, 'Treemap chart created', {
             properties: activeProperties.length,

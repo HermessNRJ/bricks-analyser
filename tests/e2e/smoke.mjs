@@ -376,6 +376,31 @@ check('le tri par briques place Porto en tête', firstCard.includes('Porto'), fi
 check('la pagination se tait quand tout tient sur une page',
     await page.locator('#pagination').evaluate(n => n.classList.contains('hidden')));
 
+// Deux tracés rapprochés, comme lorsque les résultats s'affichent une seconde
+// fois : le treemap est reconstruit avant que ses redessins différés se soient
+// exécutés. Ils réveillaient l'instance détruite, et Chart.js levait trois fois
+// la même exception — rien ne manquait à l'écran, mais la console en devenait
+// inutilisable. L'attente dépasse le dernier des redessins.
+const erreursAvantRetrace = pageErrors.length;
+
+await page.evaluate(async () => {
+    const [chartManager, coeur] = await Promise.all([
+        import('/src/charts/chartManager.js'),
+        import('/src/core/state.js')
+    ]);
+
+    const resultats = coeur.state.get('lastResults');
+
+    chartManager.createCharts(resultats);
+    chartManager.createCharts(resultats);
+});
+
+await page.waitForTimeout(800);
+
+check('retracer les graphiques ne réveille aucune instance détruite',
+    pageErrors.length === erreursAvantRetrace,
+    pageErrors.slice(erreursAvantRetrace).join(' | '));
+
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));
 
