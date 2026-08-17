@@ -23,7 +23,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node tests/e2e/smoke.mjs",
     "serve": "python3 -m http.server 8099",
-    "demo": "node tools/demo.mjs"
+    "demo": "node tools/demo.mjs",
+    "apercu": "node tools/apercu-social.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

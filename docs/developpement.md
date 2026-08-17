@@ -104,6 +104,24 @@ dans un Chromium, et `npm audit`. Une montée de dépendance exigeant un node pl
 DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le
 smoke test qui les tient — d'où sa présence en CI et non plus en option.
 
+## Image de prévisualisation sociale
+
+Celle que GitHub affiche quand le lien est partagé — 1280 × 640, rendue en 2× pour rester
+nette là où les réseaux l'agrandissent.
+
+```bash
+npm run demo && npm run apercu   # écrit docs/apercu-social.png
+```
+
+Elle n'est pas dessinée à part : `tools/apercu-social.mjs` compose une page avec
+`src/styles/main.css` et la photographie dans Chromium. Les couleurs, la sérif du titre et
+la chasse fixe des montants sont donc celles de l'écran, et une refonte du système visuel
+se répercute en régénérant. Les proportions du mur et les trois projets en défaut viennent
+du portefeuille de démonstration, jamais du vôtre.
+
+Elle se téléverse à la main : dépôt → **Settings** → **Social preview**. GitHub ne la lit
+pas depuis le dépôt.
+
 ## Publier une version
 
 Les versions suivent [SemVer](https://semver.org) : `MAJEUR.MINEUR.CORRECTIF`. Ici, ce qui
