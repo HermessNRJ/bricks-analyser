@@ -56,6 +56,16 @@
 
     --risque-median: #9bb055;
 
+    /* Le dégradé de la carte, retourné comme le reste : sur papier de nuit,
+       c'est la clarté qui pèse. L'ordre est le même — le dernier palier reste
+       le ton du capital engagé — et le vide, en --surface-sunken, se creuse
+       sous le premier palier au lieu de le prolonger. */
+    --carte-1: #223549;
+    --carte-2: #2d4b6b;
+    --carte-3: #3b6591;
+    --carte-4: #4d83b9;
+    --carte-5: #6aa6ec;
+
     /* Sur fond sombre, une ombre portée ne se voit pas : c'est le noir
        dense qui creuse, et il faut l'appuyer pour que la carte décolle. */
     --ombre-carte: 0 2px 10px rgba(0, 0, 0, 0.35);

@@ -309,6 +309,8 @@ aucun axe temporel, donc aucune période à leur appliquer.
 
 ## Géographie
 
+![La section Géographie : les départements couverts, les communes distinctes et la première région, les barres du capital par région, puis la carte de France teintée par département avec les cinq départements d'outre-mer en cartouches](captures/geographie.png)
+
 Repliée par défaut, et dessinée seulement au premier dépliage : le tableau fait une ligne
 par commune, et sur 241 biens il s'en compose une centaine qu'on ne regarde pas à chaque
 visite. La question à laquelle elle répond n'est pas « où sont mes biens » — le registre le
@@ -334,6 +336,43 @@ montrer plutôt que de le fondre dans « Autre ».
 Aucun seuil de concentration n'est affiché : dire « concentration élevée » au-delà d'un
 chiffre choisi ici serait un jugement que rien dans les données ne fonde. La part de la
 première région est donnée, la lecture appartient au lecteur.
+
+### La carte
+
+Le tracé des départements n'est pas dans la page : c'est un fichier de 109 Ko produit par
+`tools/carte.mjs` depuis les contours de l'IGN, chargé au premier dépliage de la section et
+jamais avant. Voir [Développement](developpement.md#la-carte-des-départements) pour la
+fabrique et la licence.
+
+**Le dégradé encode du capital**, ce à quoi la règle « la couleur est réservée à l'argent et
+au risque » donne droit. Une seule teinte qui gagne en densité : c'est de la quantité, pas
+des catégories, et changer de couleur en route ferait croire à un changement de nature.
+
+Les cinq paliers se prennent sur le **département le plus chargé**, à la racine carrée de
+leur rapport. La racine n'est pas une coquetterie : un portefeuille se concentre, et un
+découpage linéaire entassait tout au premier palier en laissant les deux du milieu vides —
+mesuré sur deux portefeuilles réels, 32 départements sur 46 dans la teinte la plus pâle. La
+carte était alors uniformément blafarde, ce qui ne dit rien. En montants bruts, les bornes
+tombent à 4, 16, 36 et 64 % du maximum. Le découpage reste monotone : plus foncé veut
+toujours dire plus lourd.
+
+**Le vide n'est pas un palier.** Un département sans bien prend le ton des surfaces
+creusées, à l'autre bout de l'échelle d'encre, et la légende le montre détaché du dégradé.
+Le teinter en pâle reviendrait à dire « très peu engagé » là où il n'y a rien.
+
+Survoler un département donne son capital, son nombre de biens et sa part ; cliquer renvoie
+au registre filtré dessus. Un département vide ne répond pas : le registre y serait vide, et
+un clic sans effet se comprend mieux qu'un écran blanc.
+
+Les biens à l'étranger et ceux dont l'adresse n'a pas pu être lue n'y figurent pas — ils
+n'ont pas de département. Les barres par région, elles, les montrent.
+
+La carte est **cachée aux lecteurs d'écran**, volontairement : cent un chemins SVG ne se
+lisent pas à la voix, et tout ce qu'ils portent est dans le tableau ci-dessous sous une
+forme qui s'énonce. Le renvoi au registre a son équivalent au clavier dans le menu
+Département.
+
+### Chercher et rebondir
 
 Le champ **Filtrer** au-dessus du tableau tamise les lignes sur les colonnes de texte —
 commune, code et nom de département, région. Pas sur les montants : chercher dans les

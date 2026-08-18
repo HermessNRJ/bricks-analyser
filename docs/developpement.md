@@ -48,6 +48,48 @@ tout quand le thème change, qu'il vienne du système ou du bouton. Une couleur 
 écrite en dur ne suivrait pas le thème — c'est le seul endroit du code où une couleur peut
 apparaître, sous forme de valeur de repli pour les tests, qui tournent sans mise en page.
 
+## La carte des départements
+
+`src/carte/departements.svg` n'est ni écrit à la main ni recopié : il est produit par
+`tools/carte.mjs`, qui télécharge les contours de l'IGN au premier lancement et les projette.
+
+```bash
+node tools/carte.mjs
+```
+
+C'est un fichier de 109 Ko que personne ne relira ligne à ligne. Le seul moyen de le tenir
+honnête est qu'il soit **reproductible à l'identique** par cette commande : le générateur est
+relisible, lui, et c'est sur lui que porte la confiance. Le GeoJSON d'entrée fait 3,6 Mo et
+reste dans `data/`, qui n'est pas suivi par git.
+
+**Source et licence** — contours ADMIN EXPRESS COG de l'IGN, via la conversion GeoJSON de
+Grégoire David, sous [Licence ouverte](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)
+(Etalab). Attribution seule, sans clause de partage à l'identique : compatible avec l'AGPL de
+ce dépôt.
+
+**Ce que la carte déforme.** La métropole est en conique conforme de Lambert (parallèles
+automécoïques 44° et 49°, méridien 3°E), la projection officielle. Les cinq départements
+d'outre-mer sont en cartouches, chacun projeté et mis à l'échelle *séparément* : une surface
+n'y est comparable ni à celle d'un département métropolitain, ni d'un cartouche à l'autre —
+la Guyane fait 83 500 km² et Mayotte 374, elles occupent des cadres voisins. Le cadre tracé
+autour de chaque cartouche annonce la rupture d'échelle.
+
+**La simplification est réglée sur ce qui se voit.** La tolérance de Douglas-Peucker est
+exprimée en unités du dessin, pas en degrés. Comparée à l'écran à taille réelle :
+
+| Tolérance | Poids | Rendu |
+| --- | --- | --- |
+| 0,45 | 166 Ko | référence |
+| **0,7** | **109 Ko** | indiscernable de 0,45 |
+| 1,0 | 77 Ko | les côtes du Sud-Ouest facettent |
+| 1,4 | 56 Ko | la Bretagne devient un polygone |
+
+Le `viewBox` est recalculé à la fin sur ce qui a réellement été dessiné : les dimensions de
+composition laissaient une large bande vide sous la colonne des cartouches.
+
+`image/svg+xml` a été ajouté à `gzip_types` dans `nginx.conf` — sans quoi les 109 Ko
+partaient entiers, là où ils tombent à 41 une fois compressés.
+
 ## Données locales
 
 `data/` accueille les exports Bricks récupérés à la main et le portefeuille de
@@ -258,6 +300,8 @@ src/
 │   ├── taxChart.js          # Impôt prélevé
 │   ├── theme.js             # Résout les jetons CSS pour Chart.js
 │   └── treemapChart.js      # Portefeuille en surface
+├── carte/
+│   └── departements.svg     # Tracé produit par tools/carte.mjs, jamais à la main
 ├── collecte/
 │   └── extracteur.js        # Tourne sur app.bricks.co, pas ici (voir plus haut)
 ├── core/
@@ -271,6 +315,7 @@ src/
 ├── events/           # Gestionnaires d'événements
 ├── ui/
 │   ├── apparence.js         # Bascule clair / sombre, préférence retenue
+│   ├── carte.js             # Choroplèthe des départements, chargée au dépliage
 │   ├── favori.js            # Emballe l'extracteur en lien à glisser
 │   ├── geographie.js        # La section repliable, dessinée au premier dépliage
 │   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections

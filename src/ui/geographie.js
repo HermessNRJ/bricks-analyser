@@ -25,6 +25,7 @@ import { escapeHtml } from '../utils/html.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { pluriel } from './libelles.js';
 import { updatePropertySortAndFilter } from './registre.js';
+import { dessinerCarte } from './carte.js';
 
 // Dernières propriétés reçues : le dépliage arrive longtemps après le calcul.
 let dernieresProprietes = null;
@@ -151,6 +152,10 @@ function dessiner() {
     remplirResume(resume);
     remplirRegions(regions);
     remplirLieux();
+
+    // Le tracé arrive du réseau : il ne fait pas attendre le reste de la
+    // section, et la carte apparaît dans la place qui lui est réservée.
+    dessinerCarte(dernieresProprietes);
 
     dessinee = true;
 

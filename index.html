@@ -449,6 +449,27 @@
                      traits également écrasés. -->
                 <div class="geo-regions" id="geoRegions"></div>
 
+                <!-- Cachée aux lecteurs d'écran : cent un chemins SVG ne se
+                     lisent pas à la voix, et tout ce qu'ils portent est dans le
+                     tableau ci-dessous sous une forme qui s'énonce. Le renvoi au
+                     registre a son équivalent au clavier dans le menu
+                     Département de la barre de filtres. -->
+                <div class="geo-carte hidden" id="geoCarte" aria-hidden="true">
+                    <h3 class="chart-title">Où le capital est posé</h3>
+                    <div class="geo-carte-cadre" id="geoCarteTrace"></div>
+                    <div class="geo-carte-bulle hidden" id="geoCarteBulle"></div>
+
+                    <div class="geo-legende">
+                        <span class="geo-legende-vide"><i></i>Aucun bien</span>
+                        <span class="geo-legende-echelle">
+                            Moins engagé
+                            <i data-palier="1"></i><i data-palier="2"></i><i data-palier="3"></i><i data-palier="4"></i><i data-palier="5"></i>
+                            Plus engagé
+                        </span>
+                    </div>
+                    <p class="note" id="geoCarteNote"></p>
+                </div>
+
                 <div class="geo-lieux-entete">
                     <h3 class="chart-title">Détail par localisation</h3>
                     <label class="champ-recherche" for="geoRecherche">

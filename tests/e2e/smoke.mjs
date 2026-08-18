@@ -484,6 +484,59 @@ check('l\'adresse illisible est comptée, pas rangée dans une région',
 check('aucun HTML de l\'API n\'est exécuté dans le tableau des localisations',
     !geo.injectes && !(await page.evaluate(() => Boolean(window.__XSS__))));
 
+// La carte : le tracé n'est pas dans la page, il arrive du réseau au dépliage.
+await page.waitForSelector('#geoCarteTrace svg', { timeout: 10000 })
+    .then(() => check('le tracé des départements est chargé au dépliage', true))
+    .catch(() => check('le tracé des départements est chargé au dépliage', false));
+
+const carte = await page.evaluate(() => {
+    const teintes = {};
+    document.querySelectorAll('#geoCarteTrace path[data-code]').forEach(c => {
+        const rang = c.dataset.palier || 'aucun';
+        teintes[rang] = (teintes[rang] || 0) + 1;
+    });
+
+    return {
+        chemins: document.querySelectorAll('#geoCarteTrace path[data-code]').length,
+        teintes,
+        // Cachée aux lecteurs d'écran : la même chose est dans le tableau,
+        // sous une forme qui s'énonce.
+        masquee: document.getElementById('geoCarte').getAttribute('aria-hidden'),
+        note: document.getElementById('geoCarteNote').textContent.trim()
+    };
+});
+
+check('la carte porte les 101 départements', carte.chemins === 101, `${carte.chemins} tracés`);
+// Un seul bien situé, dans le Rhône : lui seul est teint, les cent autres
+// départements restent au ton du vide plutôt qu'au premier palier.
+check('seul le département qui porte quelque chose est teinté',
+    carte.teintes['5'] === 1 && carte.teintes.aucun === 100,
+    JSON.stringify(carte.teintes));
+check('la carte est cachée aux lecteurs d\'écran', carte.masquee === 'true');
+check('la note nomme le département le plus chargé',
+    /Rhône \(69\)/.test(carte.note), carte.note);
+
+// Cliquer un département renvoie au registre ; un département vide ne fait rien
+await page.click('#dep-69');
+await page.waitForTimeout(400);
+
+const apresCarte = await page.evaluate(() => ({
+    fiches: document.querySelectorAll('#propertiesList .property-card').length,
+    puces: [...document.querySelectorAll('.puce')].map(e => e.textContent.trim().replace(/\s+/g, ' '))
+}));
+
+check('cliquer un département filtre le registre',
+    apresCarte.fiches === 1 && apresCarte.puces.some(p => p.startsWith('69 — Rhône')),
+    `${apresCarte.fiches} fiches — ${apresCarte.puces.join(' / ')}`);
+
+await page.click('[data-clear="departementFilter"]');
+await page.waitForTimeout(300);
+await page.click('#dep-15');
+await page.waitForTimeout(300);
+
+check('cliquer un département vide ne filtre rien',
+    await page.evaluate(() => document.querySelectorAll('.puce').length) === 0);
+
 // La recherche du tableau mord sur les colonnes de texte, département compris
 await page.fill('#geoRecherche', 'rhône');
 await page.waitForTimeout(200);

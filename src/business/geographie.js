@@ -364,6 +364,90 @@ export function localisations(properties) {
 }
 
 /**
+ * Capital par département, pour la carte
+ *
+ * L'outre-mer y figure comme le reste : c'est la carte qui le range en
+ * cartouche, pas le calcul qui l'écarte.
+ *
+ * @param {Array} properties - Propriétés annotées
+ * @returns {Array<Object>} [{ code, nom, region, capital, projets, part }]
+ */
+export function agregerParDepartement(properties) {
+    const retenues = engagees(properties);
+    const total = retenues.reduce((somme, p) => somme + p.investment, 0);
+    const parCode = new Map();
+
+    retenues.forEach(p => {
+        const code = p.geo?.departement;
+
+        // Un bien à l'étranger ou sans adresse exploitable n'a pas de
+        // département : il ne peut pas être posé sur une carte de France, et
+        // les barres par région le disent déjà.
+        if (!code) {
+            return;
+        }
+
+        const cumul = parCode.get(code) || {
+            code,
+            nom: DEPARTEMENTS[code][0],
+            region: DEPARTEMENTS[code][1],
+            capital: 0,
+            projets: 0
+        };
+
+        cumul.capital += p.investment;
+        cumul.projets += 1;
+        parCode.set(code, cumul);
+    });
+
+    return [...parCode.values()]
+        .map(d => ({ ...d, part: total > 0 ? d.capital / total * 100 : 0 }))
+        .sort((a, b) => b.capital - a.capital || a.code.localeCompare(b.code));
+}
+
+/**
+ * Range des montants en cinq paliers, du plus léger au plus lourd
+ *
+ * Les bornes sont prises sur le DÉPARTEMENT LE PLUS CHARGÉ, et non sur des
+ * montants ronds. Un palier fixe — « au-delà de 10 000 € » — ne dirait rien sur
+ * un petit portefeuille, où tout tomberait dans le premier ; et des quantiles
+ * teindraient toujours un cinquième de la carte en foncé, même quand les écarts
+ * sont dérisoires.
+ *
+ * POURQUOI UNE RACINE CARRÉE. Un portefeuille se concentre : quelques
+ * départements portent l'essentiel, la longue traîne pèse peu. Découpé
+ * linéairement, le rapport au maximum entassait tout au premier palier et en
+ * laissait deux vides — mesuré sur deux portefeuilles réels, 32 départements
+ * sur 46 dans la teinte la plus pâle et rien dans les deux du milieu. La carte
+ * était alors uniformément blafarde, ce qui ne dit rien. La racine étale le bas
+ * de l'échelle et occupe les cinq teintes, sans faire passer une petite ligne
+ * pour une grosse : elle reste monotone, donc plus foncé veut toujours dire
+ * plus lourd. En montants bruts, les bornes tombent à 4, 16, 36 et 64 % du
+ * département le plus chargé.
+ *
+ * Zéro n'est pas un palier. Un département sans bien n'est pas « très peu
+ * engagé », il est hors du sujet, et la carte doit le montrer autrement qu'en
+ * pâle — sans quoi elle ment sur les départements où il n'y a rien.
+ *
+ * @param {number} montant - Capital du département
+ * @param {number} maximum - Capital du département le plus chargé
+ * @returns {number} 0 si rien, sinon le palier de 1 à 5
+ */
+export function palier(montant, maximum) {
+    if (!(montant > 0) || !(maximum > 0)) {
+        return 0;
+    }
+
+    const part = Math.sqrt(montant / maximum);
+
+    if (part > 0.8) return 5;
+    if (part > 0.6) return 4;
+    if (part > 0.4) return 3;
+    if (part > 0.2) return 2;
+    return 1;
+}
+
+/**
  * Ce que la géographie dit en trois chiffres
  * @param {Array} properties - Propriétés annotées
  * @returns {Object} { capital, departements, villes, premiere, imprecises }

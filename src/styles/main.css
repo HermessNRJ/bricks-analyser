@@ -51,6 +51,18 @@
     /* Le vert olive de la barre de risque, entre l'ambre et le vert franc */
     --risque-median: #7a8f3c;
 
+    /* Les cinq paliers de la carte, du plus léger au plus lourd. Une seule
+       teinte — celle du capital engagé, dont le dernier palier est exactement
+       le ton — qui gagne en densité : c'est de la quantité, pas des catégories,
+       et changer de couleur en route ferait croire à un changement de nature.
+       Le vide n'en fait pas partie : il prend --surface-sunken, à l'autre bout
+       de l'échelle d'encre, pour ne jamais passer pour un petit montant. */
+    --carte-1: #dce7f4;
+    --carte-2: #b6cfe9;
+    --carte-3: #8ab0da;
+    --carte-4: #5187c6;
+    --carte-5: #1d5fb0;
+
     /* Ombres et voiles : teintés de l'encre, jamais du noir pur */
     --ombre-carte: 0 2px 10px rgba(22, 32, 43, 0.07);
     --ombre-flottant: 0 4px 14px rgba(22, 32, 43, 0.15);
@@ -1350,6 +1362,159 @@ select:hover {
 /* Alignés par le bas : le champ de recherche porte un libellé au-dessus de lui,
    et un alignement sur la ligne de base aurait fait pendre le champ sous le
    titre au lieu de les poser sur le même socle. */
+/* --------------------------------------------------------------------------
+   La carte des départements
+
+   Le dégradé est la seule couleur de la section, et il encode de l'argent —
+   ce à quoi la règle de la maison donne droit. Une seule teinte qui gagne en
+   densité : de la quantité, pas des catégories.
+   -------------------------------------------------------------------------- */
+
+.geo-carte {
+    position: relative;
+    margin-top: 22px;
+}
+
+.geo-carte-cadre {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* La place est réservée AVANT que le tracé n'arrive — il est chargé après coup,
+   et sans cela la page sauterait à son apparition. Le rapport n'est qu'une
+   approximation, et « :empty » le fait céder dès que le SVG est là : c'est
+   alors son propre viewBox qui gouverne, quel que soit le cadrage que le
+   générateur a calculé. */
+.geo-carte-cadre:empty {
+    aspect-ratio: 640 / 561;
+}
+
+.geo-carte-cadre svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.geo-carte-cadre path[data-code] {
+    fill: var(--surface-sunken);
+    stroke: var(--rule);
+    stroke-width: 0.5;
+    stroke-linejoin: round;
+    transition: fill 160ms ease;
+}
+
+.geo-carte-cadre path[data-palier="1"] { fill: var(--carte-1); }
+.geo-carte-cadre path[data-palier="2"] { fill: var(--carte-2); }
+.geo-carte-cadre path[data-palier="3"] { fill: var(--carte-3); }
+.geo-carte-cadre path[data-palier="4"] { fill: var(--carte-4); }
+.geo-carte-cadre path[data-palier="5"] { fill: var(--carte-5); }
+
+/* Seuls les départements qui portent quelque chose mènent au registre : le
+   curseur le dit avant le clic. */
+.geo-carte-cadre path[data-palier] {
+    cursor: pointer;
+}
+
+.geo-carte-cadre path[data-palier]:hover {
+    stroke: var(--ink);
+    stroke-width: 1.2;
+}
+
+.geo-carte-cadre .carte-cadre {
+    fill: none;
+    stroke: var(--rule);
+    stroke-width: 0.8;
+}
+
+.geo-carte-cadre .carte-etiquette {
+    font-family: var(--font-ui);
+    font-size: 7px;
+    fill: var(--ink-faint);
+    text-anchor: middle;
+}
+
+.geo-carte-bulle {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 7px 10px;
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--ombre-flottant);
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.bulle-code,
+.bulle-detail,
+.bulle-vide {
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+}
+
+.bulle-montant {
+    font-size: 0.9rem;
+}
+
+.geo-legende {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 22px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+}
+
+.geo-legende i {
+    display: inline-block;
+    width: 22px;
+    height: 11px;
+    vertical-align: -1px;
+    border: var(--rule-width) solid var(--rule);
+}
+
+.geo-legende-vide,
+.geo-legende-echelle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Détaché du dégradé par son propre écart : le vide n'est pas le premier
+   palier, et la légende ne doit pas laisser croire qu'il en est le début. */
+.geo-legende-vide i {
+    background: var(--surface-sunken);
+    margin-right: 3px;
+}
+
+.geo-legende-echelle i {
+    width: 26px;
+    margin: 0 -3px;
+}
+
+.geo-legende-echelle i[data-palier="1"] { background: var(--carte-1); }
+.geo-legende-echelle i[data-palier="2"] { background: var(--carte-2); }
+.geo-legende-echelle i[data-palier="3"] { background: var(--carte-3); }
+.geo-legende-echelle i[data-palier="4"] { background: var(--carte-4); }
+.geo-legende-echelle i[data-palier="5"] { background: var(--carte-5); }
+
+.geo-carte .note {
+    text-align: center;
+    margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .geo-carte-cadre path[data-code] {
+        transition: none;
+    }
+}
+
 .geo-lieux-entete {
     display: flex;
     align-items: flex-end;

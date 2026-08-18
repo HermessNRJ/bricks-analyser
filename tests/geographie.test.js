@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
     analyserAdresse, departementDuCode, annoterGeographie, agregerParRegion,
     localisations, resumeGeographie, regionsPresentes, departementsPresents,
-    cleLieu, libelleLieu, DEPARTEMENTS, IMPRECISE
+    cleLieu, libelleLieu, agregerParDepartement, palier, DEPARTEMENTS, IMPRECISE
 } from '../src/business/geographie.js';
 
 /** Raccourci : une propriété engagée, située par son adresse */
@@ -271,6 +271,90 @@ describe('libelleLieu', () => {
         // Un code de département n'en contient jamais : couper à la dernière
         // aurait tronqué une commune qui en porterait une.
         expect(libelleLieu('44/Saint-Jean/les-Bois')).toBe('Saint-Jean/les-Bois (44)');
+    });
+});
+
+describe('agregerParDepartement', () => {
+    it('cumule les biens d\'un même département et classe par capital', () => {
+        const departements = agregerParDepartement(annoterGeographie([
+            bien('Rue A, 69003 Lyon', 100),
+            bien('Rue B, 69100 Villeurbanne', 200),
+            bien('Rue C, 33000 Bordeaux', 500)
+        ]));
+
+        expect(departements.map(d => d.code)).toEqual(['33', '69']);
+        expect(departements[1]).toMatchObject({
+            code: '69', nom: 'Rhône', capital: 300, projets: 2
+        });
+    });
+
+    it('écarte ce qui ne peut pas être posé sur une carte de France', () => {
+        // Un bien étranger ou sans adresse n'a pas de département : les barres
+        // par région le montrent déjà, la carte ne peut pas.
+        const departements = agregerParDepartement(annoterGeographie([
+            bien('Rue A, 69003 Lyon', 100),
+            bien('Rua X, Porto', 100, { country: 'Portugal' }),
+            bien('Sans adresse', 100)
+        ]));
+
+        expect(departements).toHaveLength(1);
+        expect(departements[0].code).toBe('69');
+    });
+
+    it('rapporte la part au capital engagé, biens hors carte compris', () => {
+        // Le dénominateur reste le portefeuille entier : dire qu'un département
+        // pèse 100 % parce qu'il est le seul situé serait faux.
+        const departements = agregerParDepartement(annoterGeographie([
+            bien('Rue A, 69003 Lyon', 250),
+            bien('Rua X, Porto', 750, { country: 'Portugal' })
+        ]));
+
+        expect(departements[0].part).toBeCloseTo(25, 5);
+    });
+});
+
+describe('palier', () => {
+    it('ne donne aucun palier à ce qui ne porte rien', () => {
+        // Zéro n'est pas « très peu » : la carte doit le montrer autrement.
+        expect(palier(0, 1000)).toBe(0);
+        expect(palier(-5, 1000)).toBe(0);
+        expect(palier(100, 0)).toBe(0);
+    });
+
+    it('donne le dernier palier au département le plus chargé', () => {
+        expect(palier(1000, 1000)).toBe(5);
+    });
+
+    it('reste monotone : plus lourd n\'est jamais plus pâle', () => {
+        const montants = [1, 5, 20, 50, 120, 300, 550, 800, 1000];
+        const rangs = montants.map(m => palier(m, 1000));
+
+        rangs.forEach((rang, i) => {
+            if (i > 0) {
+                expect(rang, `${montants[i]} € après ${montants[i - 1]} €`)
+                    .toBeGreaterThanOrEqual(rangs[i - 1]);
+            }
+        });
+    });
+
+    it('étale le bas de l\'échelle plutôt que d\'y tout entasser', () => {
+        // Les bornes en montants bruts : 4, 16, 36 et 64 % du maximum. Un
+        // découpage linéaire aurait mis ces cinq montants dans le seul premier
+        // palier, et laissé la carte uniformément blafarde.
+        expect(palier(30, 1000)).toBe(1);
+        expect(palier(100, 1000)).toBe(2);
+        expect(palier(250, 1000)).toBe(3);
+        expect(palier(500, 1000)).toBe(4);
+        expect(palier(700, 1000)).toBe(5);
+    });
+
+    it('occupe les cinq teintes sur un portefeuille concentré', () => {
+        // Le cas qui a fait abandonner le découpage linéaire : quelques
+        // départements portent l'essentiel, la longue traîne pèse peu.
+        const montants = [800, 400, 300, 200, 150, 120, 100, 80, 60, 40, 20, 10];
+        const occupes = new Set(montants.map(m => palier(m, 800)));
+
+        expect(occupes.size).toBe(5);
     });
 });
 
