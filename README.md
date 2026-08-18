@@ -112,16 +112,25 @@ les nouveaux ajoutés, et ceux qui ont disparu de l'API vous sont soumis avant s
 * **Ce qui ne vous est pas parvenu** — les coupons que les échéances impayées n'ont pas
   versés et les pénalités de retard, cumulés mois par mois. Une échéance rattrapée quitte
   la courbe. → [Lire les chiffres](docs/revenus.md#ce-qui-ne-vous-est-pas-parvenu)
-* **Graphiques** — investissement, revenus, arriérés, impôt, répartition, portefeuille en
-  surface, avec une période réglable commune aux courbes datées.
+* **Graphiques** — investissement, revenus, arriérés, impôt, répartition des versements,
+  portefeuille en surface, avec une période réglable commune aux courbes datées.
+* **Géographie** — départements couverts, communes distinctes, capital par région, carte de
+  France teintée par département et détail par localisation, filtrable et cliquable pour
+  retrouver les biens d'un lieu dans le registre. Déduit du code postal de l'adresse ; ce qui
+  n'a pas pu être situé est compté et dit, jamais rangé au hasard.
+  → [Lire les chiffres](docs/revenus.md#géographie)
 * **Registre des propriétés** — adresse, briques, rendement, alertes datées, fiche
   cliquable vers Bricks. 24, 48, 96 fiches par page ou tout d'un bloc, avec recherche
-  libre, tri, et filtres par statut,
-  alerte, pays et versement, rappelés en puces et remisables à zéro.
+  libre, tri, et filtres par statut, alerte, pays, région, département et versement,
+  rappelés en puces et remisables à zéro.
 * **Simulateur** — apport, horizon, rendement, impayés, réinvestissement. Une calculette,
   pas une prévision.
+* **Clair ou sombre** — la page suit le réglage du système. L'interrupteur en haut à droite
+  le contredit, et s'en souvient d'une visite à l'autre.
 
 ![Le registre des propriétés : le bilan des versements du mois, la barre de filtres, puis deux rangées de fiches — cinq marquées « Versé », une « Rien reçu » avec sa bande de mois trouée](docs/captures/registre.png)
+
+![La section Géographie : les départements couverts, les communes distinctes et la première région, les barres du capital par région, puis la carte de France teintée par département avec les cinq départements d'outre-mer en cartouches](docs/captures/geographie.png)
 
 ## Captures d'écran
 
@@ -143,6 +152,11 @@ enregistrer. Mode d'emploi, cadrages et emplacements :
 ## Licence
 
 [GNU AGPL-3.0](LICENSE) — Copyright © 2025-2026 Rémi BOIDET.
+
+Le tracé des départements (`src/carte/departements.svg`) est dérivé d'ADMIN EXPRESS COG de
+l'**IGN**, sous [Licence ouverte](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)
+(Etalab), via la conversion GeoJSON de Grégoire David. Il est régénéré par
+`node tools/carte.mjs`.
 
 Libre d'usage, de modification et de redistribution, à une condition : toute version
 modifiée reste sous la même licence, **y compris si elle est seulement mise à disposition

@@ -256,7 +256,12 @@ une version antérieure ne portent pas — elles sont tues plutôt qu'estimées.
   ensuite, chaque mois au taux de son époque).
 * **Ce qui ne vous est pas parvenu** — [les deux dettes cumulées](#ce-qui-ne-vous-est-pas-parvenu)
   des projets en retard, coupons manqués et pénalités, et la barre de leur somme.
-* **Répartition par propriété** — donut interactif.
+* **Répartition des versements** — camembert des quatre états du carnet : à jour, démarrage
+  en attente, en retard, déjà remboursé. Les quatre forment une partition des propriétés
+  détenues — chacune en occupe un et un seul — et l'effectif au centre suit les tranches
+  cochées. « Déjà remboursé » commence décoché : sur un portefeuille ancien, les projets
+  soldés écrasent les trois états sur lesquels on a prise. Un clic sur la légende les
+  rappelle.
 * **Portefeuille en surface** — treemap des propriétés actives, taille proportionnelle à
   l'investissement, couleur selon le rendement.
 * **Le mur** — une brique par propriété, largeur proportionnelle à l'investissement.
@@ -299,8 +304,94 @@ la comparaison trompeuse. Les bornes se calculent sur une référence commune, a
 mois courant : sans cela, « les trois derniers mois » auraient désigné une fenêtre
 entièrement future pour la série estimée, qui se prolonge de trois mois.
 
-La répartition par propriété et le portefeuille en surface sont des états d'aujourd'hui :
+La répartition des versements et le portefeuille en surface sont des états d'aujourd'hui :
 aucun axe temporel, donc aucune période à leur appliquer.
+
+## Géographie
+
+![La section Géographie : les départements couverts, les communes distinctes et la première région, les barres du capital par région, puis la carte de France teintée par département avec les cinq départements d'outre-mer en cartouches](captures/geographie.png)
+
+Repliée par défaut, et dessinée seulement au premier dépliage : le tableau fait une ligne
+par commune, et sur 241 biens il s'en compose une centaine qu'on ne regarde pas à chaque
+visite. La question à laquelle elle répond n'est pas « où sont mes biens » — le registre le
+dit déjà, fiche par fiche — mais **à quel point ils sont au même endroit**.
+
+Département et région sont déduits du **code postal** contenu dans l'adresse publiée par
+Bricks, dernier groupe de cinq chiffres de la chaîne. Les projets remboursés en sont
+exclus : ils ne portent plus de capital, et les compter annoncerait une présence là où il
+n'y a plus rien d'engagé. Les biens à l'étranger sont rangés sous leur pays, qui tient lieu
+de région.
+
+Ce que la déduction vaut : un code postal désigne une zone de distribution postale, pas une
+commune. Il suffit pour le département ; il ne suffirait pas pour poser un point sur une
+carte. La Corse n'ayant pas de département 20, les codes sont coupés à 20190 entre 2A et
+2B — la convention usuelle, qui se trompe sur quelques communes limitrophes.
+
+Ce qu'elle ne devine pas, elle le dit. Une adresse sans code postal exploitable n'est pas
+interprétée d'après son texte : elle est comptée, rangée sous « Localisation imprécise », et
+le nombre est annoncé sous les compteurs. Une région déduite d'un nom de lieu serait
+invérifiable, et un portefeuille dont un dixième des biens échappe au classement doit le
+montrer plutôt que de le fondre dans « Autre ».
+
+Aucun seuil de concentration n'est affiché : dire « concentration élevée » au-delà d'un
+chiffre choisi ici serait un jugement que rien dans les données ne fonde. La part de la
+première région est donnée, la lecture appartient au lecteur.
+
+### La carte
+
+Le tracé des départements n'est pas dans la page : c'est un fichier de 109 Ko produit par
+`tools/carte.mjs` depuis les contours de l'IGN, chargé au premier dépliage de la section et
+jamais avant. Voir [Développement](developpement.md#la-carte-des-départements) pour la
+fabrique et la licence.
+
+**Le dégradé encode du capital**, ce à quoi la règle « la couleur est réservée à l'argent et
+au risque » donne droit. Une seule teinte qui gagne en densité : c'est de la quantité, pas
+des catégories, et changer de couleur en route ferait croire à un changement de nature.
+
+Les cinq paliers se prennent sur le **département le plus chargé**, à la racine carrée de
+leur rapport. La racine n'est pas une coquetterie : un portefeuille se concentre, et un
+découpage linéaire entassait tout au premier palier en laissant les deux du milieu vides —
+mesuré sur deux portefeuilles réels, 32 départements sur 46 dans la teinte la plus pâle. La
+carte était alors uniformément blafarde, ce qui ne dit rien. En montants bruts, les bornes
+tombent à 4, 16, 36 et 64 % du maximum. Le découpage reste monotone : plus foncé veut
+toujours dire plus lourd.
+
+**Le vide n'est pas un palier.** Un département sans bien prend le ton des surfaces
+creusées, à l'autre bout de l'échelle d'encre, et la légende le montre détaché du dégradé.
+Le teinter en pâle reviendrait à dire « très peu engagé » là où il n'y a rien.
+
+Survoler un département donne son capital, son nombre de biens et sa part ; cliquer renvoie
+au registre filtré dessus. Un département vide ne répond pas : le registre y serait vide, et
+un clic sans effet se comprend mieux qu'un écran blanc.
+
+Les biens à l'étranger et ceux dont l'adresse n'a pas pu être lue n'y figurent pas — ils
+n'ont pas de département. Les barres par région, elles, les montrent.
+
+La carte est **cachée aux lecteurs d'écran**, volontairement : cent un chemins SVG ne se
+lisent pas à la voix, et tout ce qu'ils portent est dans le tableau ci-dessous sous une
+forme qui s'énonce. Le renvoi au registre a son équivalent au clavier dans le menu
+Département.
+
+### Chercher et rebondir
+
+Le champ **Filtrer** au-dessus du tableau tamise les lignes sur les colonnes de texte —
+commune, code et nom de département, région. Pas sur les montants : chercher dans les
+chiffres ferait répondre « 250 » à qui tape un code de département, et la colonne Capital
+les trie déjà. Le décompte rappelle alors le total, faute de quoi on ne saurait pas si la
+recherche a écarté trois lignes ou quatre-vingts.
+
+**Cliquer une ligne** ne garde que ses biens dans le registre, comme cliquer une tuile
+d'incident : un chiffre agrégé doit pouvoir être vérifié sur pièces, et la pièce est ici la
+fiche de chaque bien. Le filtre est rappelé en puce — « Cahors (46) » — et se retire comme
+les autres. La clé qui identifie le lieu est la même des deux côtés, si bien que la ligne et
+le registre comptent forcément les mêmes biens ; deux communes homonymes de départements
+différents restent distinctes.
+
+Les menus **Région** et **Département** du registre ne listent que ce que le portefeuille
+contient. Un réglage retenu d'une visite précédente qui ne correspond plus à rien est
+rouvert d'office : sans cela, un portefeuille dont le dernier bien breton vient d'être
+remboursé afficherait un registre vide sans que le menu ne montre pourquoi. Le filtre de
+localisation, qui n'a pas de menu, est vérifié de la même façon.
 
 ## Suivi des incidents
 

@@ -10,6 +10,9 @@ import { truncate } from '../utils/formatters.js';
 import { escapeHtml } from '../utils/html.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
+import {
+    regionsPresentes, departementsPresents, localisations, cleLieu, libelleLieu, DEPARTEMENTS
+} from '../business/geographie.js';
 import { TAILLES_PAGE, CLES_FILTRES, lirePreference, ecrirePreference } from '../core/preferences.js';
 import { createPropertyCard } from './fiche.js';
 import { hasWarningInCurrentMonth, hasWarningInLastMonth, hasWarningInMonthBefore } from './alertes.js';
@@ -24,6 +27,9 @@ let currentSortBy = 'investment-desc';
 let currentFilter = 'all';
 let currentWarningFilter = 'all';
 let currentCountryFilter = 'all';
+let currentRegionFilter = 'all';
+let currentDepartementFilter = 'all';
+let currentLieuFilter = 'all';
 let currentVersementFilter = 'all';
 let currentSearch = '';
 let currentPage = 1;
@@ -52,6 +58,9 @@ export function initRegistre(properties, versements) {
     currentFilter = lirePreference('propertyFilter');
     currentWarningFilter = lirePreference('propertyWarningFilter');
     currentCountryFilter = lirePreference('propertyCountryFilter');
+    currentRegionFilter = lirePreference('propertyRegionFilter');
+    currentDepartementFilter = lirePreference('propertyDepartementFilter');
+    currentLieuFilter = lirePreference('propertyLieuFilter');
     currentPage = 1;
 
     versementsParPropriete = versements?.parPropriete || null;
@@ -68,6 +77,7 @@ export function initRegistre(properties, versements) {
     }
 
     populateCountryFilter(allProperties);
+    populateGeoFilters(allProperties);
     updatePropertyList(allProperties);
 }
 
@@ -125,6 +135,17 @@ const LIBELLES_FILTRES = {
 };
 
 /**
+ * Nomme un département pour la puce de rappel
+ * « 06 » seul ne dit rien à qui ne connaît pas la numérotation par cœur.
+ * @param {string} code - Code du département
+ * @returns {string} « 06 — Alpes-Maritimes »
+ */
+function libelleDepartement(code) {
+    const departement = DEPARTEMENTS[code];
+    return departement ? `${code} — ${departement[0]}` : code;
+}
+
+/**
  * Remplit le dropdown des pays avec les pays disponibles
  * @param {Array} properties - Liste des propriétés
  */
@@ -152,6 +173,84 @@ function populateCountryFilter(properties) {
 }
 
 /**
+ * Remplit les menus de région et de département
+ *
+ * Seulement ce que le portefeuille contient : dérouler les treize régions et
+ * les cent un départements de France obligerait à chercher les quarante qui
+ * répondent quelque chose.
+ *
+ * Un réglage retenu d'une visite précédente qui ne correspond plus à rien est
+ * rouvert d'office : un portefeuille dont le dernier bien breton a été
+ * remboursé afficherait sinon un registre vide, sans que le menu ne montre
+ * pourquoi.
+ *
+ * @param {Array} properties - Propriétés annotées par annoterGeographie
+ */
+function populateGeoFilters(properties) {
+    const regions = regionsPresentes(properties);
+    const departements = departementsPresents(properties);
+
+    remplirMenu('propertyRegionFilter', 'Toutes',
+        regions.map(r => ({ valeur: r, texte: r })));
+    remplirMenu('propertyDepartementFilter', 'Tous',
+        departements.map(d => ({ valeur: d.code, texte: `${d.code} — ${d.nom}` })));
+
+    if (currentRegionFilter !== 'all' && !regions.includes(currentRegionFilter)) {
+        currentRegionFilter = 'all';
+        ecrirePreference('propertyRegionFilter', 'all');
+    }
+
+    if (currentDepartementFilter !== 'all'
+        && !departements.some(d => d.code === currentDepartementFilter)) {
+        currentDepartementFilter = 'all';
+        ecrirePreference('propertyDepartementFilter', 'all');
+    }
+
+    // Le lieu n'a pas de menu — il vient d'un clic dans le tableau — mais il
+    // survit à la visite comme les autres, et se vérifie donc de même : une
+    // commune dont le dernier bien a été remboursé viderait le registre.
+    if (currentLieuFilter !== 'all'
+        && !localisations(properties).some(l => l.cle === currentLieuFilter)) {
+        currentLieuFilter = 'all';
+        ecrirePreference('propertyLieuFilter', 'all');
+    }
+
+    const menuRegion = document.getElementById('propertyRegionFilter');
+    const menuDepartement = document.getElementById('propertyDepartementFilter');
+
+    if (menuRegion) menuRegion.value = currentRegionFilter;
+    if (menuDepartement) menuDepartement.value = currentDepartementFilter;
+
+    logger.debug(LOG_CATEGORIES.UI, 'Geography filters populated', {
+        regions: regions.length,
+        departements: departements.length
+    });
+}
+
+/**
+ * Réécrit les options d'un menu, en gardant son entrée « tout »
+ * @param {string} id - Identifiant du <select>
+ * @param {string} libelleTout - Texte de l'option neutre
+ * @param {Array<Object>} options - [{ valeur, texte }]
+ */
+function remplirMenu(id, libelleTout, options) {
+    const menu = document.getElementById(id);
+
+    if (!menu) {
+        return;
+    }
+
+    menu.replaceChildren();
+
+    [{ valeur: 'all', texte: libelleTout }, ...options].forEach(({ valeur, texte }) => {
+        const option = document.createElement('option');
+        option.value = valeur;
+        option.textContent = texte;
+        menu.appendChild(option);
+    });
+}
+
+/**
  * Met en avant une propriété : lève les filtres qui la masqueraient,
  * la place sur la bonne page, puis y amène l'écran.
  * @param {string} propertyId - Identifiant de la propriété
@@ -167,6 +266,9 @@ export function focusProperty(propertyId) {
     currentFilter = 'all';
     currentWarningFilter = 'all';
     currentCountryFilter = 'all';
+    currentRegionFilter = 'all';
+    currentDepartementFilter = 'all';
+    currentLieuFilter = 'all';
     currentSearch = '';
     idCible = propertyId;
 
@@ -285,6 +387,15 @@ function renderFiltresActifs() {
     if (currentCountryFilter !== 'all') {
         puces.push({ cle: 'countryFilter', texte: currentCountryFilter });
     }
+    if (currentRegionFilter !== 'all') {
+        puces.push({ cle: 'regionFilter', texte: currentRegionFilter });
+    }
+    if (currentDepartementFilter !== 'all') {
+        puces.push({ cle: 'departementFilter', texte: libelleDepartement(currentDepartementFilter) });
+    }
+    if (currentLieuFilter !== 'all') {
+        puces.push({ cle: 'lieuFilter', texte: libelleLieu(currentLieuFilter) });
+    }
     if (currentVersementFilter !== 'all') {
         puces.push({ cle: 'versementFilter', texte: LIBELLES_FILTRES.versementFilter[currentVersementFilter] || currentVersementFilter });
     }
@@ -338,6 +449,9 @@ function clearFiltre(cle) {
     if (cle === 'filter') currentFilter = 'all';
     if (cle === 'warningFilter') currentWarningFilter = 'all';
     if (cle === 'countryFilter') currentCountryFilter = 'all';
+    if (cle === 'regionFilter') currentRegionFilter = 'all';
+    if (cle === 'departementFilter') currentDepartementFilter = 'all';
+    if (cle === 'lieuFilter') currentLieuFilter = 'all';
     if (cle === 'versementFilter') currentVersementFilter = 'all';
 
     currentPage = 1;
@@ -354,6 +468,9 @@ export function resetFilters() {
     currentFilter = 'all';
     currentWarningFilter = 'all';
     currentCountryFilter = 'all';
+    currentRegionFilter = 'all';
+    currentDepartementFilter = 'all';
+    currentLieuFilter = 'all';
     currentVersementFilter = 'all';
     currentSearch = '';
     currentPage = 1;
@@ -374,6 +491,9 @@ function persistFilters() {
         propertyFilter: currentFilter,
         propertyWarningFilter: currentWarningFilter,
         propertyCountryFilter: currentCountryFilter,
+        propertyRegionFilter: currentRegionFilter,
+        propertyDepartementFilter: currentDepartementFilter,
+        propertyLieuFilter: currentLieuFilter,
         propertyVersementFilter: currentVersementFilter
     };
 
@@ -388,6 +508,9 @@ function syncControls() {
         propertyFilter: currentFilter,
         propertyWarningFilter: currentWarningFilter,
         propertyCountryFilter: currentCountryFilter,
+        propertyRegionFilter: currentRegionFilter,
+        propertyDepartementFilter: currentDepartementFilter,
+        propertyLieuFilter: currentLieuFilter,
         propertyVersementFilter: currentVersementFilter,
         propertySearch: currentSearch,
         propertySortBy: currentSortBy
@@ -676,6 +799,22 @@ function filterProperties(properties, filterType = currentFilter, warningFilterT
         filtered = filtered.filter(p => p.country === countryFilterType);
     }
 
+    // Filtres géographiques, déduits du code postal de l'adresse
+    if (currentRegionFilter !== 'all') {
+        filtered = filtered.filter(p => p.geo?.region === currentRegionFilter);
+    }
+
+    if (currentDepartementFilter !== 'all') {
+        filtered = filtered.filter(p => p.geo?.departement === currentDepartementFilter);
+    }
+
+    // Posé par un clic sur une ligne du tableau des localisations, jamais par
+    // un menu : la clé sert des deux côtés, si bien que la ligne et le registre
+    // comptent forcément les mêmes biens.
+    if (currentLieuFilter !== 'all') {
+        filtered = filtered.filter(p => cleLieu(p.geo) === currentLieuFilter);
+    }
+
     // Recherche libre
     const terme = currentSearch.toLowerCase();
     if (terme) {
@@ -750,9 +889,15 @@ function sortProperties(properties, sortBy) {
  * @param {string} [changements.filter] - Nouveau filtre de statut
  * @param {string} [changements.warningFilter] - Nouveau filtre d'alerte
  * @param {string} [changements.countryFilter] - Nouveau filtre de pays
+ * @param {string} [changements.regionFilter] - Nouveau filtre de région
+ * @param {string} [changements.departementFilter] - Nouveau filtre de département
+ * @param {string} [changements.lieuFilter] - Nouveau filtre de localisation
  * @param {string} [changements.versementFilter] - Nouveau filtre de versement
  */
-export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, countryFilter, versementFilter } = {}) {
+export function updatePropertySortAndFilter({
+    sortBy, filter, warningFilter, countryFilter, regionFilter, departementFilter, lieuFilter,
+    versementFilter
+} = {}) {
     if (sortBy !== undefined) {
         currentSortBy = sortBy;
         ecrirePreference('propertySortBy', sortBy);
@@ -771,6 +916,21 @@ export function updatePropertySortAndFilter({ sortBy, filter, warningFilter, cou
     if (countryFilter !== undefined) {
         currentCountryFilter = countryFilter;
         ecrirePreference('propertyCountryFilter', countryFilter);
+    }
+
+    if (regionFilter !== undefined) {
+        currentRegionFilter = regionFilter;
+        ecrirePreference('propertyRegionFilter', regionFilter);
+    }
+
+    if (departementFilter !== undefined) {
+        currentDepartementFilter = departementFilter;
+        ecrirePreference('propertyDepartementFilter', departementFilter);
+    }
+
+    if (lieuFilter !== undefined) {
+        currentLieuFilter = lieuFilter;
+        ecrirePreference('propertyLieuFilter', lieuFilter);
     }
 
     if (versementFilter !== undefined) {

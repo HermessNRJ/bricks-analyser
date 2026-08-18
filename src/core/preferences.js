@@ -50,10 +50,18 @@ const TAILLE_PAGE_DEFAUT = 24;
 const nonVide = (valeur) => typeof valeur === 'string' && valeur !== '';
 
 const DECLARATIONS = {
+    // 'auto' n'est pas un thème : c'est l'absence de choix, et donc le défaut.
+    // Tant qu'il tient, la page suit le réglage du système.
+    theme: { defaut: 'auto', valide: (valeur) => ['auto', 'clair', 'sombre'].includes(valeur) },
     propertySortBy: { defaut: 'investment-desc', valide: nonVide },
     propertyFilter: { defaut: 'all', valide: nonVide },
     propertyWarningFilter: { defaut: 'all', valide: nonVide },
     propertyCountryFilter: { defaut: 'all', valide: nonVide },
+    propertyRegionFilter: { defaut: 'all', valide: nonVide },
+    propertyDepartementFilter: { defaut: 'all', valide: nonVide },
+    // Posé par un clic sur une ligne du tableau des localisations, sans menu
+    // correspondant : sa validité se vérifie contre les lieux du portefeuille.
+    propertyLieuFilter: { defaut: 'all', valide: nonVide },
     propertyVersementFilter: { defaut: 'all', valide: nonVide },
     registreTaillePage: {
         defaut: TAILLE_PAGE_DEFAUT,
@@ -71,6 +79,8 @@ export const CLES_FILTRES = [
     'propertyFilter',
     'propertyWarningFilter',
     'propertyCountryFilter',
+    'propertyRegionFilter',
+    'propertyDepartementFilter',
     'propertyVersementFilter'
 ];
 

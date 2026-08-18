@@ -55,6 +55,7 @@ oxipng -o max --zopfli --strip safe docs/captures/*.png
 | `vue-ensemble.png` | Du titre jusqu'au bas des tuiles de suivi des incidents — le mur, les huit chiffres clés, la bande de rendement, la répartition du risque | En tête du **README**, juste au-dessus de « Démarrer » |
 | `rendement.png` | La seule bande « Rendement annualisé », des cinq fenêtres à la note. Environ 1 130 × 220 px | [revenus.md](../revenus.md#rendement-annualisé) |
 | `registre.png` | La section « Registre des propriétés » : le titre, le bilan des versements, la barre de filtres, le compteur, puis **deux rangées de fiches** — pas plus, les 24 de la page feraient 5 900 px de haut. Compter environ 1 150 × 1 800 px | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#carnet-de-versements) |
+| `geographie.png` | La section « Géographie » **dépliée** : les trois compteurs, les barres du capital par région et la carte. Le tableau des localisations est à laisser dehors — il fait une centaine de lignes. Environ 1 130 × 1 400 px | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#géographie) |
 | `revenus.png` | Le graphique « Évolution des revenus nets », les deux courbes et la note d'écart en dessous | [revenus.md](../revenus.md#attendu-et-perçu) |
 | `revenus-annuels.png` | Le tableau des revenus par année, avec les colonnes brutes et le capital remboursé | [revenus.md](../revenus.md#revenus-par-année) |
 | `origine-fonds.png` | Le graphique « D'où vient l'argent », sa légende et sa note. Environ 560 × 550 px | [revenus.md](../revenus.md#doù-vient-largent) |
@@ -66,6 +67,11 @@ fiches donnent cinq **Versé** et un **Rien reçu**, ce qui est exactement ce qu
 fonctionnalité montre — la plupart paient, un ne paie pas. Régler le filtre **Versement**
 sur « Rien reçu » donnerait une grille entièrement rouge, plus spectaculaire mais moins
 juste.
+
+Pour la géographie, dépliez la section **avant** de cadrer : le tracé des départements est
+chargé au premier dépliage, et la carte est vide tant qu'il n'est pas arrivé. Écartez ensuite
+la souris de la carte — le département sous le curseur garde le contour foncé du survol, qui
+se lit comme une sélection sur une image fixe.
 
 ## 3. Insérer une image
 

@@ -20,6 +20,7 @@ import { pluriel, deMois } from './libelles.js';
 import { hasWarningInLastMonth } from './alertes.js';
 import { afficherRevenusParAnnee } from './revenuAnnuel.js';
 import { updateStatCards } from './tuiles.js';
+import { initGeographie } from './geographie.js';
 import {
     initRegistre, focusProperty, resetFilters, setSearch, changePage,
     allerALaPage, setTaillePage, taillePageCourante, updatePropertySortAndFilter,
@@ -49,6 +50,11 @@ export function updateUI(results) {
     initRegistre(results.properties, results.versements);
 
     renderBilanVersements(results.versements);
+
+    // La section reste repliée : elle ne se dessine qu'au premier dépliage, un
+    // tableau d'une centaine de communes n'ayant pas à se recomposer à chaque
+    // rendu pour rester caché.
+    initGeographie(results.properties);
 
     renderMur(results.properties);
     afficherRevenusParAnnee(results);

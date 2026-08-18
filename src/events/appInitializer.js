@@ -16,6 +16,8 @@ import { setupStatusHandler } from './statusHandler.js';
 import { setupAPIHandler } from './apiHandler.js';
 import { setupFichierHandler } from './fichierHandler.js';
 import { initFavori } from '../ui/favori.js';
+import { initApparence } from '../ui/apparence.js';
+import { setupGeographie } from '../ui/geographie.js';
 import { setupScrollToTop } from './scrollHandler.js';
 import { setupResetCache } from './cacheHandler.js';
 import {
@@ -31,6 +33,11 @@ import { lirePreference } from '../core/preferences.js';
 function initializeApp() {
     logger.info(LOG_CATEGORIES.EVENT, 'Initializing Bricks Analyser application');
 
+    // Avant tout le reste : le thème retenu doit être en place avant qu'un
+    // graphique ne résolve ses couleurs, sinon le premier tracé se fait dans
+    // la palette du système et non dans celle qui a été choisie.
+    initApparence();
+
     // Configurer tous les gestionnaires d'événements
     setupAPIHandler();
     setupFichierHandler();
@@ -43,6 +50,7 @@ function initializeApp() {
     setupForecastHandler();
     setupStatusHandler();
     setupRiskShortcuts();
+    setupGeographie();
 
     // S'abonner aux changements d'état pour mettre à jour l'UI
     subscribeToStateChanges();
@@ -97,6 +105,8 @@ const CONTROLES_REGISTRE = {
     propertyFilter: 'filter',
     propertyWarningFilter: 'warningFilter',
     propertyCountryFilter: 'countryFilter',
+    propertyRegionFilter: 'regionFilter',
+    propertyDepartementFilter: 'departementFilter',
     propertyVersementFilter: 'versementFilter'
 };
 

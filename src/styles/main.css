@@ -51,6 +51,18 @@
     /* Le vert olive de la barre de risque, entre l'ambre et le vert franc */
     --risque-median: #7a8f3c;
 
+    /* Les cinq paliers de la carte, du plus léger au plus lourd. Une seule
+       teinte — celle du capital engagé, dont le dernier palier est exactement
+       le ton — qui gagne en densité : c'est de la quantité, pas des catégories,
+       et changer de couleur en route ferait croire à un changement de nature.
+       Le vide n'en fait pas partie : il prend --surface-sunken, à l'autre bout
+       de l'échelle d'encre, pour ne jamais passer pour un petit montant. */
+    --carte-1: #dce7f4;
+    --carte-2: #b6cfe9;
+    --carte-3: #8ab0da;
+    --carte-4: #5187c6;
+    --carte-5: #1d5fb0;
+
     /* Ombres et voiles : teintés de l'encre, jamais du noir pur */
     --ombre-carte: 0 2px 10px rgba(22, 32, 43, 0.07);
     --ombre-flottant: 0 4px 14px rgba(22, 32, 43, 0.15);
@@ -88,72 +100,11 @@
 /* --------------------------------------------------------------------------
    Thème sombre
 
-   Le même système, retourné : encre claire sur papier de nuit. Les tons
-   sémantiques ne changent pas de sens, seulement de luminosité — un vert de
-   projet actif à 20 % de clarté disparaîtrait sur ce fond, et le rouge d'un
-   défaut y virerait au brun. Les aplats pâles deviennent des teintes sourdes
-   du même ton, jamais des gris : c'est leur couleur qui porte l'information.
-
-   Aucune règle de mise en page ici, uniquement des jetons redéfinis : tout ce
-   qui est écrit plus bas vaut pour les deux thèmes.
+   La palette de nuit vit dans nuit.css, chargée par un <link> dont l'attribut
+   media la met en service. Elle n'est pas ici parce qu'un bloc @media ne
+   saurait pas être contredit par le bouton de l'en-tête : voir l'en-tête de
+   nuit.css, et src/ui/apparence.js pour la bascule.
    -------------------------------------------------------------------------- */
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --paper: #11171d;
-        --surface: #19212a;
-        --surface-sunken: #141b22;
-        --ink: #e4eaf0;
-        --ink-fort: #f2f6f9;
-        --ink-muted: #9dabb8;
-        --ink-faint: #76858f;
-        --rule: #2b353f;
-        --rule-strong: #4a5967;
-        --rule-faible: #232c35;
-        --champ: #0d1216;
-
-        --statut-actif: #4fb589;
-        --statut-financement: #6aa6ec;
-        --statut-avenir: #d4a13f;
-        --statut-rembourse: #7f8b98;
-
-        --alerte: #ef7059;
-        --alerte-texte: #f5a795;
-        --alerte-faible: #d4a13f;
-        --alerte-fond: #2c1c18;
-        --alerte-faible-fond: #2b2413;
-        --alerte-faible-texte: #e3c179;
-
-        --fond-actif: #14291f;
-        --fond-financement: #16243a;
-        --fond-avenir: #2b2413;
-        --fond-brut: #26221a;
-
-        --risque-median: #9bb055;
-
-        /* Sur fond sombre, une ombre portée ne se voit pas : c'est le noir
-           dense qui creuse, et il faut l'appuyer pour que la carte décolle. */
-        --ombre-carte: 0 2px 10px rgba(0, 0, 0, 0.35);
-        --ombre-flottant: 0 4px 14px rgba(0, 0, 0, 0.5);
-        --ombre-modale: 0 18px 50px rgba(0, 0, 0, 0.65);
-        --ombre-chargement: rgba(106, 166, 236, 0.35);
-        --voile-modale: rgba(5, 8, 11, 0.7);
-        --anneau-cible: rgba(106, 166, 236, 0.28);
-
-        --graph-revenus: #57c7c7;
-        --graph-revenus-fond: rgba(87, 199, 199, 0.14);
-        --graph-attendu: #97a2b3;
-        --graph-impot: #ef6b83;
-        --graph-impot-fond: rgba(239, 107, 131, 0.2);
-        --graph-autres: #7f8b98;
-        --graph-investissement-fond: rgba(106, 166, 236, 0.12);
-        --graph-parrainage-fond: rgba(79, 181, 137, 0.12);
-        --graph-etiquette-fond: rgba(25, 33, 42, 0.9);
-        --graph-infobulle: rgba(8, 12, 16, 0.95);
-
-        color-scheme: dark;
-    }
-}
 
 * {
     margin: 0;
@@ -205,6 +156,10 @@ body {
     padding: 40px 0 24px;
     border-bottom: var(--rule-width) solid var(--rule-strong);
     margin-bottom: 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
 }
 
 .header h1 {
@@ -219,6 +174,136 @@ body {
     color: var(--ink-muted);
     font-size: 0.95rem;
     margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Interrupteur clair / sombre
+
+   Pas de couleur : elle est réservée à l'argent et au risque, et un thème n'est
+   ni l'un ni l'autre. L'affordance est donc la forme — une piste creusée, une
+   pastille qui glisse — et les deux astres restent en encre.
+   -------------------------------------------------------------------------- */
+
+.bascule-theme {
+    flex-shrink: 0;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.bascule-piste {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 62px;
+    height: 30px;
+    padding: 0 7px;
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: 999px;
+    background: var(--surface-sunken);
+}
+
+.bascule-astre {
+    position: relative;
+    z-index: 1;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--ink-faint);
+    transition: color 240ms ease, transform 240ms ease;
+}
+
+/* La pastille passe par-dessus l'astre qu'elle rejoint : c'est lui qu'elle
+   désigne, et le contraste sous elle doit rester lisible. */
+.bascule-pastille {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule-strong);
+    box-shadow: var(--ombre-carte);
+    transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* aria-pressed porte l'état : le CSS lit l'attribut plutôt qu'une classe
+   parallèle, ce qui interdit à l'un des deux de mentir. */
+.bascule-theme[aria-pressed="true"] .bascule-pastille {
+    transform: translateX(32px);
+}
+
+.bascule-theme[aria-pressed="false"] .bascule-jour,
+.bascule-theme[aria-pressed="true"] .bascule-nuit {
+    color: var(--ink);
+    transform: scale(1.15);
+}
+
+.bascule-theme:focus-visible {
+    outline: 2px solid var(--statut-financement);
+    outline-offset: 3px;
+}
+
+.bascule-theme:hover .bascule-piste {
+    border-color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+   Le rideau du changement de thème
+
+   Une transition de vue remplace par défaut l'ancienne page par la nouvelle en
+   fondu, ce qui donne un gris de boue au milieu du parcours. Ici l'ancienne
+   image reste immobile et la nouvelle se découvre par un cercle qui s'ouvre là
+   où l'on a cliqué — le geste et son effet partent du même point.
+
+   Les deux couches sont explicitement empilées : sans cela, la nouvelle passe
+   sous l'ancienne et le cercle ne se voit pas.
+   -------------------------------------------------------------------------- */
+
+::view-transition-old(root) {
+    animation: none;
+    z-index: 1;
+}
+
+::view-transition-new(root) {
+    animation: rideau-theme 520ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+}
+
+@keyframes rideau-theme {
+    from {
+        /* Le rayon couvre le pire cas : le coin le plus éloigné du bouton */
+        clip-path: circle(0 at var(--rideau-x, 50%) var(--rideau-y, 0));
+    }
+    to {
+        clip-path: circle(155vmax at var(--rideau-x, 50%) var(--rideau-y, 0));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bascule-astre,
+    .bascule-pastille {
+        transition: none;
+    }
+
+    ::view-transition-new(root) {
+        animation: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .header h1 {
+        font-size: 1.9rem;
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -1132,6 +1217,438 @@ select:hover {
 }
 
 /* --------------------------------------------------------------------------
+   Géographie
+
+   Repliée par défaut : c'est une lecture qu'on va chercher, pas une qu'on
+   subit. Aucune couleur ici — les longueurs de barres portent les montants, et
+   les teinter n'ajouterait rien à ce que la longueur dit déjà.
+   -------------------------------------------------------------------------- */
+
+.geographie {
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule);
+    border-radius: var(--radius);
+    padding: 0 22px;
+    margin-bottom: 28px;
+}
+
+.geographie summary {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 20px 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.geographie summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Le chevron est dessiné plutôt qu'écrit : un glyphe « ▸ » ne pivote pas
+   proprement d'une police à l'autre. */
+.geographie summary::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--ink-faint);
+    border-bottom: 2px solid var(--ink-faint);
+    transform: rotate(-45deg);
+    transition: transform 200ms ease;
+    flex-shrink: 0;
+}
+
+.geographie[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.geographie summary h2 {
+    display: inline;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.geo-invite {
+    color: var(--ink-muted);
+    font-size: 0.88rem;
+}
+
+.geographie > *:last-child {
+    margin-bottom: 22px;
+}
+
+.geo-compteurs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+/* Un nom de région n'est pas un chiffre : la chasse fixe des montants
+   l'étirerait, et il déborderait de sa carte. */
+.stat-value-texte {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    line-height: 1.15;
+}
+
+.geographie .chart-title {
+    margin: 22px 0 12px;
+}
+
+.geo-regions {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.geo-region {
+    display: grid;
+    grid-template-columns: minmax(120px, 190px) 1fr auto 44px;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+.geo-region-nom {
+    text-align: right;
+    color: var(--ink-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.geo-region-piste {
+    background: var(--surface-sunken);
+    border-radius: 3px;
+    height: 15px;
+    overflow: hidden;
+}
+
+.geo-region-barre {
+    display: block;
+    height: 100%;
+    background: var(--rule-strong);
+    border-radius: 3px;
+}
+
+/* Ce qui n'a pas pu être situé se distingue par la texture, pas par la
+   couleur : ce n'est pas une alerte, c'est une lacune. */
+.geo-region.est-imprecise .geo-region-barre {
+    background: repeating-linear-gradient(
+        45deg, var(--rule-strong), var(--rule-strong) 3px,
+        var(--surface-sunken) 3px, var(--surface-sunken) 6px
+    );
+}
+
+.geo-region.est-imprecise .geo-region-nom {
+    font-style: italic;
+}
+
+.geo-region-montant {
+    font-size: 0.82rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.geo-region-part {
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    text-align: right;
+}
+
+/* Alignés par le bas : le champ de recherche porte un libellé au-dessus de lui,
+   et un alignement sur la ligne de base aurait fait pendre le champ sous le
+   titre au lieu de les poser sur le même socle. */
+/* --------------------------------------------------------------------------
+   La carte des départements
+
+   Le dégradé est la seule couleur de la section, et il encode de l'argent —
+   ce à quoi la règle de la maison donne droit. Une seule teinte qui gagne en
+   densité : de la quantité, pas des catégories.
+   -------------------------------------------------------------------------- */
+
+.geo-carte {
+    position: relative;
+    margin-top: 22px;
+}
+
+.geo-carte-cadre {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* La place est réservée AVANT que le tracé n'arrive — il est chargé après coup,
+   et sans cela la page sauterait à son apparition. Le rapport n'est qu'une
+   approximation, et « :empty » le fait céder dès que le SVG est là : c'est
+   alors son propre viewBox qui gouverne, quel que soit le cadrage que le
+   générateur a calculé. */
+.geo-carte-cadre:empty {
+    aspect-ratio: 640 / 561;
+}
+
+.geo-carte-cadre svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.geo-carte-cadre path[data-code] {
+    fill: var(--surface-sunken);
+    stroke: var(--rule);
+    stroke-width: 0.5;
+    stroke-linejoin: round;
+    transition: fill 160ms ease;
+}
+
+.geo-carte-cadre path[data-palier="1"] { fill: var(--carte-1); }
+.geo-carte-cadre path[data-palier="2"] { fill: var(--carte-2); }
+.geo-carte-cadre path[data-palier="3"] { fill: var(--carte-3); }
+.geo-carte-cadre path[data-palier="4"] { fill: var(--carte-4); }
+.geo-carte-cadre path[data-palier="5"] { fill: var(--carte-5); }
+
+/* Seuls les départements qui portent quelque chose mènent au registre : le
+   curseur le dit avant le clic. */
+.geo-carte-cadre path[data-palier] {
+    cursor: pointer;
+}
+
+.geo-carte-cadre path[data-palier]:hover {
+    stroke: var(--ink);
+    stroke-width: 1.2;
+}
+
+.geo-carte-cadre .carte-cadre {
+    fill: none;
+    stroke: var(--rule);
+    stroke-width: 0.8;
+}
+
+.geo-carte-cadre .carte-etiquette {
+    font-family: var(--font-ui);
+    font-size: 7px;
+    fill: var(--ink-faint);
+    text-anchor: middle;
+}
+
+.geo-carte-bulle {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 7px 10px;
+    background: var(--surface);
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--ombre-flottant);
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.bulle-code,
+.bulle-detail,
+.bulle-vide {
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+}
+
+.bulle-montant {
+    font-size: 0.9rem;
+}
+
+.geo-legende {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 22px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--ink-muted);
+}
+
+.geo-legende i {
+    display: inline-block;
+    width: 22px;
+    height: 11px;
+    vertical-align: -1px;
+    border: var(--rule-width) solid var(--rule);
+}
+
+.geo-legende-vide,
+.geo-legende-echelle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Détaché du dégradé par son propre écart : le vide n'est pas le premier
+   palier, et la légende ne doit pas laisser croire qu'il en est le début. */
+.geo-legende-vide i {
+    background: var(--surface-sunken);
+    margin-right: 3px;
+}
+
+.geo-legende-echelle i {
+    width: 26px;
+    margin: 0 -3px;
+}
+
+.geo-legende-echelle i[data-palier="1"] { background: var(--carte-1); }
+.geo-legende-echelle i[data-palier="2"] { background: var(--carte-2); }
+.geo-legende-echelle i[data-palier="3"] { background: var(--carte-3); }
+.geo-legende-echelle i[data-palier="4"] { background: var(--carte-4); }
+.geo-legende-echelle i[data-palier="5"] { background: var(--carte-5); }
+
+.geo-carte .note {
+    text-align: center;
+    margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .geo-carte-cadre path[data-code] {
+        transition: none;
+    }
+}
+
+.geo-lieux-entete {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 16px;
+    flex-wrap: wrap;
+}
+
+.geo-lieux-entete .chart-title {
+    margin-bottom: 0;
+}
+
+/* La recherche prend la place restante entre le titre et le décompte, et passe
+   à la ligne avant de les écraser. Les styles de champ du registre sont portés
+   par `.properties-controls` et ne descendent pas jusqu'ici : le libellé et le
+   champ sont donc habillés de nouveau, à l'identique. */
+.geo-lieux-entete .champ-recherche {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1 1 200px;
+    max-width: 320px;
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.geo-lieux-entete input[type="search"] {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink);
+    padding: 7px 10px;
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--champ);
+}
+
+.geo-lieux-entete input[type="search"]::placeholder {
+    color: var(--ink-faint);
+}
+
+/* Toute la ligne mène au registre : le bouton du nom en est l'affordance
+   visible et la prise au clavier, la ligne en est la cible confortable. */
+.geo-lieux tbody tr[data-lieu] {
+    cursor: pointer;
+}
+
+.geo-lieux tbody tr[data-lieu]:hover {
+    background: var(--surface-sunken);
+}
+
+.geo-lieu-bouton {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: var(--rule-strong);
+    text-underline-offset: 3px;
+}
+
+.geo-lieux tbody tr[data-lieu]:hover .geo-lieu-bouton {
+    text-decoration-color: var(--ink-faint);
+}
+
+.geo-lieu-bouton:focus-visible {
+    outline: 2px solid var(--statut-financement);
+    outline-offset: 2px;
+}
+
+.geo-lieux-vide td {
+    color: var(--ink-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+/* Une centaine de lignes : le tableau défile dans son cadre plutôt que de
+   pousser le registre cent écrans plus bas. L'en-tête reste en vue, sans quoi
+   on ne sait plus quelle colonne on lit au bout de trente lignes. */
+.geo-lieux-cadre {
+    max-height: 460px;
+    overflow-y: auto;
+}
+
+.geo-lieux thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface);
+}
+
+/* Le tableau des revenus aligne tout à droite, ce qui convient à des colonnes
+   de montants. Ici les trois premières portent des noms : alignés à droite, ils
+   se lisaient de la fin vers le début. */
+.geo-lieux th:nth-child(-n+3),
+.geo-lieux td:nth-child(-n+3) {
+    text-align: left;
+}
+
+.geo-lieux .geo-departement {
+    color: var(--ink-muted);
+    white-space: nowrap;
+}
+
+/* Sous la barre, la place manque pour quatre colonnes : le nom, le montant et
+   la part tiennent sur une ligne, la piste passe dessous sur toute la largeur.
+   La part reste collée au montant qu'elle qualifie plutôt que de flotter entre
+   deux lignes. */
+@media (max-width: 640px) {
+    .geo-region {
+        grid-template-columns: 1fr auto auto;
+        gap: 3px 10px;
+        margin-bottom: 4px;
+    }
+
+    .geo-region-nom {
+        text-align: left;
+    }
+
+    .geo-region-piste {
+        grid-column: 1 / -1;
+        order: 3;
+        height: 10px;
+    }
+}
+
+/* --------------------------------------------------------------------------
    Registre des propriétés
    -------------------------------------------------------------------------- */
 
@@ -1177,12 +1694,14 @@ select:hover {
     }
 }
 
-/* Cinq critères tiennent sur une rangée : à quatre colonnes, le cinquième
-   restait seul sur une seconde ligne pour lui tout seul. Sans état de compte,
-   le filtre de versement est masqué et les quatre autres s'étalent. */
+/* Sept contrôles depuis l'ajout de la région et du département — le tri, quatre
+   filtres, puis les deux nouveaux. Aucun nombre de colonnes ne les répartit en
+   rangées pleines, et sept de front sur 1180 px tronqueraient
+   « 54 — Meurthe-et-Moselle » : quatre colonnes laissent un seul creux en bout
+   de seconde rangée, et c'est le moins mauvais des découpages. */
 @media (min-width: 900px) {
     .properties-controls {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 
@@ -1837,43 +2356,6 @@ details.alertes > summary:hover {
     gap: 10px;
     justify-content: flex-end;
     flex-wrap: wrap;
-}
-
-.autres-liste {
-    max-height: 380px;
-    overflow-y: auto;
-    border: var(--rule-width) solid var(--rule);
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-}
-
-.autres-ligne {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 12px;
-    border-bottom: var(--rule-width) solid var(--rule);
-}
-
-.autres-ligne:last-child {
-    border-bottom: none;
-}
-
-.autres-nom {
-    font-weight: 600;
-    font-size: 0.88rem;
-}
-
-.autres-meta {
-    font-size: 0.78rem;
-    color: var(--ink-muted);
-    margin-top: 2px;
-}
-
-.autres-montant {
-    text-align: right;
-    white-space: nowrap;
 }
 
 #scrollToTopBtn {
