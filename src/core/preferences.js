@@ -19,6 +19,7 @@
  */
 
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { analyserVersion } from '../utils/version.js';
 
 /**
  * Nombres de fiches par page proposés
@@ -53,6 +54,23 @@ const DECLARATIONS = {
     // 'auto' n'est pas un thème : c'est l'absence de choix, et donc le défaut.
     // Tant qu'il tient, la page suit le réglage du système.
     theme: { defaut: 'auto', valide: (valeur) => ['auto', 'clair', 'sombre'].includes(valeur) },
+    // Les deux seules entrées qui ne sont pas un réglage mais un souvenir : la
+    // dernière version publiée qu'on ait vue, et la date où on l'a demandée.
+    // Elles évitent de rejouer l'appel à chaque visite, et permettent
+    // d'afficher le résultat connu sans attendre la réponse du réseau.
+    //
+    // La chaîne vide est ici une valeur légitime — « jamais vérifié » — au
+    // contraire des filtres du registre ci-dessous.
+    versionDistante: {
+        defaut: '',
+        valide: (valeur) => valeur === '' || analyserVersion(valeur) !== null
+    },
+    versionVerifieeLe: {
+        defaut: 0,
+        decoder: Number,
+        encoder: String,
+        valide: (valeur) => Number.isFinite(valeur) && valeur >= 0
+    },
     propertySortBy: { defaut: 'investment-desc', valide: nonVide },
     propertyFilter: { defaut: 'all', valide: nonVide },
     propertyWarningFilter: { defaut: 'all', valide: nonVide },

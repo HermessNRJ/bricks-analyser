@@ -91,6 +91,11 @@
 
     /* Rythme */
     --gap: 20px;
+
+    /* Hauteur du sommaire épinglé : ce qui s'ancre ou s'épingle dessous s'en
+       décale. Repris par sommaireHandler.js, qui la mesure pour de bon ; la
+       valeur ici n'est qu'un repli avant le premier relevé. */
+    --hauteur-sommaire: 58px;
     --radius: 6px;
     --rule-width: 1px;
 
@@ -114,7 +119,16 @@
 
 html {
     height: 100%;
+    scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+}
+
+/* Onze mille pixels parcourus en animation, pour qui a demandé au système de
+   ne plus rien animer : le saut sec est ici le service rendu. */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
 }
 
 body {
@@ -174,6 +188,69 @@ body {
     color: var(--ink-muted);
     font-size: 0.95rem;
     margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Sommaire
+
+   Treize sections avant le bas de page, et jusqu'ici aucun moyen d'en
+   rejoindre une déjà vue sans tout redérouler. Une rangée d'ancres, épinglée
+   pour rester utilisable à mi-parcours ; le défilement horizontal l'empêche
+   de retomber sur plusieurs rangées quand les huit libellés ne tiennent pas
+   sur la largeur d'un téléphone.
+   -------------------------------------------------------------------------- */
+
+.sommaire {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px 2px 14px;
+    margin-bottom: 8px;
+    background: var(--paper);
+    border-bottom: var(--rule-width) solid var(--rule);
+}
+
+.sommaire a {
+    flex: 0 0 auto;
+    padding: 6px 13px;
+    border: var(--rule-width) solid var(--rule-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-muted);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.sommaire a:hover,
+.sommaire a:focus-visible {
+    color: var(--ink);
+    border-color: var(--ink-muted);
+}
+
+/* La puce courante se renverse : encre pleine, texte en papier. Elle portait
+   --statut-financement, qui est exactement le bleu d'« en financement » sur le
+   mur et dans le registre, et celui du palier le plus lourd de la carte — la
+   couleur est réservée à l'argent et au risque, et « vous êtes ici » n'est ni
+   l'un ni l'autre. La graisse, elle, ne bouge pas : un libellé qui s'épaissit
+   en s'allumant élargirait sa puce, et la barre se recomposerait à chaque
+   section traversée. */
+.sommaire a.sommaire-actif {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+}
+
+/* Sans elle, l'ancre ciblée s'arrête pile sous le sommaire épinglé et son
+   titre disparaît derrière lui. */
+#results [id^="titre"],
+#chiffresCles {
+    scroll-margin-top: calc(var(--hauteur-sommaire) + 8px);
 }
 
 /* --------------------------------------------------------------------------
@@ -1666,12 +1743,13 @@ select:hover {
     margin-bottom: 16px;
 }
 
-/* La barre d'outils suit le défilement : 241 lignes sans elle, c'est perdu */
-/* Cinq contrôles : la recherche prend toute une ligne, les quatre filtres se
-   partagent la suivante. Ainsi chaque rangée reste pleine, à toutes les
-   largeurs — « auto-fit » laissait un trou en bout de ligne. */
+/* La barre d'outils suit le défilement une fois compacte. En dessous de
+   900 px, les sept contrôles s'empilent sur deux à quatre rangées : épinglée,
+   la barre couvrirait jusqu'au tiers de l'écran pendant tout le défilement de
+   la liste. Elle ne devient sticky qu'au palier où elle tient sur une seule
+   rangée courte. */
 .properties-controls {
-    position: sticky;
+    position: static;
     top: 0;
     z-index: 5;
     background: var(--surface);
@@ -1700,7 +1778,11 @@ select:hover {
    « 54 — Meurthe-et-Moselle » : quatre colonnes laissent un seul creux en bout
    de seconde rangée, et c'est le moins mauvais des découpages. */
 @media (min-width: 900px) {
+    /* Sous le sommaire, qui s'épingle au même bord : à « top: 0 » les deux se
+       superposaient et la première rangée de filtres passait dessous. */
     .properties-controls {
+        position: sticky;
+        top: var(--hauteur-sommaire);
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
@@ -2174,7 +2256,11 @@ details.alertes > summary:hover {
    État vide
    -------------------------------------------------------------------------- */
 
+/* La phrase est posée dans .properties-grid, dont les colonnes font 320 px :
+   sans cette ligne elle n'occupait que la première, et « centré » voulait dire
+   centré dans le tiers gauche de la carte. */
 .etat-vide {
+    grid-column: 1 / -1;
     text-align: center;
     padding: 48px 20px;
     color: var(--ink-muted);
@@ -2410,16 +2496,22 @@ details.alertes > summary:hover {
         grid-template-columns: 1fr;
     }
 
-    .properties-controls {
-        position: static;
-    }
-
     .mur {
         height: 44px;
     }
 
     .treemap-cadre {
         height: 340px;
+    }
+
+    /* Plus petit et plus près du coin : le texte des cartes va jusqu'au bord
+       du conteneur sur mobile, et un bouton à 42 px en couvrait des mots. */
+    #scrollToTopBtn {
+        width: 34px;
+        height: 34px;
+        bottom: 12px;
+        right: 12px;
+        font-size: 13px;
     }
 
     .stat-value {
@@ -2721,4 +2813,68 @@ details.alertes > summary:hover {
 
 .pied a {
     color: inherit;
+}
+
+/* Le numéro de version est un bouton, sur la ligne de la licence. Le souligné
+   pointillé le distingue des deux liens qui le précèdent : ils mènent ailleurs,
+   lui agit sur place. Un lien plein aurait promis une navigation. */
+.version-bouton {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+
+.version-bouton:hover:not(:disabled) {
+    color: var(--ink);
+}
+
+.version-bouton:disabled {
+    cursor: progress;
+}
+
+/* « à jour », « vérification impossible » : la réponse à un clic, et rien
+   d'autre. L'ellipse d'attente ne doit pas décaler ce qui suit — il n'y a
+   rien après. */
+.version-etat {
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* L'annonce d'une version plus récente prend sa propre ligne : la phrase porte
+   une commande à recopier, et la tasser derrière la licence la rendrait
+   illisible dès qu'une fenêtre se resserre.
+
+   Pas de couleur, pas de pictogramme d'alerte : une version en retard n'est ni
+   de l'argent ni du risque, et la palette leur réserve les tons saturés. */
+.pied-maj {
+    color: var(--ink-muted);
+}
+
+/* Vide tant qu'il n'y a rien à dire — sans quoi son écart avec la ligne du
+   dessus creuserait un blanc que rien ne justifie. */
+.pied-maj:empty {
+    display: none;
+}
+
+.pied-maj a {
+    text-decoration-thickness: from-font;
+}
+
+/* La commande est un bloc, et ses coupures sont écrites dans la chaîne. Laissée
+   au navigateur, elle se repliait après le tiret de « --name » : le mot suivant
+   commençait par « -name », ce qui se lit comme une autre option. Elle défile
+   donc horizontalement plutôt que de se replier, et les trois temps du pull,
+   du retrait et du relancement tiennent chacun sur sa ligne. */
+.pied-maj pre {
+    margin-top: 4px;
+    overflow-x: auto;
+    font-family: var(--font-data);
+    font-size: 0.95em;
+    line-height: 1.5;
 }

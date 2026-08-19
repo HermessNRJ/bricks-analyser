@@ -19,6 +19,8 @@ import { initFavori } from '../ui/favori.js';
 import { initApparence } from '../ui/apparence.js';
 import { setupGeographie } from '../ui/geographie.js';
 import { setupScrollToTop } from './scrollHandler.js';
+import { setupSommaire } from './sommaireHandler.js';
+import { setupVersion } from '../ui/version.js';
 import { setupResetCache } from './cacheHandler.js';
 import {
     updatePropertySortAndFilter, showResults, setSearch, changePage,
@@ -42,6 +44,8 @@ function initializeApp() {
     setupAPIHandler();
     setupFichierHandler();
     setupScrollToTop();
+    setupSommaire();
+    setupVersion();
     setupResetCache();
     setupPropertyControls();
     setupSearchControl();

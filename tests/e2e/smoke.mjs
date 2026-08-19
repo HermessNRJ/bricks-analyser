@@ -665,6 +665,55 @@ check('retracer les graphiques ne réveille aucune instance détruite',
     pageErrors.length === erreursAvantRetrace,
     pageErrors.slice(erreursAvantRetrace).join(' | '));
 
+// ---------------------------------------------------------------------------
+// Version affichée en pied de page
+//
+// Le serveur de « npm run serve » ne relaie pas /version-api : c'est
+// précisément le cas à couvrir ici — sans proxy, le pied de page doit rester
+// juste et muet, pas afficher une erreur ni un numéro vide.
+// ---------------------------------------------------------------------------
+
+const pied = await page.evaluate(() => ({
+    texte: document.getElementById('versionApp')?.textContent ?? '',
+    // Le paragraphe existe toujours ; c'est son contenu qui dit s'il y a
+    // quelque chose à annoncer.
+    annonce: document.getElementById('versionMaj')?.textContent ?? '',
+    etat: document.getElementById('versionEtat')?.textContent ?? ''
+}));
+
+check('le pied de page annonce la version qui tourne',
+    /^Version \d+\.\d+\.\d+$/.test(pied.texte), pied.texte);
+
+check('sans relais, aucune mise à jour n\'est annoncée', pied.annonce === '', pied.annonce);
+
+check('la vérification automatique ne dit rien d\'elle-même', pied.etat === '', pied.etat);
+
+// Le clic, lui, doit répondre — y compris pour dire qu'il n'a pas pu joindre
+// le relais, qui n'existe pas derrière « npm run serve ».
+await page.click('#versionApp');
+await page.waitForFunction(() => {
+    const etat = document.getElementById('versionEtat')?.textContent ?? '';
+    return etat !== '' && !etat.includes('vérification…');
+}, null, { timeout: 5000 }).catch(() => {});
+
+const apresClicVersion = await page.evaluate(() => ({
+    etat: document.getElementById('versionEtat')?.textContent ?? '',
+    reactivable: !document.getElementById('versionApp')?.disabled
+}));
+
+check('une vérification demandée à la main répond',
+    apresClicVersion.etat.includes('vérification impossible'), apresClicVersion.etat);
+
+check('le bouton redevient cliquable après la réponse', apresClicVersion.reactivable);
+
+const versionAffichee = await page.evaluate(async () => {
+    const { CONFIG } = await import('/src/core/config.js');
+    return CONFIG.VERSION;
+});
+
+check('la version affichée est celle du code',
+    pied.texte === `Version ${versionAffichee}`, `${pied.texte} / ${versionAffichee}`);
+
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));
 
