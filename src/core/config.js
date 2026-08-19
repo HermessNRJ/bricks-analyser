@@ -6,6 +6,16 @@ export const CONFIG = {
     // LocalStorage
     LOCAL_STORAGE_KEY: 'bricksInvestmentData',
 
+    // Version de l'application, telle qu'elle sera annoncée par le prochain
+    // tag.
+    VERSION: '1.4.0',
+
+    // Dernière version publiée, relayée par nginx (voir nginx.conf).
+    VERSION_ENDPOINT: '/version-api',
+
+    // Une vérification par jour (une release ne sort pas deux fois par jour.)
+    VERSION_INTERVALLE_MS: 24 * 60 * 60 * 1000,
+
     // API Bricks.co — servie via le proxy nginx (voir nginx.conf) : un appel
     // direct au navigateur est bloqué par le CORS et par Cloudflare.
     API_BASE_URL: '/api',
