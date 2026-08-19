@@ -31,6 +31,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Avant tout le reste, et avant que quoi que ce soit ne parte : le tag
+      # doit annoncer la version que le code déclare.
+      #
+      # Un test lie déjà CONFIG.VERSION à package.json, mais rien ne liait ni
+      # l'un ni l'autre au tag. Poser « v1.4.0 » sur un main resté en 1.3.0
+      # passait donc au vert, et le résultat se voyait chez les utilisateurs :
+      # l'image publiée se déclare en 1.3.0, la release annonce 1.4.0, et
+      # chacun lit « la 1.4.0 est disponible » en permanence — y compris après
+      # l'avoir installée, puisque son application continue de se dire en
+      # 1.3.0. Une boucle dont on ne sort que par une release de plus.
+      - name: Le tag correspond-il à la version du code ?
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          DECLAREE=$(node -p "require('./package.json').version")
+          ATTENDUE="${TAG#v}"
+
+          if [ "$DECLAREE" != "$ATTENDUE" ]; then
+            echo "::error::Le tag $TAG annonce la version $ATTENDUE, mais le code déclare $DECLAREE." >&2
+            echo "Reposer le tag après avoir porté package.json et CONFIG.VERSION à $ATTENDUE." >&2
+            exit 1
+          fi
+
+          echo "Le tag $TAG et le code déclarent tous deux la version $DECLAREE."
+
       # Deux architectures : les serveurs sont en amd64, les Mac récents en
       # arm64. Construire arm64 sur un exécutant amd64 demande l'émulation.
       - uses: docker/setup-qemu-action@v3
@@ -110,16 +136,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          DEPOT: ${{ github.repository }}
         run: |
+          # GHCR n'accepte qu'un nom d'image en minuscules. « HermessNRJ » était
+          # recopié tel quel depuis github.repository, et la commande donnée en
+          # exemple dans les notes échouait à chaque release. docker/metadata-action
+          # met les tags qu'il pousse en minuscules de lui-même, ce qui masquait
+          # le problème : l'image publiée était juste, seule la ligne à copier
+          # était fausse.
+          IMAGE="ghcr.io/$(echo "$DEPOT" | tr '[:upper:]' '[:lower:]')"
+          VERSION="${TAG#v}"
+
           cat > notes.md <<EOF
           ## Image de conteneur
 
           \`\`\`bash
-          docker run -d -p 8080:80 ghcr.io/${{ github.repository }}:${TAG#v}
+          docker run -d -p 8080:80 --name bricks ${IMAGE}:${VERSION}
           \`\`\`
 
           L'application répond sur http://localhost:8080. Le proxy vers l'API
           Bricks est intégré à l'image : rien d'autre à installer.
+
+          Pour mettre à jour une installation existante, en une seule commande :
+
+          \`\`\`bash
+          docker pull ${IMAGE}:latest \\
+            && docker rm -f bricks \\
+            && docker run -d -p 8080:80 --name bricks ${IMAGE}:latest
+          \`\`\`
 
           ---
           EOF

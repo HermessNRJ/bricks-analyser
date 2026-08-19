@@ -181,9 +181,15 @@ export function createOrigineFondsChart(origine, { apportsConnus = true } = {}) 
                         stacked: true,
                         grid: { display: false },
                         ticks: {
-                            // 33 mois d'étiquettes se chevauchent : une sur trois suffit
+                            // 33 mois d'étiquettes se chevauchent : une sur trois suffit.
+                            // maxRotation à 0 forçait des étiquettes horizontales qui se
+                            // chevauchaient dès que le graphique passait sous ~500 px
+                            // (mobile) : autoSkip ne pouvait alors plus les espacer qu'en
+                            // sacrifiant leur lisibilité. Autoriser la rotation, comme le
+                            // fait déjà « Évolution de l'investissement », lui laisse une
+                            // marge de manœuvre supplémentaire.
                             autoSkip: true,
-                            maxRotation: 0,
+                            maxRotation: 50,
                             maxTicksLimit: 8
                         }
                     },

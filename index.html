@@ -130,6 +130,19 @@
         </section>
 
         <div id="results" class="hidden">
+            <!-- Sommaire : la page défile sur plusieurs écrans, ces ancres évitent
+                 d'avoir à tout dérouler pour rejoindre une section déjà vue. -->
+            <nav class="sommaire" aria-label="Sections du tableau de bord">
+                <a href="#titreMur">Le mur</a>
+                <a href="#chiffresCles">Chiffres clés</a>
+                <a href="#titreRendement">Rendement</a>
+                <a href="#titreRisque">Incidents</a>
+                <a href="#titreRevenusAnnuels">Revenus</a>
+                <a href="#titreSimulateur">Simulateur</a>
+                <a href="#titreGeographie">Géographie</a>
+                <a href="#titreRegistre">Registre</a>
+            </nav>
+
             <!-- Le mur : une brique par propriété, largeur proportionnelle à l'investissement -->
             <section class="mur-section" aria-labelledby="titreMur">
                 <div class="mur-entete">
@@ -147,7 +160,7 @@
                 </div>
             </section>
 
-            <section class="stats-grid" aria-label="Chiffres clés">
+            <section class="stats-grid" id="chiffresCles" aria-label="Chiffres clés">
                 <div class="stat-card">
                     <div class="stat-value" id="totalInvestment">0€</div>
                     <div class="stat-label">Capital actuellement engagé</div>
@@ -646,10 +659,19 @@
             Outil indépendant, sans lien avec Bricks.co — ni affilié, ni approuvé par eux.
             Aucun chiffre affiché ici ne fait foi&nbsp;: seul votre relevé Bricks compte.
         </p>
+        <!-- La version tient sur la ligne de la licence. Le numéro est un
+             bouton : le cliquer redemande la dernière version publiée sans
+             attendre la vérification quotidienne. Tout est renseigné par
+             src/ui/version.js — vide sans JavaScript, plutôt que porteur d'un
+             numéro écrit une seconde fois ici et voué à diverger. -->
         <p>
             <a href="https://github.com/HermessNRJ/bricks-analyser">Code source</a>
             · Licence <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a>
+            · <button type="button" class="version-bouton" id="versionApp"
+                      title="Vérifier s'il existe une version plus récente"></button><span
+                      class="version-etat" id="versionEtat" role="status"></span>
         </p>
+        <div class="pied-maj" id="versionMaj"></div>
     </footer>
 
     <button id="scrollToTopBtn" title="Retour en haut" aria-label="Retour en haut">↑</button>

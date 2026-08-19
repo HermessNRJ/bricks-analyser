@@ -49,6 +49,30 @@ Cloudflare la garde.
 
 Exposer le port 8080 hors de la machine reste déconseillé dans tous les cas.
 
+## Le seul appel que l'application passe d'elle-même
+
+Le proxy `/version-api` demande à GitHub la dernière version publiée, au plus une fois par
+jour, pour signaler en pied de page qu'une version plus récente existe.
+
+Ce qui part : l'URL fixe de la release, sans paramètre. Rien du portefeuille — l'appel n'a
+accès à aucune donnée et n'en transporte aucune, et le proxy ne relaie ni cookie, ni
+`Origin`, ni `Referer`, ni le `User-Agent` du navigateur, remplacé par une chaîne fixe.
+
+Ce que GitHub apprend : l'adresse IP d'où l'outil tourne, une fois par jour, et le fait
+qu'il tourne. C'est peu, mais ce n'est pas rien, et c'est le seul endroit où l'application
+s'adresse à quelqu'un d'autre que Bricks sans qu'on le lui demande. Qui n'en veut pas peut
+retirer la `location` de `nginx.conf` : l'appel échoue alors en silence et le pied de page
+continue d'afficher la version qui tourne.
+
+Pourquoi un proxy plutôt qu'un appel direct : `api.github.com` renvoie pourtant
+`Access-Control-Allow-Origin: *`, le CORS ne l'impose donc pas. C'est la CSP. Élargir
+`connect-src` à `api.github.com` ouvrirait un canal sortant sur la page même où le cookie
+de session est saisi ; le relais permet de garder `connect-src 'self'`.
+
+Ce qui revient ne fait qu'un aller-retour très court dans le code : seul `tag_name` est lu,
+et il est rejeté s'il ne ressemble pas à un numéro de version. Le lien affiché est écrit en
+dur — aucune URL reçue du réseau ne devient un lien cliquable.
+
 ## Rendu et injection
 
 * Toutes les données provenant de l'API sont échappées avant injection dans le DOM

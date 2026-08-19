@@ -34,8 +34,10 @@ documentation, où il annoncerait une limite du produit plutôt que du jeu de do
 
 ## 2. Les captures à prendre
 
-Fenêtre à **1360 px de large**, en clair. Les trois premières sont les plus utiles ; les
-autres viennent en complément si vous voulez étoffer la documentation.
+Fenêtre à **1360 px de large**, en clair. Le README n'en porte qu'une, en tête : il doit
+se lire d'un trait, et une page d'accueil qui déroule trois captures répond à des questions
+que personne ne s'est encore posées. Les autres vivent au fil de
+[Lire les chiffres](../revenus.md), à côté de ce qu'elles illustrent.
 
 Le tableau de bord est centré et sa largeur plafonnée : au-delà de 1360 px, la capture
 gagne des marges vides qui écrasent le contenu une fois l'image réduite à la largeur du
@@ -54,8 +56,8 @@ oxipng -o max --zopfli --strip safe docs/captures/*.png
 | --- | --- | --- |
 | `vue-ensemble.png` | Du titre jusqu'au bas des tuiles de suivi des incidents — le mur, les huit chiffres clés, la bande de rendement, la répartition du risque | En tête du **README**, juste au-dessus de « Démarrer » |
 | `rendement.png` | La seule bande « Rendement annualisé », des cinq fenêtres à la note. Environ 1 130 × 220 px | [revenus.md](../revenus.md#rendement-annualisé) |
-| `registre.png` | La section « Registre des propriétés » : le titre, le bilan des versements, la barre de filtres, le compteur, puis **deux rangées de fiches** — pas plus, les 24 de la page feraient 5 900 px de haut. Compter environ 1 150 × 1 800 px | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#carnet-de-versements) |
-| `geographie.png` | La section « Géographie » **dépliée** : les trois compteurs, les barres du capital par région et la carte. Le tableau des localisations est à laisser dehors — il fait une centaine de lignes. Environ 1 130 × 1 400 px | **README**, section « Ce que ça montre » — et [revenus.md](../revenus.md#géographie) |
+| `registre.png` | La section « Registre des propriétés » : le titre, le bilan des versements, la barre de filtres, le compteur, puis **deux rangées de fiches** — pas plus, les 24 de la page feraient 5 900 px de haut. Compter environ 1 150 × 1 800 px | [revenus.md](../revenus.md#carnet-de-versements) |
+| `geographie.png` | La section « Géographie » **dépliée** : les trois compteurs, les barres du capital par région et la carte. Le tableau des localisations est à laisser dehors — il fait une centaine de lignes. Environ 1 130 × 1 400 px | [revenus.md](../revenus.md#géographie) |
 | `revenus.png` | Le graphique « Évolution des revenus nets », les deux courbes et la note d'écart en dessous | [revenus.md](../revenus.md#attendu-et-perçu) |
 | `revenus-annuels.png` | Le tableau des revenus par année, avec les colonnes brutes et le capital remboursé | [revenus.md](../revenus.md#revenus-par-année) |
 | `origine-fonds.png` | Le graphique « D'où vient l'argent », sa légende et sa note. Environ 560 × 550 px | [revenus.md](../revenus.md#doù-vient-largent) |

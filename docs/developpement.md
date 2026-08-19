@@ -260,9 +260,18 @@ git push origin v1.1.0
 crée la release avec les notes générées depuis les commits. Rien ne se publie depuis une
 branche : une version publiée correspond toujours à un point nommé de l'historique.
 
-Le champ `version` de `package.json` n'entre pas dans ce circuit — le paquet n'est pas
-publié sur npm (`"private": true`). Le tenir à jour avant de poser le tag reste une
-politesse pour qui lit le dépôt.
+Le champ `version` de `package.json` n'est plus une politesse : c'est lui que le pied de
+page affiche, et c'est à lui que la dernière release publiée est comparée. Faute de
+bundler, il est recopié dans `CONFIG.VERSION` — et `tests/version.test.js` échoue si les
+deux divergent, ce qui a déjà eu lieu pendant trois versions. Avant de poser le tag :
+
+```bash
+npm version 1.2.0 --no-git-tag-version   # package.json et package-lock.json
+# puis reporter le même numéro dans CONFIG.VERSION (src/core/config.js)
+```
+
+Le paquet n'est toujours pas publié sur npm (`"private": true`) : le tag reste la source de
+vérité pour ce qui est distribué.
 
 Les pull requests qui touchent au `Dockerfile`, à `nginx.conf`, à `index.html` ou à `src/`
 construisent l'image **sans la pousser**, puis la démarrent et vérifient que nginx sert bien

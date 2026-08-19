@@ -30,6 +30,17 @@ challenge ; il faut alors recopier une valeur fraîche.
 Le mode `npm run serve` (serveur Python statique) ne fournit pas ce proxy : le chargement
 API n'y fonctionne pas, seules les données déjà en localStorage s'affichent.
 
+## Un troisième relais, sans rapport avec Bricks
+
+`/version-api` relaie vers la dernière release GitHub du dépôt, pour que le pied de page
+puisse dire qu'une version plus récente existe. Chemin **exact** et non préfixe : sans le
+`=`, `/version-api/autre` serait recollé à l'URL amont et le relais deviendrait un proxy
+ouvert vers une partie de l'API GitHub.
+
+Il ne relaie ni cookie, ni `Origin`, ni `Referer`, et remplace le `User-Agent` du navigateur
+par une chaîne fixe. Le contrat de vie privée qu'il engage est décrit dans
+[Sécurité](securite.md#le-seul-appel-que-lapplication-passe-delle-même).
+
 ## Endpoints utilisés
 
 Relayés sous `/api`, avec la session :
