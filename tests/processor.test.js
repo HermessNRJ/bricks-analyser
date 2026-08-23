@@ -185,3 +185,51 @@ describe('finalizeProcessing', () => {
         });
     });
 });
+
+
+describe('quand le navigateur refuse d\'enregistrer', () => {
+    // L'échec était muet : les chiffres s'affichaient, le journal parlait tout
+    // seul au niveau warn, et la perte se découvrait au rechargement suivant.
+    beforeEach(() => {
+        // Le beforeEach global efface les appels mais pas les implantations :
+        // sans ça, le refus posé par un test vaudrait encore pour le suivant.
+        vi.restoreAllMocks();
+        document.body.innerHTML = '<div id="error" class="error hidden"></div>';
+    });
+
+    const refuserLEnregistrement = () => vi.spyOn(Storage.prototype, 'setItem')
+        .mockImplementation(() => {
+            const err = new Error('quota');
+            err.name = 'QuotaExceededError';
+            throw err;
+        });
+
+    it('le dit à l\'écran plutôt que dans la console', async () => {
+        refuserLEnregistrement();
+
+        await processData([month('2024-01', [project('a')])]);
+
+        const erreur = document.getElementById('error');
+
+        expect(erreur.classList.contains('hidden')).toBe(false);
+        expect(erreur.textContent).toContain('refusé d\'enregistrer');
+        expect(erreur.textContent).toContain('perdus au prochain chargement');
+    });
+
+    it('affiche quand même les chiffres', async () => {
+        // Ils sont justes : les retirer par-dessus le marché n'aiderait
+        // personne, c'est leur survie au rechargement qui est en cause.
+        refuserLEnregistrement();
+
+        await processData([month('2024-01', [project('a')])]);
+
+        expect(updateUI).toHaveBeenCalled();
+        expect(showResults).toHaveBeenCalled();
+    });
+
+    it('ne dit rien quand l\'enregistrement passe', async () => {
+        await processData([month('2024-01', [project('a')])]);
+
+        expect(document.getElementById('error').classList.contains('hidden')).toBe(true);
+    });
+});

@@ -61,6 +61,21 @@ export function loadFromLocalStorage() {
 }
 
 /**
+ * Ce qu'on dit quand le navigateur refuse d'enregistrer
+ *
+ * Sans message à l'écran, l'échec était invisible : les chiffres s'affichaient,
+ * le journal disait « but continuing » au niveau warn — coupé en production —,
+ * et la perte ne se découvrait qu'au rechargement suivant, sous la forme d'un
+ * portefeuille revenu à sa version d'avant.
+ *
+ * La cause n'est pas diagnostiquée plus finement qu'ici. Le quota dépassé et le
+ * stockage indisponible appellent des gestes différents, mais le fait qui
+ * compte est le même — ce qui est à l'écran ne sera pas retrouvé —, et se
+ * tromper de diagnostic coûterait plus qu'un « le plus souvent ».
+ */
+export const ECHEC_ENREGISTREMENT = "Le navigateur a refusé d'enregistrer vos données, le plus souvent parce que son espace est plein.";
+
+/**
  * Sauvegarde les données dans le Local Storage
  *
  * La date enregistrée est celle de la RÉCUPÉRATION auprès de Bricks, pas celle

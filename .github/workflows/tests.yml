@@ -113,6 +113,48 @@ jobs:
           path: capture-e2e.png
           if-no-files-found: ignore
 
+  nginx:
+    # Rien d'autre ne lit nginx.conf. Le smoke tourne contre le serveur python de
+    # « npm run serve », qui ne relaie rien et n'envoie aucun en-tête de
+    # sécurité : les quatre relais, la CSP et les règles de priorité entre
+    # « location » n'étaient tenus par aucun test.
+    #
+    # Ce n'est pas une précaution de principe. Le relais des vignettes, écrit en
+    # expression régulière, perdait contre la règle de cache des images
+    # imbriquée dans « location / » — seuls les .webp étaient relayés, et lint,
+    # tests unitaires et smoke étaient tous verts.
+    name: Contrat nginx
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Pas de « npm ci » : le test n'utilise que le fetch de Node.
+
+      - name: Construire et lancer l'image
+        run: |
+          docker build -t bricks-contrat .
+          docker run -d --name bricks-contrat -p 8080:80 bricks-contrat
+          for _ in $(seq 20); do
+            if curl -sf http://127.0.0.1:8080/index.html -o /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "L'image n'a pas répondu en 20 s :" >&2
+          docker logs bricks-contrat >&2
+          exit 1
+
+      - run: npm run test:nginx
+
+      - name: Journal de nginx en cas d'échec
+        if: failure()
+        run: docker logs bricks-contrat
+
   audit:
     name: Vulnérabilités
     runs-on: ubuntu-latest

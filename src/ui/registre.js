@@ -9,13 +9,16 @@
 import { truncate } from '../utils/formatters.js';
 import { escapeHtml } from '../utils/html.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { NIVEAUX_RISQUE } from '../business/riskAnalysis.js';
-import {
-    regionsPresentes, departementsPresents, localisations, cleLieu, libelleLieu, DEPARTEMENTS
-} from '../business/geographie.js';
+import { libelleLieu } from '../business/geographie.js';
 import { TAILLES_PAGE, CLES_FILTRES, lirePreference, ecrirePreference } from '../core/preferences.js';
 import { createPropertyCard } from './fiche.js';
-import { hasWarningInCurrentMonth, hasWarningInLastMonth, hasWarningInMonthBefore } from './alertes.js';
+import { filterProperties, sortProperties } from './registre/filtrage.js';
+import { pagesAffichees, renderPagination } from './registre/pagination.js';
+import { LIBELLES_FILTRES, libelleDepartement, populateCountryFilter, populateGeoFilters } from './registre/menus.js';
+
+// Réexportée : uiUpdater sert de façade au registre, et le découpage interne de
+// celui-ci n'a pas à remonter jusqu'à ses appelants.
+export { pagesAffichees };
 
 let taillePage = lirePreference('registreTaillePage');
 
@@ -76,8 +79,19 @@ export function initRegistre(properties, versements) {
         ecrirePreference('propertyVersementFilter', 'all');
     }
 
-    populateCountryFilter(allProperties);
-    populateGeoFilters(allProperties);
+    populateCountryFilter(allProperties, currentCountryFilter);
+
+    // Les menus disent lesquels de ces réglages ne correspondent plus à rien ;
+    // c'est ici, où ils vivent, qu'ils sont rouverts.
+    ({
+        region: currentRegionFilter,
+        departement: currentDepartementFilter,
+        lieu: currentLieuFilter
+    } = populateGeoFilters(allProperties, {
+        region: currentRegionFilter,
+        departement: currentDepartementFilter,
+        lieu: currentLieuFilter
+    }));
     updatePropertyList(allProperties);
 }
 
@@ -106,6 +120,28 @@ export function setTaillePage(valeur) {
 }
 
 /**
+ * Rassemble ce que la barre de filtres demande en ce moment
+ *
+ * Les huit réglages vivent ici, en huit variables ; le filtrage, lui, est une
+ * fonction pure qui ne connaît pas ce module. Ce petit assemblage est la
+ * frontière entre les deux, et le seul endroit où l'ordre des critères se lit.
+ *
+ * @returns {Object} Critères à passer à filterProperties
+ */
+function criteresCourants() {
+    return {
+        statut: currentFilter,
+        alerte: currentWarningFilter,
+        versement: currentVersementFilter,
+        pays: currentCountryFilter,
+        region: currentRegionFilter,
+        departement: currentDepartementFilter,
+        lieu: currentLieuFilter,
+        recherche: currentSearch
+    };
+}
+
+/**
  * Renvoie le nombre de fiches par page en vigueur
  * @returns {number} Taille courante, Infinity si tout est affiché
  */
@@ -126,142 +162,10 @@ export function pageCourante() {
     return currentPage;
 }
 
-/**
- * Libellés des filtres, pour les puces de rappel
- * La clé 'all' n'apparaît jamais : c'est l'état neutre.
- */
-const LIBELLES_FILTRES = {
-    filter: {
-        active: 'Actives', refunded: 'Remboursées',
-        ongoing: 'En financement', upcoming: 'À venir'
-    },
-    warningFilter: {
-        'warning-current-month': 'Alerte ce mois-ci',
-        'has-warning': 'Avec alerte', 'no-warning': 'Sans alerte',
-        'risk-procedure': 'En défaut, échéances dues', 'risk-impaye': 'En retard, défaut non déclaré',
-        'risk-signale': 'Signalé, sans incident', 'risk-sain': 'Sans signalement',
-        'warning-last-month': 'Alerte sous 30 jours', 'warning-month-before': 'Alerte le mois d\'avant'
-    },
-    versementFilter: {
-        verse: 'Versé', manquant: 'Rien reçu', attendu: 'Pas encore dû'
-    }
-};
 
-/**
- * Nomme un département pour la puce de rappel
- * « 06 » seul ne dit rien à qui ne connaît pas la numérotation par cœur.
- * @param {string} code - Code du département
- * @returns {string} « 06 — Alpes-Maritimes »
- */
-function libelleDepartement(code) {
-    const departement = DEPARTEMENTS[code];
-    return departement ? `${code} — ${departement[0]}` : code;
-}
 
-/**
- * Remplit le dropdown des pays avec les pays disponibles
- * @param {Array} properties - Liste des propriétés
- */
-function populateCountryFilter(properties) {
-    const countryFilterSelect = document.getElementById('propertyCountryFilter');
-    if (!countryFilterSelect) return;
 
-    // Extraire les pays uniques
-    const countries = [...new Set(properties.map(p => p.country))].sort();
 
-    // Garder l'option "Tous" et ajouter les pays
-    countryFilterSelect.innerHTML = '<option value="all">Tous</option>';
-
-    countries.forEach(country => {
-        const option = document.createElement('option');
-        option.value = country;
-        option.textContent = country;
-        countryFilterSelect.appendChild(option);
-    });
-
-    // Restaurer la sélection sauvegardée
-    countryFilterSelect.value = currentCountryFilter;
-
-    logger.debug(LOG_CATEGORIES.UI, 'Country filter populated', { countries: countries.length });
-}
-
-/**
- * Remplit les menus de région et de département
- *
- * Seulement ce que le portefeuille contient : dérouler les treize régions et
- * les cent un départements de France obligerait à chercher les quarante qui
- * répondent quelque chose.
- *
- * Un réglage retenu d'une visite précédente qui ne correspond plus à rien est
- * rouvert d'office : un portefeuille dont le dernier bien breton a été
- * remboursé afficherait sinon un registre vide, sans que le menu ne montre
- * pourquoi.
- *
- * @param {Array} properties - Propriétés annotées par annoterGeographie
- */
-function populateGeoFilters(properties) {
-    const regions = regionsPresentes(properties);
-    const departements = departementsPresents(properties);
-
-    remplirMenu('propertyRegionFilter', 'Toutes',
-        regions.map(r => ({ valeur: r, texte: r })));
-    remplirMenu('propertyDepartementFilter', 'Tous',
-        departements.map(d => ({ valeur: d.code, texte: `${d.code} — ${d.nom}` })));
-
-    if (currentRegionFilter !== 'all' && !regions.includes(currentRegionFilter)) {
-        currentRegionFilter = 'all';
-        ecrirePreference('propertyRegionFilter', 'all');
-    }
-
-    if (currentDepartementFilter !== 'all'
-        && !departements.some(d => d.code === currentDepartementFilter)) {
-        currentDepartementFilter = 'all';
-        ecrirePreference('propertyDepartementFilter', 'all');
-    }
-
-    // Le lieu n'a pas de menu — il vient d'un clic dans le tableau — mais il
-    // survit à la visite comme les autres, et se vérifie donc de même : une
-    // commune dont le dernier bien a été remboursé viderait le registre.
-    if (currentLieuFilter !== 'all'
-        && !localisations(properties).some(l => l.cle === currentLieuFilter)) {
-        currentLieuFilter = 'all';
-        ecrirePreference('propertyLieuFilter', 'all');
-    }
-
-    const menuRegion = document.getElementById('propertyRegionFilter');
-    const menuDepartement = document.getElementById('propertyDepartementFilter');
-
-    if (menuRegion) menuRegion.value = currentRegionFilter;
-    if (menuDepartement) menuDepartement.value = currentDepartementFilter;
-
-    logger.debug(LOG_CATEGORIES.UI, 'Geography filters populated', {
-        regions: regions.length,
-        departements: departements.length
-    });
-}
-
-/**
- * Réécrit les options d'un menu, en gardant son entrée « tout »
- * @param {string} id - Identifiant du <select>
- * @param {string} libelleTout - Texte de l'option neutre
- * @param {Array<Object>} options - [{ valeur, texte }]
- */
-function remplirMenu(id, libelleTout, options) {
-    const menu = document.getElementById(id);
-
-    if (!menu) {
-        return;
-    }
-
-    menu.replaceChildren();
-
-    [{ valeur: 'all', texte: libelleTout }, ...options].forEach(({ valeur, texte }) => {
-        const option = document.createElement('option');
-        option.value = valeur;
-        option.textContent = texte;
-        menu.appendChild(option);
-    });
-}
 
 /**
  * Met en avant une propriété : lève les filtres qui la masqueraient,
@@ -289,7 +193,7 @@ export function focusProperty(propertyId) {
     syncControls();
 
     // Retrouver sa position dans la liste triée pour ouvrir la bonne page
-    const ordonnees = sortProperties(filterProperties(allProperties), currentSortBy);
+    const ordonnees = sortProperties(filterProperties(allProperties, criteresCourants()), currentSortBy);
     const position = ordonnees.findIndex(p => p.id === propertyId);
     currentPage = position >= 0 ? Math.floor(position / taillePage) + 1 : 1;
 
@@ -316,7 +220,7 @@ function updatePropertyList(properties) {
         return;
     }
 
-    const filtrees = filterProperties(properties, currentFilter, currentWarningFilter, currentCountryFilter);
+    const filtrees = filterProperties(properties, criteresCourants());
     const triees = sortProperties(filtrees, currentSortBy);
 
     // Une page vidée par un changement de filtre doit reculer, pas rester vide
@@ -352,7 +256,7 @@ function updatePropertyList(properties) {
 
     attachPropertyCardListener(container);
     renderFiltresActifs();
-    renderPagination(triees.length, nbPages);
+    renderPagination(triees.length, nbPages, { page: currentPage, taille: taillePage });
     highlightCible(container);
 
     logger.debug(LOG_CATEGORIES.UI, 'Property list updated', {
@@ -538,103 +442,7 @@ function syncControls() {
 }
 
 /**
- * Nombre de pages affichées de part et d'autre de la page courante
- * Au-delà, un signe de troncature remplace la suite.
- */
-const PAGES_VOISINES = 1;
 
-/** En deçà, toutes les pages tiennent sans troncature */
-const PAGES_SANS_TRONCATURE = 9;
-
-/**
- * Choisit les pages à montrer, et où couper
- *
- * Vingt-quatre onglets alignés ne se lisent plus : la première, la dernière et
- * les voisines de la courante suffisent à situer où l'on est et à revenir aux
- * extrémités. Le reste se parcourt par « Précédent » et « Suivant ».
- *
- * @param {number} nbPages - Nombre total de pages
- * @param {number} courante - Page affichée
- * @returns {Array<number|null>} Numéros de page, null pour une coupure
- */
-export function pagesAffichees(nbPages, courante) {
-    if (nbPages <= PAGES_SANS_TRONCATURE) {
-        return Array.from({ length: nbPages }, (_, i) => i + 1);
-    }
-
-    const retenues = new Set([1, nbPages]);
-
-    for (let p = courante - PAGES_VOISINES; p <= courante + PAGES_VOISINES; p++) {
-        if (p >= 1 && p <= nbPages) {
-            retenues.add(p);
-        }
-    }
-
-    const triees = [...retenues].sort((a, b) => a - b);
-    const avecCoupures = [];
-
-    triees.forEach((page, rang) => {
-        // Une coupure ne vaut que pour au moins deux pages sautées : mise pour
-        // une seule, elle occuperait la place de la page qu'elle cache.
-        if (rang > 0 && page - triees[rang - 1] > 1) {
-            avecCoupures.push(null);
-        }
-        avecCoupures.push(page);
-    });
-
-    return avecCoupures;
-}
-
-/**
- * Affiche la pagination
- *
- * Les onglets portent la PLAGE de fiches qu'ils ouvrent, non un numéro de page.
- * Le registre est trié — par investissement, par nom, par rendement — et « 3 »
- * ne dit alors rien de ce qu'on y trouvera, quand « 49–72 » situe d'emblée dans
- * l'ordre choisi. C'est aussi ce que l'indicateur disait déjà en toutes lettres.
- *
- * @param {number} total - Nombre de propriétés filtrées
- * @param {number} nbPages - Nombre de pages
- */
-function renderPagination(total, nbPages) {
-    const nav = document.getElementById('pagination');
-    const onglets = document.getElementById('pageTabs');
-    const precedent = document.getElementById('prevPage');
-    const suivant = document.getElementById('nextPage');
-
-    if (!nav || !onglets || !precedent || !suivant) {
-        return;
-    }
-
-    // Une seule page, mais le choix de la taille doit rester atteignable :
-    // sans lui, un registre réglé sur « Tout » n'aurait plus de quoi revenir.
-    if (nbPages <= 1 && taillePage >= total) {
-        nav.classList.toggle('hidden', total <= TAILLES_PAGE[0]);
-        onglets.innerHTML = '';
-        precedent.disabled = true;
-        suivant.disabled = true;
-        return;
-    }
-
-    nav.classList.remove('hidden');
-    precedent.disabled = currentPage <= 1;
-    suivant.disabled = currentPage >= nbPages;
-
-    onglets.innerHTML = pagesAffichees(nbPages, currentPage).map(page => {
-        if (page === null) {
-            return '<span class="pagination-coupure" aria-hidden="true">…</span>';
-        }
-
-        const premier = (page - 1) * taillePage + 1;
-        const dernier = Math.min(page * taillePage, total);
-        const plage = premier === dernier ? `${premier}` : `${premier}–${dernier}`;
-        const courante = page === currentPage;
-
-        return `<button type="button" class="pagination-onglet" data-page="${page}"
-            ${courante ? 'aria-current="page"' : ''}
-            aria-label="Propriétés ${plage}">${plage}</button>`;
-    }).join('');
-}
 
 /**
  * Change de page
@@ -734,169 +542,8 @@ function attachPropertyCardListener(container) {
     container.dataset.cardListenerAttached = 'true';
 }
 
-/**
- * Vérifie qu'une propriété correspond à la recherche libre
- * @param {Object} property - Propriété
- * @param {string} terme - Terme recherché (déjà normalisé)
- * @returns {boolean}
- */
-function matchesSearch(property, terme) {
-    if (!terme) {
-        return true;
-    }
 
-    const cible = `${property.name || ''} ${property.address || ''}`.toLowerCase();
-    return cible.includes(terme);
-}
 
-/**
- * Filtre les propriétés selon le critère
- * @param {Array} properties - Propriétés à filtrer
- * @param {string} filterType - Type de filtre
- * @param {string} warningFilterType - Type de filtre de warning
- * @param {string} countryFilterType - Type de filtre de pays
- * @returns {Array} Propriétés filtrées
- */
-function filterProperties(properties, filterType = currentFilter, warningFilterType = currentWarningFilter, countryFilterType = currentCountryFilter) {
-    let filtered = properties;
-
-    // Filtre par statut
-    switch (filterType) {
-        case 'active':
-            filtered = filtered.filter(p => !p.isRefunded && p.projectStatus === 'financed');
-            break;
-        case 'refunded':
-            filtered = filtered.filter(p => p.isRefunded);
-            break;
-        case 'ongoing':
-            filtered = filtered.filter(p => p.projectStatus === 'ongoing');
-            break;
-        case 'upcoming':
-            filtered = filtered.filter(p => p.projectStatus === 'upcoming');
-            break;
-    }
-
-    // Filtre par warning
-    switch (warningFilterType) {
-        case 'warning-current-month':
-            filtered = filtered.filter(p => hasWarningInCurrentMonth(p));
-            break;
-        case 'has-warning':
-            filtered = filtered.filter(p => p.warningsCount > 0);
-            break;
-        case 'no-warning':
-            filtered = filtered.filter(p => p.warningsCount === 0);
-            break;
-        case 'warning-last-month':
-            filtered = filtered.filter(p => hasWarningInLastMonth(p));
-            break;
-        case 'warning-month-before':
-            filtered = filtered.filter(p => hasWarningInMonthBefore(p));
-            break;
-        // Les remboursées sont écartées comme dans les tuiles d'incident : un
-        // projet soldé ne porte plus de risque, et le raccourci « Voir » doit
-        // montrer exactement les fiches derrière le chiffre annoncé.
-        case 'risk-procedure':
-            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.PROCEDURE);
-            break;
-        case 'risk-impaye':
-            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.IMPAYE);
-            break;
-        case 'risk-signale':
-            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SIGNALE);
-            break;
-        case 'risk-sain':
-            filtered = filtered.filter(p => !p.isRefunded && p.niveauRisque === NIVEAUX_RISQUE.SAIN);
-            break;
-    }
-
-    // Filtre par état de versement du mois de référence
-    if (currentVersementFilter !== 'all') {
-        filtered = filtered.filter(p => p.versement?.etat === currentVersementFilter);
-    }
-
-    // Filtre par pays
-    if (countryFilterType !== 'all') {
-        filtered = filtered.filter(p => p.country === countryFilterType);
-    }
-
-    // Filtres géographiques, déduits du code postal de l'adresse
-    if (currentRegionFilter !== 'all') {
-        filtered = filtered.filter(p => p.geo?.region === currentRegionFilter);
-    }
-
-    if (currentDepartementFilter !== 'all') {
-        filtered = filtered.filter(p => p.geo?.departement === currentDepartementFilter);
-    }
-
-    // Posé par un clic sur une ligne du tableau des localisations, jamais par
-    // un menu : la clé sert des deux côtés, si bien que la ligne et le registre
-    // comptent forcément les mêmes biens.
-    if (currentLieuFilter !== 'all') {
-        filtered = filtered.filter(p => cleLieu(p.geo) === currentLieuFilter);
-    }
-
-    // Recherche libre
-    const terme = currentSearch.toLowerCase();
-    if (terme) {
-        filtered = filtered.filter(p => matchesSearch(p, terme));
-    }
-
-    return filtered;
-}
-
-/**
- * Trie les propriétés selon le critère
- * @param {Array} properties - Propriétés à trier
- * @param {string} sortBy - Critère de tri
- * @returns {Array} Propriétés triées
- */
-function sortProperties(properties, sortBy) {
-    const sorted = [...properties];
-
-    switch (sortBy) {
-        case 'investment-desc':
-            return sorted.sort((a, b) => b.investment - a.investment);
-        case 'investment-asc':
-            return sorted.sort((a, b) => a.investment - b.investment);
-
-        case 'bricks-desc':
-            return sorted.sort((a, b) => b.ownedBricks - a.ownedBricks);
-        case 'bricks-asc':
-            return sorted.sort((a, b) => a.ownedBricks - b.ownedBricks);
-
-        case 'return-desc':
-            return sorted.sort((a, b) => b.yearlyReturn - a.yearlyReturn);
-        case 'return-asc':
-            return sorted.sort((a, b) => a.yearlyReturn - b.yearlyReturn);
-
-        case 'revenue-desc':
-            return sorted.sort((a, b) => b.monthlyRevenue - a.monthlyRevenue);
-        case 'revenue-asc':
-            return sorted.sort((a, b) => a.monthlyRevenue - b.monthlyRevenue);
-
-        case 'name-asc':
-            return sorted.sort((a, b) => a.name.localeCompare(b.name));
-        case 'name-desc':
-            return sorted.sort((a, b) => b.name.localeCompare(a.name));
-
-        case 'revenuestart-desc':
-            return sorted.sort((a, b) => {
-                if (!a.revenueStartDate) return 1;
-                if (!b.revenueStartDate) return -1;
-                return b.revenueStartDate.localeCompare(a.revenueStartDate);
-            });
-        case 'revenuestart-asc':
-            return sorted.sort((a, b) => {
-                if (!a.revenueStartDate) return 1;
-                if (!b.revenueStartDate) return -1;
-                return a.revenueStartDate.localeCompare(b.revenueStartDate);
-            });
-
-        default:
-            return sorted;
-    }
-}
 
 /**
  * Met à jour le tri et les filtres du registre

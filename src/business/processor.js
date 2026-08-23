@@ -5,12 +5,16 @@
 
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
-import { saveToLocalStorage, loadFromLocalStorage } from '../data/storage.js';
+import { saveToLocalStorage, loadFromLocalStorage, ECHEC_ENREGISTREMENT } from '../data/storage.js';
 import { afficherAgeDonnees } from '../ui/dataAge.js';
 import { validateBricksData } from '../data/fileParser.js';
 import { mergeDatasets, identifyMissingProjects, removeProjectsById } from './dataProcessor.js';
 import { calculateInvestmentStats } from './calculations.js';
 import { updateUI, showResults } from '../ui/uiUpdater.js';
+// Cycle assumé : modals.js importe d'ici les deux gestionnaires de la modale de
+// suppression. Les deux sens ne sont appelés qu'à l'exécution, jamais à
+// l'évaluation du module, et les liaisons sont donc en place quand elles servent.
+import { showError } from '../ui/modals.js';
 import { createCharts } from '../charts/chartManager.js';
 import { updateForecastContext } from '../events/forecastHandler.js';
 
@@ -153,6 +157,10 @@ export async function finalizeProcessing(finalData, warnings = [], options = {})
             if (saved) {
                 afficherAgeDonnees(loadFromLocalStorage()?.savedAt || null);
             } else {
+                // Le calcul continue : ce qui est à l'écran est juste, et le
+                // retirer par-dessus le marché n'aiderait personne. Mais ça ne
+                // survivra pas au rechargement, et ça doit se lire.
+                showError(`${ECHEC_ENREGISTREMENT} Les chiffres ci-dessous sont justes, mais ils seront perdus au prochain chargement de la page. Pour libérer de la place : « Effacer les données locales », puis rechargez votre fichier.`);
                 logger.warn(LOG_CATEGORIES.STORAGE, 'Failed to save to localStorage, but continuing');
             }
         }

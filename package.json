@@ -1,6 +1,6 @@
 {
   "name": "bricks-analyser",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Tableau de bord d'analyse des investissements Bricks.co",
   "license": "AGPL-3.0-only",
   "author": "Rémi BOIDET",
@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "node tests/e2e/smoke.mjs",
+    "test:nginx": "node tests/nginx.mjs",
     "serve": "python3 -m http.server 8099",
     "demo": "node tools/demo.mjs",
     "apercu": "node tools/apercu-social.mjs"
