@@ -114,6 +114,19 @@ export function taillePageCourante() {
 }
 
 /**
+ * Renvoie la page du registre actuellement ouverte
+ *
+ * Sert à rendre sa place à qui l'a quittée sans le vouloir : l'export déplie
+ * tout le registre pour le capturer, et doit ensuite reposer la vue là où elle
+ * était.
+ *
+ * @returns {number} Numéro de la page affichée
+ */
+export function pageCourante() {
+    return currentPage;
+}
+
+/**
  * Libellés des filtres, pour les puces de rappel
  * La clé 'all' n'apparaît jamais : c'est l'état neutre.
  */
@@ -633,9 +646,17 @@ export function changePage(delta) {
 
 /**
  * Ouvre une page du registre
+ *
+ * Le défilement accompagne un clic : on a demandé la page suivante, la grille
+ * doit venir sous les yeux. Il n'a rien à faire quand c'est le code qui repose
+ * une page derrière lui — après un export, par exemple —, où déplacer la vue
+ * serait un effet de bord que personne n'a demandé.
+ *
  * @param {number} page - Numéro de page, borné à l'affichage
+ * @param {Object} [options] - Réglages
+ * @param {boolean} [options.defiler] - Amener la grille à l'écran
  */
-export function allerALaPage(page) {
+export function allerALaPage(page, { defiler = true } = {}) {
     if (!Number.isFinite(page)) {
         return;
     }
@@ -645,7 +666,7 @@ export function allerALaPage(page) {
     updatePropertyList(allProperties);
 
     const liste = document.getElementById('propertiesList');
-    if (liste) {
+    if (defiler && liste) {
         liste.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }

@@ -22,6 +22,7 @@ import { setupScrollToTop } from './scrollHandler.js';
 import { setupSommaire } from './sommaireHandler.js';
 import { setupVersion } from '../ui/version.js';
 import { setupResetCache } from './cacheHandler.js';
+import { setupExport } from './exportHandler.js';
 import {
     updatePropertySortAndFilter, showResults, setSearch, changePage,
     allerALaPage, setTaillePage, taillePageCourante
@@ -47,6 +48,7 @@ function initializeApp() {
     setupSommaire();
     setupVersion();
     setupResetCache();
+    setupExport();
     setupPropertyControls();
     setupSearchControl();
     setupPaginationControls();

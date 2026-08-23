@@ -41,6 +41,32 @@ Il ne relaie ni cookie, ni `Origin`, ni `Referer`, et remplace le `User-Agent` d
 par une chaîne fixe. Le contrat de vie privée qu'il engage est décrit dans
 [Sécurité](securite.md#le-seul-appel-que-lapplication-passe-delle-même).
 
+## Un quatrième relais, pour les photos
+
+`/vignette/` relaie vers `documents.bricks.co/property-photo-gallery/`, la galerie d'où
+viennent les photos des fiches. Il ne sert **qu'à l'export** : à l'écran, un `<img>` vers
+cet hôte suffit.
+
+L'export, lui, doit copier chaque photo dans le fichier produit, donc la relire depuis un
+canvas. Deux murs s'y opposent : la CSP tient `connect-src 'self'`, et la galerie ne renvoie
+aucun `Access-Control-Allow-Origin` — une image tierce dessinée dans un canvas le souille,
+et `toDataURL()` lève alors une erreur de sécurité. Relayée, la photo devient de même
+origine : le canvas reste propre.
+
+Ce qui passe est cadré par la carte `$vignette_type` de `nginx.conf` : un nom de fichier
+image, éventuellement précédé du sous-dossier `opti/`. Ni barre oblique libre, ni `%`, donc
+ni remontée de chemin ni hôte choisi par l'appelant — ce n'est pas un proxy d'images ouvert.
+Le même motif est écrit dans `src/export/instantane.js`, et un test confronte les deux
+décisions adresse par adresse : deux motifs qui divergent donneraient des photos manquantes
+sans le moindre message.
+
+Le relais est un **préfixe** `^~` et non une expression régulière. Écrit en expression
+régulière, il perdait contre la règle de cache des images imbriquée dans `location /` : seuls
+les `.webp` étaient relayés, et la panne ne se voyait que sur une partie des photos. `^~` sur
+le plus long préfixe coupe court à toute mise en concurrence.
+
+Ces photos sont publiques et le relais ne porte aucun identifiant.
+
 ## Endpoints utilisés
 
 Relayés sous `/api`, avec la session :

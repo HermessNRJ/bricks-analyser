@@ -2878,3 +2878,56 @@ details.alertes > summary:hover {
     font-size: 0.95em;
     line-height: 1.5;
 }
+
+/* --------------------------------------------------------------------------
+   Export
+   --------------------------------------------------------------------------
+   Deux des trois règles qui suivent ne servent jamais dans cette page : elles
+   n'ont d'effet que dans le fichier produit par src/export/instantane.js, qui
+   emporte cette feuille avec lui. Les écrire ici plutôt que dans une chaîne du
+   module d'export leur vaut la même relecture que le reste, et le même thème de
+   nuit.
+   -------------------------------------------------------------------------- */
+
+/* Le compte rendu du bouton : l'étape en cours, puis le poids du fichier. */
+.export-etat {
+    color: var(--ink-muted);
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Un graphique devenu image. Le rapport d'aspect vient des attributs posés à
+   l'export ; la largeur cède sur un écran plus étroit que celui qui a exporté,
+   plutôt que de déborder. */
+.graphique-fige {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Ce qui était cliquable et ne l'est plus. Les briques du mur et les communes
+   du tableau des localisations restent à leur place — elles portent une donnée,
+   pas un ordre —, mais rien ne doit plus laisser croire qu'on peut les
+   actionner. */
+.instantane .brique,
+.instantane .geo-lieu-bouton {
+    cursor: default;
+}
+
+.instantane .brique:hover {
+    transform: none;
+    filter: none;
+}
+
+.instantane .geo-lieu-bouton {
+    text-decoration: none;
+}
+
+/* Une hypothèse de simulation, ou la période des courbes, telle qu'elle était
+   au moment de l'export. Ce n'est plus un champ, mais ça reste une valeur : la
+   même graisse et les mêmes chiffres tabulaires que les données autour, sans le
+   cadre qui inviterait à cliquer. */
+.valeur-figee {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-fort);
+}
