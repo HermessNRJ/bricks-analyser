@@ -329,7 +329,11 @@ src/
 │   ├── geographie.js        # La section repliable, dessinée au premier dépliage
 │   ├── uiUpdater.js         # Point d'entrée du rendu, mur, bilan, projections
 │   ├── tuiles.js            # Chiffres clés, rendement annualisé, incidents
-│   ├── registre.js          # État de la liste : tri, filtres, pages
+│   ├── registre.js          # L'état de la liste, et lui seul
+│   ├── registre/
+│   │   ├── filtrage.js      # Choisir et ordonner : fonctions pures
+│   │   ├── pagination.js    # Onglets de pages, plages de fiches
+│   │   └── menus.js         # Le contenu des menus de la barre de filtres
 │   ├── fiche.js             # Le HTML d'une carte de propriété
 │   ├── alertes.js           # Fraîcheur des alertes, partagée liste/fiche
 │   ├── libelles.js          # Pluriels et mois en incise
