@@ -3,7 +3,7 @@
 ## Pile technique
 
 * **Frontend :** HTML5, CSS3, JavaScript ES6 (modules natifs, sans bundler)
-* **Visualisation :** Chart.js 3.9.1 avec le plugin chartjs-chart-treemap 2.3.0
+* **Visualisation :** Chart.js 4.5.1 avec le plugin chartjs-chart-treemap 4.2.0
 * **Stockage :** localStorage
 * **Serveur :** nginx (via Docker)
 * **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
