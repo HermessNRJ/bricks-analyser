@@ -73,6 +73,32 @@ Ce qui revient ne fait qu'un aller-retour très court dans le code : seul `tag_n
 et il est rejeté s'il ne ressemble pas à un numéro de version. Le lien affiché est écrit en
 dur — aucune URL reçue du réseau ne devient un lien cliquable.
 
+## Ce que contient un fichier exporté
+
+Le bouton **Exporter le tableau** écrit un `bricks-tableau-AAAA-MM-JJ.html` : la page telle
+qu'elle est à cet instant, figée, lisible sur une machine qui n'a ni Docker, ni le dépôt, ni
+connexion.
+
+Il demande d'abord votre accord, et le redemande à chaque export : c'est la seule commande de
+l'application qui fabrique délibérément une copie destinée à sortir de la machine, quand tout
+le reste est bâti sur l'inverse. La question dit ce que le fichier emportera.
+
+Ce fichier porte **le portefeuille en clair** — adresses, montants, arriérés, photos — et
+sans protection d'aucune sorte. C'est l'inverse de la posture du reste de l'outil, où les
+données ne bougent pas, et c'est le but même d'un export : le partager, c'est le partager en
+entier. Il ne se périme pas non plus, et rien dedans ne signale qu'une version plus récente
+du portefeuille existe, à part sa date.
+
+Ce qu'il ne contient pas : aucun JavaScript, aucun appel réseau, aucun cookie, aucun
+identifiant. Il ne peut donc ni recharger vos données, ni joindre Bricks, ni rien apprendre à
+personne une fois ouvert. Les graphiques y sont des images, les commandes ont disparu, les
+hypothèses du simulateur sont devenues du texte.
+
+Les photos des fiches y sont intégrées, réencodées plus petites, ce qui demande le relais
+`/vignette/` décrit dans [Accès à l'API](api.md#un-quatrième-relais-pour-les-photos) — donc
+Docker. Sans lui, l'export se fait quand même : les photos y gardent leur adresse d'origine,
+le bouton l'annonce, et le fichier s'ouvrira sans elles sur une machine hors ligne.
+
 ## Rendu et injection
 
 * Toutes les données provenant de l'API sont échappées avant injection dans le DOM

@@ -23,16 +23,16 @@ import { updateStatCards } from './tuiles.js';
 import { initGeographie } from './geographie.js';
 import {
     initRegistre, focusProperty, resetFilters, setSearch, changePage,
-    allerALaPage, setTaillePage, taillePageCourante, updatePropertySortAndFilter,
-    pagesAffichees
+    allerALaPage, setTaillePage, taillePageCourante, pageCourante,
+    updatePropertySortAndFilter, pagesAffichees
 } from './registre.js';
 
 // Façade : les gestionnaires d'événements et les tests n'ont qu'un module à
 // connaître pour piloter le rendu, quel que soit celui qui l'exécute.
 export {
     TAILLES_PAGE, focusProperty, resetFilters, setSearch, changePage,
-    allerALaPage, setTaillePage, taillePageCourante, updatePropertySortAndFilter,
-    pagesAffichees
+    allerALaPage, setTaillePage, taillePageCourante, pageCourante,
+    updatePropertySortAndFilter, pagesAffichees
 };
 
 /**
@@ -239,6 +239,9 @@ export function showResults() {
         resultsSection.classList.remove('hidden');
     }
 
+    // L'export n'a de sens qu'à partir d'ici : il capture ce qui est à l'écran.
+    document.getElementById('exportBtn')?.classList.remove('hidden');
+
     // Une fois les données à l'écran, le panneau de saisie se replie
     const upload = document.getElementById('uploadSection');
     if (upload) {
@@ -254,4 +257,6 @@ export function hideResults() {
     if (resultsSection) {
         resultsSection.classList.add('hidden');
     }
+
+    document.getElementById('exportBtn')?.classList.add('hidden');
 }

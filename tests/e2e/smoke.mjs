@@ -15,6 +15,7 @@
  */
 
 import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:8099';
 const SCREENSHOT = process.env.SCREENSHOT || '';
@@ -701,8 +702,13 @@ const apresClicVersion = await page.evaluate(() => ({
     reactivable: !document.getElementById('versionApp')?.disabled
 }));
 
+// Les deux réponses sont bonnes, et laquelle tombe dépend d'où tourne le smoke :
+// sans relais — le serveur python de « npm run serve » — l'appel finit en 404 et
+// la réponse est « vérification impossible » ; contre le conteneur, GitHub répond
+// et c'est « à jour ». Ce qui est tenu ici, c'est qu'un clic ne reste jamais sans
+// réponse : c'est le contrat de la vérification manuelle.
 check('une vérification demandée à la main répond',
-    apresClicVersion.etat.includes('vérification impossible'), apresClicVersion.etat);
+    /à jour|vérification impossible/.test(apresClicVersion.etat), apresClicVersion.etat);
 
 check('le bouton redevient cliquable après la réponse', apresClicVersion.reactivable);
 
@@ -713,6 +719,92 @@ const versionAffichee = await page.evaluate(async () => {
 
 check('la version affichée est celle du code',
     pied.texte === `Version ${versionAffichee}`, `${pied.texte} / ${versionAffichee}`);
+
+// ---------------------------------------------------------------------------
+// Export du tableau de bord
+// ---------------------------------------------------------------------------
+// Le seul endroit où le fichier produit est réellement ouvert. Les tests
+// unitaires éprouvent le nettoyage sur un fragment détaché ; ici c'est la page
+// entière qui passe à la moulinette, avec ses graphiques et sa carte.
+//
+// Sans Docker, le relais des vignettes n'existe pas : les photos resteraient
+// distantes. Le jeu d'essai n'en porte aucune, et l'export doit donc n'appeler
+// personne.
+
+const avantExport = await page.evaluate(() => ({
+    boutonVisible: !document.getElementById('exportBtn')?.classList.contains('hidden'),
+    fiches: document.querySelectorAll('#propertiesList .property-card').length
+}));
+
+check('le bouton d\'export apparaît avec les données', avantExport.boutonVisible);
+
+// L'export demande d'abord son accord. Un refus doit tout arrêter : c'est la
+// seule commande de l'application qui fabrique une copie destinée à sortir de la
+// machine, et le reste de l'outil est bâti sur l'inverse.
+let question = '';
+
+page.once('dialog', async dialogue => {
+    question = dialogue.message();
+    await dialogue.dismiss();
+});
+
+await page.click('#exportBtn');
+
+const fichierMalgreRefus = await page
+    .waitForEvent('download', { timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+
+check('l\'export dit ce que le fichier emportera', /en clair/.test(question), question.split('\n')[0]);
+
+check('un refus n\'écrit aucun fichier', !fichierMalgreRefus);
+
+check('un refus laisse le bouton utilisable',
+    await page.evaluate(() => !document.getElementById('exportBtn')?.disabled));
+
+page.on('dialog', dialogue => dialogue.accept());
+
+const telechargement = page.waitForEvent('download', { timeout: 60000 });
+
+await page.click('#exportBtn');
+
+const fichier = await telechargement;
+const nomPropose = fichier.suggestedFilename();
+const exporte = readFileSync(await fichier.path(), 'utf8');
+
+check('l\'export propose un fichier daté',
+    /^bricks-tableau-\d{4}-\d{2}-\d{2}\.html$/.test(nomPropose), nomPropose);
+
+check('le fichier exporté est un document complet',
+    exporte.startsWith('<!DOCTYPE html>') && exporte.includes('</html>'));
+
+check('le fichier exporté ne contient aucun script', !exporte.includes('<script'));
+
+// Les commentaires de main.css parlent du <link> de nuit.css : c'est bien une
+// ressource externe qu'on cherche, pas la suite de lettres.
+check('le fichier exporté n\'appelle aucune ressource distante',
+    !/<link\s[^>]*href=/i.test(exporte) && !/\ssrc="http/i.test(exporte));
+
+const fichesExportees = (exporte.match(/class="property-card/g) || []).length;
+
+check('le fichier exporté porte toutes les fiches',
+    fichesExportees === avantExport.fiches, `${fichesExportees} / ${avantExport.fiches}`);
+
+check('le fichier exporté n\'emporte aucune commande morte',
+    !exporte.includes('<button') && !exporte.includes('<select') && !exporte.includes('<input'));
+
+const apresExport = await page.evaluate(() => ({
+    etat: document.getElementById('exportEtat')?.textContent ?? '',
+    fiches: document.querySelectorAll('#propertiesList .property-card').length,
+    boutonActif: !document.getElementById('exportBtn')?.disabled
+}));
+
+check('l\'export annonce le poids du fichier', /\d+(,\d+)? (o|Ko|Mo)/.test(apresExport.etat), apresExport.etat);
+
+check('le registre retrouve sa page après l\'export',
+    apresExport.fiches === avantExport.fiches, `${apresExport.fiches} / ${avantExport.fiches}`);
+
+check('le bouton d\'export redevient cliquable', apresExport.boutonActif);
 
 // Les erreurs de chargement du CDN Chart.js ne doivent pas casser le rendu
 check('aucune erreur JS non gérée', pageErrors.length === 0, pageErrors.join(' | '));

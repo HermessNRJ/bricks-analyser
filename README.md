@@ -127,6 +127,9 @@ Depuis un dépôt cloné, c'est `git pull` puis `docker compose up -d --build`.
   pas une prévision.
 * **Clair ou sombre** — la page suit le système ; l'interrupteur le contredit et s'en
   souvient.
+* **Export** — tout le tableau dans un fichier HTML autonome, qui s'ouvre d'un double-clic
+  sur une machine sans Docker ni connexion. Figé et sans protection : il porte le
+  portefeuille en clair ([ce qu'on emporte](docs/securite.md#ce-que-contient-un-fichier-exporté)).
 
 Le détail des calculs, et ce que chaque écran montre exactement, sont dans
 [Lire les chiffres](docs/revenus.md).

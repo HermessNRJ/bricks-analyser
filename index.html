@@ -115,7 +115,13 @@
 
             <div class="session-ligne">
                 <button id="refreshStatusBtn" class="bouton bouton-secondaire">Vérifier les statuts</button>
+                <!-- Caché tant qu'il n'y a rien à exporter : proposer d'emporter
+                     un tableau vide n'aurait aucun sens. src/ui/uiUpdater.js le
+                     découvre en même temps que les résultats. -->
+                <button id="exportBtn" class="bouton bouton-secondaire hidden"
+                        title="Enregistrer le tableau de bord dans un fichier HTML autonome">Exporter le tableau</button>
                 <button id="resetCacheBtn" class="bouton bouton-danger">Effacer les données locales</button>
+                <span class="export-etat" id="exportEtat" role="status"></span>
             </div>
             <!-- Le chargement complet enchaîne cinq appels et peut durer une
                  minute. Annoncé au fil du texte, il défilait hors de l'écran dès
@@ -282,9 +288,12 @@
             <!-- Simulateur : déroule les hypothèses saisies, mois par mois -->
             <section class="simulateur" aria-labelledby="titreSimulateur">
                 <h3 id="titreSimulateur">Simuler la suite</h3>
+                <!-- « pilotage » marque ce qui n'a de sens que devant un écran
+                     vivant : l'export retire ces phrases, un document figé ne
+                     peut pas inviter à toucher à ses champs. -->
                 <p class="chart-note">
-                    Ce calcul déroule vos hypothèses, il ne prédit rien. Modifiez-les pour voir
-                    comment le résultat bouge.
+                    Ce calcul déroule vos hypothèses, il ne prédit rien. <span class="pilotage">Modifiez-les
+                    pour voir comment le résultat bouge.</span>
                 </p>
 
                 <div class="simulateur-champs">
@@ -395,7 +404,7 @@
                 <div class="chart-container">
                     <h3 class="chart-title">Répartition des versements</h3>
                     <canvas id="statutsChart" width="400" height="320"></canvas>
-                    <p class="chart-note">Cliquez une entrée de la légende pour l'ôter du disque ou l'y remettre.</p>
+                    <p class="chart-note pilotage">Cliquez une entrée de la légende pour l'ôter du disque ou l'y remettre.</p>
                 </div>
 
                 <div class="chart-container">
@@ -507,7 +516,7 @@
                         <tbody id="geoLieuxCorps"></tbody>
                     </table>
                 </div>
-                <p class="note">Cliquez une ligne pour n'afficher que ses biens dans le registre. Région et département sont déduits du code postal de l'adresse publiée par Bricks. Les projets remboursés n'y figurent pas : ils ne portent plus de capital.</p>
+                <p class="note"><span class="pilotage">Cliquez une ligne pour n'afficher que ses biens dans le registre.</span> Région et département sont déduits du code postal de l'adresse publiée par Bricks. Les projets remboursés n'y figurent pas : ils ne portent plus de capital.</p>
             </details>
 
             <section class="properties-list" aria-labelledby="titreRegistre">
