@@ -8,10 +8,11 @@
  */
 
 import { fetchProjectStatuses } from '../data/projectStatusClient.js';
-import { loadFromLocalStorage, saveToLocalStorage } from '../data/storage.js';
+import { loadFromLocalStorage, saveToLocalStorage, ECHEC_ENREGISTREMENT } from '../data/storage.js';
 import { finalizeProcessing } from '../business/processor.js';
 import { state } from '../core/state.js';
 import { logger, LOG_CATEGORIES } from '../utils/logger.js';
+import { showError } from '../ui/modals.js';
 
 let enCours = false;
 
@@ -72,7 +73,13 @@ export async function rafraichirStatuts({ silencieux = false } = {}) {
             }
         });
 
-        saveToLocalStorage(stockage.data, stockage.warnings, { statuts });
+        // Deux cents requêtes viennent d'être passées : si le résultat ne
+        // s'enregistre pas, il faudra tout recommencer au prochain chargement,
+        // et personne ne peut le deviner. Le portefeuille, lui, n'est pas perdu
+        // — c'est la version précédente qui reste en place.
+        if (!saveToLocalStorage(stockage.data, stockage.warnings, { statuts })) {
+            showError(`${ECHEC_ENREGISTREMENT} Les statuts vérifiés sont affichés, mais il faudra les revérifier au prochain chargement de la page.`);
+        }
 
         // Rejouer l'analyse : les tuiles d'incident reposent désormais sur le
         // statut officiel plutôt que sur le texte des alertes.
