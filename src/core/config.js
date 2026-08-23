@@ -8,7 +8,7 @@ export const CONFIG = {
 
     // Version de l'application, telle qu'elle sera annoncée par le prochain
     // tag.
-    VERSION: '1.4.0',
+    VERSION: '1.5.0',
 
     // Dernière version publiée, relayée par nginx (voir nginx.conf).
     VERSION_ENDPOINT: '/version-api',
