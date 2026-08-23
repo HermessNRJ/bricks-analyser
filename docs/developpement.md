@@ -270,6 +270,11 @@ npm version 1.2.0 --no-git-tag-version   # package.json et package-lock.json
 # puis reporter le même numéro dans CONFIG.VERSION (src/core/config.js)
 ```
 
+Si le tag ne correspond pas, rien n'est publié : le premier pas du job `image` compare
+`${TAG#v}` à `package.json` et arrête la course avant toute construction. La chaîne est
+alors complète — la CI de la pull request lie `CONFIG.VERSION` à `package.json`, celle du
+tag lie `package.json` au tag.
+
 Le paquet n'est toujours pas publié sur npm (`"private": true`) : le tag reste la source de
 vérité pour ce qui est distribué.
 
@@ -277,6 +282,13 @@ Les pull requests qui touchent au `Dockerfile`, à `nginx.conf`, à `index.html`
 construisent l'image **sans la pousser**, puis la démarrent et vérifient que nginx sert bien
 la page et la feuille de style. Une base épinglée retirée du registre, ou un chemin de
 `COPY` cassé, se voient donc avant la fusion.
+
+Le job `Contrat nginx` va plus loin, sur toutes les pull requests : il construit l'image et
+lui pose une trentaine de questions — les quatre relais prennent-ils la main, les chemins
+qu'ils doivent refuser sont-ils refusés, la CSP est-elle envoyée, les types déclarés sont-ils
+justes. C'est le seul test qui lise `nginx.conf`, et il existe parce qu'une erreur de
+priorité entre `location` y avait cassé la moitié des vignettes sans qu'aucun autre test ne
+bronche (`npm run test:nginx`, contre une image déjà lancée).
 
 ## Architecture
 
