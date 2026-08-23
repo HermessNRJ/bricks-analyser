@@ -1743,14 +1743,25 @@ select:hover {
     margin-bottom: 16px;
 }
 
-/* La barre d'outils suit le défilement une fois compacte. En dessous de
-   900 px, les sept contrôles s'empilent sur deux à quatre rangées : épinglée,
-   la barre couvrirait jusqu'au tiers de l'écran pendant tout le défilement de
-   la liste. Elle ne devient sticky qu'au palier où elle tient sur une seule
-   rangée courte. */
+/* La barre d'outils ne suit pas le défilement, et c'est un renoncement.
+
+   Elle l'a suivi, au-dessus de 900 px, sous une règle qui se donnait pour
+   condition de « ne devenir sticky qu'au palier où elle tient sur une seule
+   rangée courte ». La condition n'a jamais été vérifiée depuis : les contrôles
+   sont passés de cinq à huit — le tri, quatre filtres, puis la région, le
+   département et le versement —, la recherche prend une rangée à elle seule dès
+   560 px, et la barre en occupe trois. Mesurée à 1280 × 800, la pile épinglée
+   du sommaire et de la barre couvrait 284 px, soit 36 % de la fenêtre, en
+   permanence, et coupait la première fiche en deux. Le tiers d'écran que le
+   commentaire d'origine redoutait était arrivé par la porte qu'il croyait
+   fermée.
+
+   Aucun palier ne remplirait plus sa condition : huit contrôles de front
+   tronqueraient « 54 — Meurthe-et-Moselle » avant même de tenir. Plutôt que de
+   la contredire, on la suit — et le sommaire ramène aux filtres d'un clic, ce
+   qui était l'essentiel de ce que l'épinglage apportait. */
 .properties-controls {
     position: static;
-    top: 0;
     z-index: 5;
     background: var(--surface);
     display: grid;
@@ -1778,11 +1789,7 @@ select:hover {
    « 54 — Meurthe-et-Moselle » : quatre colonnes laissent un seul creux en bout
    de seconde rangée, et c'est le moins mauvais des découpages. */
 @media (min-width: 900px) {
-    /* Sous le sommaire, qui s'épingle au même bord : à « top: 0 » les deux se
-       superposaient et la première rangée de filtres passait dessous. */
     .properties-controls {
-        position: sticky;
-        top: var(--hauteur-sommaire);
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
@@ -2490,6 +2497,23 @@ details.alertes > summary:hover {
 
     .header h1 {
         font-size: 1.75rem;
+    }
+}
+
+/* L'en-tête est une rangée flex, et l'interrupteur de thème ne se comprime pas :
+   un bouton rond n'a pas de largeur négociable. C'est donc au titre de céder, et
+   il ne le peut pas — la largeur minimale d'un élément flex est celle de son
+   contenu minimal, ici le mot « investissements », qui fait 226 px à 28 px de
+   corps. Il faut 308 px pour la rangée, il en reste 288 : l'interrupteur
+   débordait de 4 px, et la page avec lui.
+
+   Le seuil est mesuré, pas choisi : à 330 px de large le débordement a déjà
+   disparu. Descendre le titre plus bas que les fenêtres qui en ont besoin
+   l'aurait rapetissé sur les téléphones de 360 et 375 px, qui n'ont rien
+   demandé. */
+@media (max-width: 340px) {
+    .header h1 {
+        font-size: 1.5rem;
     }
 
     .properties-grid {
