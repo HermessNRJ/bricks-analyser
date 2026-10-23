@@ -31,40 +31,60 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
  * — vendue, puis disparue du portefeuille — est comptée comme française, le
  * pays étant indécidable et la France le cas de très loin le plus fréquent.
  *
+ * Le capital rendu par un projet étranger voyage dans ses coupons, sans plus
+ * de retenue que ses intérêts : rien sur l'état de compte ne l'en distingue.
+ * Laissé là, il passerait pour un intérêt — gonflant le rendement, l'impôt à
+ * venir, et cachant le remboursement à la confrontation avec le journal. Le
+ * capital que le journal attribue au projet ce mois-là en est donc retiré,
+ * sans jamais faire descendre le mois sous zéro : un remboursement que le
+ * journal date d'un autre mois que l'état de compte ne doit rien effacer
+ * d'autre.
+ *
  * @param {Object} versements - Ventilation { propriété: { mois: montant } }
  * @param {Array} properties - Propriétés, porteuses du pays détecté
- * @returns {Object} Coupons étrangers par mois, en euros
+ * @param {Object} [capitalParProjet] - Capital rendu selon le journal, { projet: { mois: euros } },
+ *   indexé par identifiant ou, à défaut, par nom
+ * @returns {Object} Coupons étrangers par mois, en euros, capital rendu retiré
  */
-export function couponsEtrangersParMois(versements, properties) {
+export function couponsEtrangersParMois(versements, properties, capitalParProjet = null) {
     const parMois = {};
 
     if (!versements || !Array.isArray(properties)) {
         return parMois;
     }
 
-    const etrangeres = new Set(
-        properties.filter(p => p.country && p.country !== 'France').map(p => p.id)
-    );
+    const etrangeres = properties.filter(p => p.country && p.country !== 'France');
 
-    if (etrangeres.size === 0) {
+    if (etrangeres.length === 0) {
         return parMois;
     }
 
-    etrangeres.forEach(id => {
-        const mois = versements[id];
+    let capitalRetire = 0;
+
+    etrangeres.forEach(propriete => {
+        const mois = versements[propriete.id];
 
         if (!mois) {
             return;
         }
 
+        const capital = capitalParProjet?.[propriete.id]
+            || (typeof propriete.name === 'string' && capitalParProjet?.[propriete.name.trim()])
+            || {};
+
         Object.keys(mois).forEach(m => {
-            parMois[m] = Math.round(((parMois[m] || 0) + (mois[m] || 0)) * 100) / 100;
+            const coupons = mois[m] || 0;
+            const interets = Math.max(0, coupons - (capital[m] || 0));
+
+            capitalRetire += coupons - interets;
+            parMois[m] = Math.round(((parMois[m] || 0) + interets) * 100) / 100;
         });
     });
 
     logger.debug(LOG_CATEGORIES.CALC_STATS, 'Foreign coupons isolated', {
-        properties: etrangeres.size,
-        months: Object.keys(parMois).length
+        properties: etrangeres.length,
+        months: Object.keys(parMois).length,
+        capitalRemoved: Math.round(capitalRetire * 100) / 100
     });
 
     return parMois;

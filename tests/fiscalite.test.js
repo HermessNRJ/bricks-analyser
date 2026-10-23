@@ -31,6 +31,37 @@ describe('couponsEtrangersParMois', () => {
         expect(parMois).toEqual({});
     });
 
+    it('retire le capital qu\'un projet étranger rembourse selon le journal', () => {
+        // Le solde du projet portugais voyage dans ses coupons : 100 € de
+        // capital pour 4,35 € d'intérêts, sans retenue sur l'un ni sur l'autre.
+        const versements = { ...VERSEMENTS, 'pt-1': { '2026-01': 104.35 } };
+        const parMois = couponsEtrangersParMois(versements, PROPRIETES, { 'pt-1': { '2026-01': 100 } });
+
+        expect(parMois['2026-01']).toBeCloseTo(7.35, 2);
+    });
+
+    it('reconnaît le projet à son nom quand le journal n\'en donne pas l\'identifiant', () => {
+        const proprietes = [{ id: 'pt-1', name: 'Quinta do Vale 🇵🇹', country: 'Portugal' }];
+        const parMois = couponsEtrangersParMois({ 'pt-1': { '2026-01': 104.35 } }, proprietes,
+            { 'Quinta do Vale 🇵🇹': { '2026-01': 100 } });
+
+        expect(parMois['2026-01']).toBeCloseTo(4.35, 2);
+    });
+
+    it('ne descend pas sous zéro quand le journal date le remboursement autrement', () => {
+        // Un remboursement plus gros que les coupons du mois n'efface que ceux
+        // de ce projet, pas ceux de l'espagnol versés le même mois.
+        const parMois = couponsEtrangersParMois(VERSEMENTS, PROPRIETES, { 'pt-1': { '2026-01': 100 } });
+
+        expect(parMois['2026-01']).toBeCloseTo(3, 2);
+    });
+
+    it('ignore le capital rendu par un projet français', () => {
+        const parMois = couponsEtrangersParMois(VERSEMENTS, PROPRIETES, { 'fr-1': { '2026-01': 40 } });
+
+        expect(parMois['2026-01']).toBeCloseTo(7.35, 2);
+    });
+
     it('ne rend rien sans ventilation ni propriétés', () => {
         expect(couponsEtrangersParMois(null, PROPRIETES)).toEqual({});
         expect(couponsEtrangersParMois(VERSEMENTS, null)).toEqual({});

@@ -379,7 +379,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
     // Les projets étrangers versent sans retenue à la source : ni le rendement
     // ni la note fiscale ne peuvent les traiter comme les autres.
     const etrangerParMois = historiqueDisponible
-        ? couponsEtrangersParMois(revenus.versements, properties)
+        ? couponsEtrangersParMois(revenus.versements, properties, capital?.parProjet)
         : {};
 
     const impotAVenir = historiqueDisponible

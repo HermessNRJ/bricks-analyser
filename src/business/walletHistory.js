@@ -33,8 +33,12 @@ function estRemboursementCapital(kind) {
 /**
  * Ramène le journal à un cumul de capital remboursé, par mois et par année
  *
+ * Le détail par projet est gardé à part : l'état de compte ne sait pas dire
+ * quelle part des coupons d'un projet étranger est du capital — aucune retenue
+ * ne porte sur l'un ni sur l'autre —, et seul le journal permet de la retirer.
+ *
  * @param {Array} transactions - Journal brut renvoyé par l'API
- * @returns {Object|null} { parMois, parAnnee, total, nombre } ou null si vide
+ * @returns {Object|null} { parMois, parAnnee, parProjet, total, nombre } ou null si vide
  */
 export function normaliserTransactions(transactions) {
     if (!Array.isArray(transactions) || transactions.length === 0) {
@@ -42,6 +46,7 @@ export function normaliserTransactions(transactions) {
     }
 
     const parMois = {};
+    const parProjet = {};
     let totalCentimes = 0;
     let nombre = 0;
     let ignorees = 0;
@@ -75,6 +80,13 @@ export function normaliserTransactions(transactions) {
 
         parMois[mois] = (parMois[mois] || 0) + valeur;
         totalCentimes += valeur;
+
+        const projet = cleProjet(transaction);
+
+        if (projet) {
+            const lignes = parProjet[projet] ||= {};
+            lignes[mois] = (lignes[mois] || 0) + valeur;
+        }
         nombre++;
     });
 
@@ -85,6 +97,12 @@ export function normaliserTransactions(transactions) {
 
     Object.keys(parMois).forEach(mois => {
         parMois[mois] = parMois[mois] / 100;
+    });
+
+    Object.values(parProjet).forEach(lignes => {
+        Object.keys(lignes).forEach(mois => {
+            lignes[mois] = lignes[mois] / 100;
+        });
     });
 
     logger.info(LOG_CATEGORIES.API, 'Capital repayments extracted', {
@@ -101,9 +119,26 @@ export function normaliserTransactions(transactions) {
     return {
         parMois,
         parAnnee: cumulerParAnnee(parMois),
+        parProjet,
         total: totalCentimes / 100,
         nombre
     };
+}
+
+/**
+ * Désigne le projet d'un remboursement
+ *
+ * L'identifiant est préféré quand le journal le donne ; à défaut, le nom, que
+ * le journal porte sur chaque remboursement relevé jusqu'ici.
+ *
+ * @param {Object} transaction - Mouvement du journal
+ * @returns {string|null} Identifiant ou nom du projet, null si aucun
+ */
+function cleProjet(transaction) {
+    const candidats = [transaction.propertyId, transaction.propertyName];
+    const cle = candidats.find(c => typeof c === 'string' && c.trim());
+
+    return cle ? cle.trim() : null;
 }
 
 /**
