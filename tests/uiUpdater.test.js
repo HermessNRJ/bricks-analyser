@@ -66,7 +66,17 @@ function property(overrides = {}) {
     return { ...base, niveauRisque: base.niveauRisque || niveauRisque(base) };
 }
 
-function results(properties, netRevenueEvolutionData = {}) {
+/**
+ * Résultats minimaux pour le rendu
+ * @param {Array} properties - Propriétés
+ * @param {Object} brutParMois - Brut prévu par mois ; le net en est la moitié,
+ *   pour que les deux se distinguent à l'écran
+ */
+function results(properties, brutParMois = {}) {
+    const projectionsVersements = Object.fromEntries(
+        Object.entries(brutParMois).map(([mois, brut]) => [mois, { brut, net: brut / 2 }])
+    );
+
     return {
         totalBricks: 10,
         totalInvestment: 100,
@@ -77,7 +87,7 @@ function results(properties, netRevenueEvolutionData = {}) {
         refundedProjectsCount: properties.filter(p => p.isRefunded).length,
         fundingOrUpcomingProjectsCount: 0,
         properties,
-        netRevenueEvolutionData
+        projectionsVersements
     };
 }
 
@@ -313,6 +323,16 @@ describe('updateUI — projections', () => {
         expect(projections).toHaveLength(4);
         expect(projections[0].textContent).toContain('Ce mois-ci');
         expect(projections[1].textContent).toMatch(/20/);
+    });
+
+    it('affiche le net en valeur principale et le brut en dessous', () => {
+        updateUI(results([property()], { '2024-06': 40 }));
+
+        const carte = document.querySelector('#projectedRevenuesDisplay .stat-card');
+        expect(carte.querySelector('.stat-value').textContent).toMatch(/^20,00\s€$/);
+        expect(carte.querySelector('.stat-label').textContent).toMatch(/net/);
+        expect(carte.querySelector('.stat-detail').textContent).toMatch(/^40,00\s€ brut$/);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/étrangers versent brut/);
     });
 
     it('s\'arrête au dernier changement plutôt que de répéter le même montant', () => {
@@ -600,5 +620,44 @@ describe('updateUI — pagination du registre', () => {
         setTaillePage(7);
 
         expect(taillePageCourante()).toBe(24);
+    });
+});
+
+describe('fiche — lien vers le suivi du dossier', () => {
+    const enDefaut = () => property({
+        id: 'a99f13fe-a624-48f9-ada8-c1d7756f2c49',
+        suivi: { suivi: true, impayees: 2, contentieux: false }
+    });
+
+    it('mène à la page du projet sur Bricks quand un dossier est ouvert', () => {
+        updateUI(results([enDefaut()]));
+
+        const lien = document.querySelector('.suivi-officiel a');
+        expect(lien.getAttribute('href'))
+            .toBe('https://app.bricks.co/project/a99f13fe-a624-48f9-ada8-c1d7756f2c49');
+        expect(lien.getAttribute('target')).toBe('_blank');
+        expect(lien.getAttribute('rel')).toContain('noopener');
+    });
+
+    it('n\'apparaît pas sur une fiche sans dossier', () => {
+        updateUI(results([property()]));
+
+        expect(document.querySelector('.suivi-officiel a')).toBeNull();
+    });
+
+    it('ne rouvre pas le projet dans un second onglet via la fiche', () => {
+        const ouvrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+        updateUI(results([enDefaut()]));
+
+        const lien = document.querySelector('.suivi-officiel a');
+        // jsdom ne navigue pas : seul compte ce que la fiche en fait
+        lien.addEventListener('click', event => event.preventDefault());
+        lien.click();
+        expect(ouvrir).not.toHaveBeenCalled();
+
+        document.querySelector('.property-card .property-name').click();
+        expect(ouvrir).toHaveBeenCalledOnce();
+
+        ouvrir.mockRestore();
     });
 });

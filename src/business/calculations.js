@@ -362,6 +362,11 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         investmentEvolution
     );
 
+    const projectionsVersements = calculerProjectionsVersements(
+        projectNetRevenueEntries,
+        projectGrossRevenueEntries
+    );
+
     // ========================================================================
     // REVENUS RÉELLEMENT PERÇUS
     // ========================================================================
@@ -479,6 +484,7 @@ export function calculateInvestmentStats(data, warnings = [], statuts = {}, reve
         netRevenueEvolutionData,
         grossRevenueEvolutionData,
         taxAmountEvolutionData,
+        projectionsVersements,
         revenusReels,
         // « Perçu » et « payé » se lisent sur l'état de compte quand on l'a ;
         // l'estimation ne prend le relais que faute de mieux.
@@ -776,4 +782,42 @@ function calculateRevenueEvolution(projectNetRevenueEntries, projectGrossRevenue
         totalNetRevenueSinceBeginning,
         totalTaxesSinceBeginning
     };
+}
+
+/**
+ * Prévoit les versements des prochains mois, en brut et en net
+ *
+ * Le net est ce qui arrivera sur le compte : Bricks retient l'impôt sur les
+ * coupons français, mais verse brut ceux des projets étrangers. La série nette
+ * de l'historique applique le taux à tout le brut ; reprise telle quelle ici,
+ * elle annonçait moins que le versement réel dès qu'un projet était hors de
+ * France. Les entrées nettes, elles, tiennent déjà compte du pays.
+ *
+ * @private
+ * @param {Array<{startDate: string, revenue: number}>} netEntries - Coupons nets par projet
+ * @param {Array<{startDate: string, revenue: number}>} grossEntries - Coupons bruts par projet
+ * @returns {Object} { mois: { brut, net } }, du mois courant à l'horizon des projections
+ */
+function calculerProjectionsVersements(netEntries, grossEntries) {
+    const projections = {};
+
+    // Sans aucun coupon connu, rien n'est prévisible : « 0 € » laisserait
+    // croire qu'on sait qu'il n'y aura rien.
+    if (grossEntries.length === 0) {
+        return projections;
+    }
+
+    const cumul = (entries, mois) => entries.reduce(
+        (somme, entry) => (entry.startDate <= mois ? somme + entry.revenue : somme),
+        0
+    );
+
+    const currentMonth = getCurrentMonthYYYYMM();
+
+    for (let i = 0; i < CONFIG.PROJECTIONS_MONTHS; i++) {
+        const mois = addMonthsToYYYYMM(currentMonth, i);
+        projections[mois] = { brut: cumul(grossEntries, mois), net: cumul(netEntries, mois) };
+    }
+
+    return projections;
 }

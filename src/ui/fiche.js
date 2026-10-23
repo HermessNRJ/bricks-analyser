@@ -16,6 +16,15 @@ import { pluriel, moisEnIncise, deMois } from './libelles.js';
 import { hasWarningInLastMonth } from './alertes.js';
 
 /**
+ * Adresse de la page du projet sur Bricks.co
+ * @param {Object} property - Données de la propriété
+ * @returns {string} URL de la page projet
+ */
+function urlProjet(property) {
+    return `https://app.bricks.co/project/${encodeURIComponent(property.id)}`;
+}
+
+/**
  * Construit le bandeau du suivi officiel d'une propriété
  *
  * Échéances dues, pénalités, contentieux : ce que le texte des alertes ne dit
@@ -81,8 +90,11 @@ function createSuiviSection(property) {
     // noyait au milieu des dates.
     const lignes = faits.map(fait => `<li>${escapeHtml(fait)}</li>`).join('');
 
+    // La fiche entière mène déjà à la page du projet, mais rien ne le dit : là
+    // où un dossier est ouvert, c'est sur cette page que Bricks en publie la
+    // suite, et le lien doit se voir.
     return `
-        <ul class="suivi-officiel${grave ? ' est-grave' : ''}">${lignes}</ul>
+        <ul class="suivi-officiel${grave ? ' est-grave' : ''}">${lignes}<li class="suivi-lien"><a href="${escapeHtml(urlProjet(property))}" target="_blank" rel="noopener noreferrer">Suivre le dossier sur Bricks</a></li></ul>
     `;
 }
 
@@ -367,8 +379,7 @@ export function createPropertyCard(property, versements) {
     // rien n'est prélevé à la source, l'impôt vient sur la déclaration.
     const brutMensuel = property.investment * (property.yearlyReturn || 0) / 100 / 12;
 
-    // URL du projet sur Bricks.co
-    const projectUrl = `https://app.bricks.co/project/${encodeURIComponent(property.id)}`;
+    const projectUrl = urlProjet(property);
 
     return `
         <div class="${cardClasses}" role="link" tabindex="0"
