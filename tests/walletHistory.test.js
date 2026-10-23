@@ -33,6 +33,22 @@ describe('normaliserTransactions', () => {
         expect(capital.parMois['2026-07']).toBeCloseTo(17.74, 2);
     });
 
+    it('garde le détail par projet, désigné par son nom à défaut d\'identifiant', () => {
+        const capital = normaliserTransactions(JOURNAL);
+
+        expect(capital.parProjet['Immeuble Foch Béziers']['2026-07']).toBeCloseTo(17.74, 2);
+        expect(capital.parProjet['Lotissement Tiefenbach Colmar']['2026-08']).toBeCloseTo(3.74, 2);
+    });
+
+    it('préfère l\'identifiant du projet quand le journal le donne', () => {
+        const capital = normaliserTransactions([
+            { kind: 'obligation_principal_repayment_final', createdAt: '2026-03-04T00:00:00Z',
+              status: 'confirmed', value: 10000, propertyId: 'pt-1', propertyName: 'Quinta 🇵🇹' }
+        ]);
+
+        expect(capital.parProjet).toEqual({ 'pt-1': { '2026-03': 100 } });
+    });
+
     it('cumule par année civile', () => {
         const capital = normaliserTransactions(JOURNAL);
 

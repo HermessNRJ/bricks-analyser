@@ -272,7 +272,13 @@ function construireReleve(portefeuille) {
                 centimes += investi * 100;
             }
 
-            interetsCentimes += interets;
+            // Un projet étranger verse sans retenue à la source : l'impôt sera
+            // réclamé sur la déclaration. Le prélever ici ferait passer, une fois
+            // relu par l'application, une partie du capital rendu pour des
+            // intérêts — l'état de compte et le journal ne s'accorderaient plus.
+            if (p.pays === 'France') {
+                interetsCentimes += interets;
+            }
 
             if (centimes <= 0) {
                 return;
@@ -293,8 +299,13 @@ function construireReleve(portefeuille) {
         // Le prélèvement ne porte que sur les INTÉRÊTS : un remboursement de
         // capital n'est pas imposable, alors même qu'il voyage dans les coupons.
         // C'est cet écart qui laisse retrouver la part de capital à rebours.
+        // Arrondi au centime supérieur : divisé par le barème, le prélèvement
+        // retombe ainsi sur les intérêts ou juste au-dessus, jamais en dessous.
+        // Arrondi au plus proche, il en manquait parfois un centime, que
+        // l'application lisait comme du capital rendu sans que le journal en
+        // dise rien.
         const taux = mois >= '2026-01' ? 0.314 : 0.30;
-        const impot = Math.round(interetsCentimes * taux);
+        const impot = Math.ceil(interetsCentimes * taux);
 
         return {
             year: annee,

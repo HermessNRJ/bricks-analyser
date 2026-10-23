@@ -236,7 +236,9 @@ function interetsDuMois(mois, coupons, impot, etranger = 0) {
     // Les coupons étrangers n'ont subi aucune retenue à la source — l'impôt sera
     // réclamé plus tard, sur la déclaration. Ils échappent donc au prélèvement
     // sans être pour autant du capital : les rendre au numérateur, faute de quoi
-    // un projet portugais passerait pour une mise remboursée.
+    // un projet portugais passerait pour une mise remboursée. Le capital qu'un
+    // tel projet rend vraiment en a été retiré en amont, d'après le journal
+    // (voir couponsEtrangersParMois).
     return Math.min(impot / taux + etranger, coupons);
 }
 
