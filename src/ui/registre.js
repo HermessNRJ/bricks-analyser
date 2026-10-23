@@ -501,8 +501,9 @@ function attachPropertyCardListener(container) {
 
     // La fiche entière est un lien vers Bricks, mais elle contient désormais des
     // dépliants. Sans cette exception, ouvrir les actualités ouvrait le projet
-    // dans un onglet — le clic sur le résumé remontait jusqu'à la carte.
-    const dansUnDepliant = cible => Boolean(cible.closest('summary'));
+    // dans un onglet — le clic sur le résumé remontait jusqu'à la carte. Un
+    // vrai lien s'ouvre de lui-même : le relayer ouvrirait un second onglet.
+    const gereSeul = cible => Boolean(cible.closest('summary, a[href]'));
 
     container.addEventListener('click', (event) => {
         if (event.target.closest('[data-action="reinitialiser"]')) {
@@ -510,7 +511,7 @@ function attachPropertyCardListener(container) {
             return;
         }
 
-        if (dansUnDepliant(event.target)) {
+        if (gereSeul(event.target)) {
             return;
         }
 
@@ -528,7 +529,7 @@ function attachPropertyCardListener(container) {
 
         // Entrée et Espace déplient nativement un <summary> : les intercepter
         // priverait le clavier du seul moyen d'ouvrir les actualités.
-        if (dansUnDepliant(event.target)) {
+        if (gereSeul(event.target)) {
             return;
         }
 

@@ -2061,6 +2061,25 @@ select:hover {
     font-weight: 600;
 }
 
+/* Le lien clôt la liste sans en être un fait : ni tiret, ni graisse */
+.suivi-officiel .suivi-lien {
+    margin-top: 6px;
+}
+
+.suivi-officiel .suivi-lien::before {
+    content: none;
+}
+
+.suivi-officiel .suivi-lien a {
+    color: inherit;
+    text-underline-offset: 2px;
+}
+
+.suivi-officiel .suivi-lien a:hover,
+.suivi-officiel .suivi-lien a:focus-visible {
+    color: var(--ink);
+}
+
 /* Repliées par défaut : trois communiqués de six cents caractères pesaient plus
    que tout le reste de la fiche. Le résumé reste cliquable au clavier. */
 details.alertes > summary {

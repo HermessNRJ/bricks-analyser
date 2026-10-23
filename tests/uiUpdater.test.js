@@ -622,3 +622,42 @@ describe('updateUI — pagination du registre', () => {
         expect(taillePageCourante()).toBe(24);
     });
 });
+
+describe('fiche — lien vers le suivi du dossier', () => {
+    const enDefaut = () => property({
+        id: 'a99f13fe-a624-48f9-ada8-c1d7756f2c49',
+        suivi: { suivi: true, impayees: 2, contentieux: false }
+    });
+
+    it('mène à la page du projet sur Bricks quand un dossier est ouvert', () => {
+        updateUI(results([enDefaut()]));
+
+        const lien = document.querySelector('.suivi-officiel a');
+        expect(lien.getAttribute('href'))
+            .toBe('https://app.bricks.co/project/a99f13fe-a624-48f9-ada8-c1d7756f2c49');
+        expect(lien.getAttribute('target')).toBe('_blank');
+        expect(lien.getAttribute('rel')).toContain('noopener');
+    });
+
+    it('n\'apparaît pas sur une fiche sans dossier', () => {
+        updateUI(results([property()]));
+
+        expect(document.querySelector('.suivi-officiel a')).toBeNull();
+    });
+
+    it('ne rouvre pas le projet dans un second onglet via la fiche', () => {
+        const ouvrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+        updateUI(results([enDefaut()]));
+
+        const lien = document.querySelector('.suivi-officiel a');
+        // jsdom ne navigue pas : seul compte ce que la fiche en fait
+        lien.addEventListener('click', event => event.preventDefault());
+        lien.click();
+        expect(ouvrir).not.toHaveBeenCalled();
+
+        document.querySelector('.property-card .property-name').click();
+        expect(ouvrir).toHaveBeenCalledOnce();
+
+        ouvrir.mockRestore();
+    });
+});
