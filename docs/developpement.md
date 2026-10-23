@@ -8,10 +8,11 @@
 * **Serveur :** nginx (via Docker)
 * **Tests :** Vitest + jsdom (unitaires), Playwright (smoke test)
 
-Node 22.12 ou plus est requis (voir le champ `engines` de `package.json`). La borne n'est
-pas ronde parce qu'elle vient de deux besoins précis : Vitest 5 s'appuie sur Rolldown, dont
-npm refuse d'installer le binaire natif en deçà, et jsdom 30 charge un module ESM depuis du
-CommonJS — ce que `require()` ne sait faire que depuis 22.12.
+Node 22.22.2 ou plus est requis (voir le champ `engines` de `package.json`). La borne n'est
+pas ronde parce que c'est celle que jsdom 30 déclare. Elle couvre celle d'undici, qu'il
+embarque : à partir de 8.11, undici décompresse le zstd à son chargement, et sous 22.19 il
+plante faute de `zlib.createZstdDecompress` — avant le premier test, sur chaque fichier.
+L'ancienne borne, 22.12, ne tenait plus que par chance depuis jsdom 30.
 
 ## Système visuel
 
