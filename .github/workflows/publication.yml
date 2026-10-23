@@ -1,8 +1,9 @@
 name: Publication
 
-# Un tag « v1.2.3 » suffit à tout déclencher : l'image part sur GHCR et la
-# release est créée dans la foulée. Rien ne se publie depuis une branche, pour
-# qu'une version publiée corresponde toujours à un point nommé de l'historique.
+# Un tag « v1.2.3 » suffit à tout déclencher : l'image part sur GHCR, la vitrine
+# sur GitHub Pages, et la release est créée dans la foulée. Rien ne se publie
+# depuis une branche, pour qu'une version publiée corresponde toujours à un
+# point nommé de l'historique.
 #
 #   git tag -a v1.2.3 -m "..." && git push origin v1.2.3
 on:
@@ -115,6 +116,73 @@ jobs:
           echo "L'image ne sert pas la page :" >&2
           docker logs bricks-verif >&2
           exit 1
+
+  vitrine:
+    # La démonstration publiée sur GitHub Pages.
+    #
+    # Le tableau de bord ne montre que le portefeuille de celui qui le
+    # consulte : on ne peut pas en donner un aperçu sans publier ses propres
+    # montants. La vitrine sert donc l'application sur les 42 propriétés
+    # inventées de « npm run demo ».
+    #
+    # Ce n'est pas l'outil, et ça ne peut pas l'être : Pages ne sert que des
+    # fichiers, et les quatre relais de nginx.conf n'y existent pas. Ce qui est
+    # retiré, et pourquoi, est écrit dans tools/vitrine.mjs.
+    #
+    # Sur un tag : la vitrine montre alors la version que l'on peut installer,
+    # et non un main en cours de route. « needs: image » lui fait profiter du
+    # garde-fou qui vérifie que le tag et le code annoncent bien la même
+    # version — une vitrine qui affiche un numéro faux vaut moins que pas de
+    # vitrine du tout.
+    #
+    # Et sur demande explicite, ce qui n'est pas une entorse à la règle « rien
+    # ne se publie depuis une branche » : celle-ci vise ce qui s'installe, et
+    # une vitrine ne s'installe pas. Sans cette porte, la seule façon de
+    # corriger une coquille en ligne — ou de la mettre en ligne la première
+    # fois — serait de sortir une version. Depuis une branche, le pied de page
+    # annoncera le numéro que le code déclare, pas celui de la dernière release.
+    name: Vitrine
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.publication.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Pas de « npm ci » : le générateur de démonstration n'importe que des
+      # modules du dépôt, et l'assembleur que des modules de Node.
+
+      # Le portefeuille inventé n'est pas dans le dépôt — .gitignore écarte les
+      # *.json de data/, qui portent les vrais exports — et n'a pas à y être :
+      # le tirage est déterministe, il se refabrique à l'identique.
+      - name: Fabriquer le portefeuille de démonstration
+        run: npm run demo
+
+      - name: Assembler la vitrine
+        run: npm run vitrine
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: vitrine
+
+      - name: Publier
+        id: publication
+        uses: actions/deploy-pages@v4
 
   release:
     name: Release

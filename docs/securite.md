@@ -99,6 +99,19 @@ Les photos des fiches y sont intégrées, réencodées plus petites, ce qui dema
 Docker. Sans lui, l'export se fait quand même : les photos y gardent leur adresse d'origine,
 le bouton l'annonce, et le fichier s'ouvrira sans elles sur une machine hors ligne.
 
+## La vitrine publiée
+
+La démonstration servie sur GitHub Pages est l'application, amputée de tout ce qui charge,
+enregistre ou emporte des données. Elle ne peut joindre aucun compte : les relais de
+`nginx.conf` n'existent pas sur Pages, et ni CORS ni Cloudflare ne laisseraient un appel
+direct aboutir.
+
+Elle n'écrit donc aucun portefeuille dans le `localStorage` de `github.io` — une origine
+partagée par tous les dépôts publiés du compte, où ce qu'un projet laisse, un autre peut le
+lire. `?demo` charge sans persister, et plus rien d'autre ne charge.
+
+Le détail est dans [La vitrine](vitrine.md).
+
 ## Rendu et injection
 
 * Toutes les données provenant de l'API sont échappées avant injection dans le DOM

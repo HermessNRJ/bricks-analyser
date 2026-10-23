@@ -220,6 +220,11 @@ dans un Chromium, et `npm audit`. Une montée de dépendance exigeant un node pl
 échoue donc là, et non sur la machine de quelqu'un après la fusion. Quand le smoke test
 échoue en CI, la capture de la page au moment de l'échec est publiée en artefact du job.
 
+**La vitrine** est assemblée par `tools/vitrine.mjs`, qui découpe `index.html` à
+l'expression régulière. `tests/vitrine.test.js` passe la vraie page et la vraie
+configuration à l'assembleur : une ancre qui bouge échoue là, et non en ligne sur une page
+publique. Voir [La vitrine](vitrine.md).
+
 **Ce qui n'est pas couvert par les tests unitaires :** les gestionnaires d'événements du
 DOM (`src/events/`), les modales et la configuration Chart.js (`src/charts/`). C'est le
 smoke test qui les tient — d'où sa présence en CI et non plus en option.
@@ -257,9 +262,10 @@ git push origin v1.1.0
 ```
 
 `.github/workflows/publication.yml` construit alors l'image pour `linux/amd64` et
-`linux/arm64`, la pousse sur GHCR sous quatre tags — `1.1.0`, `1.1`, `1` et `latest` — puis
-crée la release avec les notes générées depuis les commits. Rien ne se publie depuis une
-branche : une version publiée correspond toujours à un point nommé de l'historique.
+`linux/arm64`, la pousse sur GHCR sous quatre tags — `1.1.0`, `1.1`, `1` et `latest` —,
+assemble et publie la vitrine sur GitHub Pages, puis crée la release avec les notes
+générées depuis les commits. Rien ne se publie depuis une branche : une version publiée
+correspond toujours à un point nommé de l'historique.
 
 Le champ `version` de `package.json` n'est plus une politesse : c'est lui que le pied de
 page affiche, et c'est à lui que la dernière release publiée est comparée. Faute de
@@ -283,6 +289,11 @@ Les pull requests qui touchent au `Dockerfile`, à `nginx.conf`, à `index.html`
 construisent l'image **sans la pousser**, puis la démarrent et vérifient que nginx sert bien
 la page et la feuille de style. Une base épinglée retirée du registre, ou un chemin de
 `COPY` cassé, se voient donc avant la fusion.
+
+Le job `Vitrine`, lui, ne tourne que sur un tag. Il fabrique le portefeuille de
+démonstration, assemble une copie transformée du dépôt et la publie sur GitHub Pages. Ce
+qu'elle retire de la page, et pourquoi, est dans [La vitrine](vitrine.md) —
+`tests/vitrine.test.js` tient la découpe, en passant le vrai `index.html` à l'assembleur.
 
 Le job `Contrat nginx` va plus loin, sur toutes les pull requests : il construit l'image et
 lui pose une trentaine de questions — les quatre relais prennent-ils la main, les chemins

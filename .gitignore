@@ -20,3 +20,7 @@ coverage/
 
 # OS
 .DS_Store
+
+# Vitrine assemblée par tools/vitrine.mjs : une copie transformée du dépôt,
+# reconstruite à chaque publication. Rien à suivre ici.
+vitrine/

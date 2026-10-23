@@ -25,6 +25,7 @@
     "test:nginx": "node tests/nginx.mjs",
     "serve": "python3 -m http.server 8099",
     "demo": "node tools/demo.mjs",
+    "vitrine": "node tools/vitrine.mjs",
     "apercu": "node tools/apercu-social.mjs"
   },
   "devDependencies": {
