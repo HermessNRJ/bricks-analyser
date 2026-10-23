@@ -9,7 +9,7 @@
 # Pour monter de version :
 #   docker pull nginx:<version>-alpine
 #   docker image inspect nginx:<version>-alpine --format '{{index .RepoDigests 0}}'
-FROM nginx:1.31-alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
+FROM nginx:1.31-alpine@sha256:a3554c0d0b48177b1413c26e01f695334428020d9df01243fbae3e11cfd17417
 
 # Étiquettes OCI : elles renseignent la page du paquet sur GitHub et rattachent
 # l'image à son commit. « source » est ce qui permet à quiconque tire l'image de
