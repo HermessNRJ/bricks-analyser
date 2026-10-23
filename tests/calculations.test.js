@@ -347,6 +347,29 @@ describe('calculateInvestmentStats — évolution des revenus et taxes', () => {
         expect(totalTaxesSinceBeginning).toBeCloseTo(6 * tauxImpositionPour('2024-01'), 8);
     });
 
+    it('prévoit les versements en brut et en net, sans retenue sur l\'étranger', () => {
+        const data = [month('2024-01', [
+            project({ id: 'fr', funding: { revenueStartDate: '2024-01' } }),
+            project({ id: 'pt', name: { fr: 'Villa Porto 🇵🇹' }, funding: { revenueStartDate: '2024-08' } })
+        ])];
+
+        const { projectionsVersements } = calculateInvestmentStats(data);
+
+        // 100 € à 12 % : 1 € brut par mois et par projet
+        expect(Object.keys(projectionsVersements)).toEqual(['2024-06', '2024-07', '2024-08', '2024-09']);
+        expect(projectionsVersements['2024-06'].brut).toBeCloseTo(1, 10);
+        expect(projectionsVersements['2024-06'].net).toBeCloseTo(1 - CONFIG.TAX_RATE, 10);
+        // Le coupon portugais arrive brut : seul le français est amputé
+        expect(projectionsVersements['2024-08'].brut).toBeCloseTo(2, 10);
+        expect(projectionsVersements['2024-08'].net).toBeCloseTo(2 - CONFIG.TAX_RATE, 10);
+    });
+
+    it('ne prévoit rien sans aucun coupon connu', () => {
+        const data = [month('2024-01', [project({ funding: {} })])];
+
+        expect(calculateInvestmentStats(data).projectionsVersements).toEqual({});
+    });
+
     it('ignore les dates de premier versement mal formées', () => {
         const data = [month('2024-01', [project({ funding: { revenueStartDate: '2024-01-15' } })])];
 

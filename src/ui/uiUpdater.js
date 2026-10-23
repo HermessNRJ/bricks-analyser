@@ -58,7 +58,7 @@ export function updateUI(results) {
 
     renderMur(results.properties);
     afficherRevenusParAnnee(results);
-    updateProjections(results.netRevenueEvolutionData);
+    updateProjections(results.projectionsVersements);
 
     logger.info(LOG_CATEGORIES.UI, 'UI updated successfully');
 }
@@ -165,9 +165,9 @@ function attachMurListener(strip) {
 
 /**
  * Met à jour les projections de revenus
- * @param {Object} netRevenueData - Données de revenus nets
+ * @param {Object} projections - { mois: { brut, net } } issus du calcul
  */
-function updateProjections(netRevenueData) {
+function updateProjections(projections) {
     const container = document.getElementById('projectedRevenuesDisplay');
 
     if (!container) {
@@ -176,17 +176,17 @@ function updateProjections(netRevenueData) {
     }
 
     const currentMonth = getCurrentMonthYYYYMM();
-    const revenueData = netRevenueData || {};
+    const revenueData = projections || {};
     const cards = [];
 
     // Les mois suivants ne bougent que si un projet commence à verser. Répéter
     // le même montant sur M+2 et M+3 n'apprend rien : on ne montre les mois que
     // jusqu'au dernier changement, et on dit à partir de quand c'est stable.
     let dernierChangement = 0;
-    let precedent = revenueData[currentMonth];
+    let precedent = revenueData[currentMonth]?.brut;
 
     for (let i = 1; i < CONFIG.PROJECTIONS_MONTHS; i++) {
-        const valeur = revenueData[addMonthsToYYYYMM(currentMonth, i)];
+        const valeur = revenueData[addMonthsToYYYYMM(currentMonth, i)]?.brut;
 
         // Une donnée absente n'est pas une variation : la série s'arrête là
         if (typeof valeur !== 'number') {
@@ -201,17 +201,20 @@ function updateProjections(netRevenueData) {
 
     for (let i = 0; i <= dernierChangement; i++) {
         const monthKey = addMonthsToYYYYMM(currentMonth, i);
-        const value = revenueData[monthKey];
-        const revenueDisplay = typeof value === 'number' ? formatCurrency(value) : 'N/D';
+        const prevu = revenueData[monthKey];
+        const connu = typeof prevu?.net === 'number';
         // Pas de « (est.) » sur la première case : les cinq sont des
         // projections, et ne le marquer que sur une laissait croire que les
         // autres étaient acquises.
         const label = i === 0 ? 'Ce mois-ci' : formatMonthName(monthKey);
 
+        // Le net en grand, parce que c'est ce qui arrive sur le compte ; le
+        // brut dessous, parce que c'est le chiffre que Bricks annonce.
         cards.push(`
             <div class="stat-card">
-                <div class="stat-value">${revenueDisplay}</div>
-                <div class="stat-label">${escapeHtml(label)}</div>
+                <div class="stat-value">${connu ? formatCurrency(prevu.net) : 'N/D'}</div>
+                <div class="stat-label">${escapeHtml(label)} · net</div>
+                <div class="stat-detail">${connu ? `${formatCurrency(prevu.brut)} brut` : ''}</div>
             </div>
         `);
     }
@@ -223,7 +226,9 @@ function updateProjections(netRevenueData) {
         // La série s'arrête au dernier mois qui change de montant : la note dit
         // pourquoi elle s'arrête là, sans renommer un mois déjà écrit sur la
         // dernière tuile.
-        note.textContent = 'Versés autour du 8 du mois. Le montant ne bouge plus ensuite :'
+        note.textContent = `Net : ce qui arrivera sur le compte, après la retenue de ${formatPercentage(CONFIG.TAX_RATE * 100)}`
+            + ' sur les coupons français — les projets étrangers versent brut, l\'impôt se règle à la déclaration.'
+            + ' Versés autour du 8 du mois. Le montant ne bouge plus ensuite :'
             + ' aucun autre projet ne commence à verser.';
     }
 

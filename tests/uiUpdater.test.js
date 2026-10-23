@@ -66,7 +66,17 @@ function property(overrides = {}) {
     return { ...base, niveauRisque: base.niveauRisque || niveauRisque(base) };
 }
 
-function results(properties, netRevenueEvolutionData = {}) {
+/**
+ * Résultats minimaux pour le rendu
+ * @param {Array} properties - Propriétés
+ * @param {Object} brutParMois - Brut prévu par mois ; le net en est la moitié,
+ *   pour que les deux se distinguent à l'écran
+ */
+function results(properties, brutParMois = {}) {
+    const projectionsVersements = Object.fromEntries(
+        Object.entries(brutParMois).map(([mois, brut]) => [mois, { brut, net: brut / 2 }])
+    );
+
     return {
         totalBricks: 10,
         totalInvestment: 100,
@@ -77,7 +87,7 @@ function results(properties, netRevenueEvolutionData = {}) {
         refundedProjectsCount: properties.filter(p => p.isRefunded).length,
         fundingOrUpcomingProjectsCount: 0,
         properties,
-        netRevenueEvolutionData
+        projectionsVersements
     };
 }
 
@@ -313,6 +323,16 @@ describe('updateUI — projections', () => {
         expect(projections).toHaveLength(4);
         expect(projections[0].textContent).toContain('Ce mois-ci');
         expect(projections[1].textContent).toMatch(/20/);
+    });
+
+    it('affiche le net en valeur principale et le brut en dessous', () => {
+        updateUI(results([property()], { '2024-06': 40 }));
+
+        const carte = document.querySelector('#projectedRevenuesDisplay .stat-card');
+        expect(carte.querySelector('.stat-value').textContent).toMatch(/^20,00\s€$/);
+        expect(carte.querySelector('.stat-label').textContent).toMatch(/net/);
+        expect(carte.querySelector('.stat-detail').textContent).toMatch(/^40,00\s€ brut$/);
+        expect(document.getElementById('projectionsNote').textContent).toMatch(/étrangers versent brut/);
     });
 
     it('s\'arrête au dernier changement plutôt que de répéter le même montant', () => {
