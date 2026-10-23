@@ -13,7 +13,7 @@ import globals from 'globals';
  */
 export default [
     {
-        ignores: ['node_modules/', 'coverage/', 'data/']
+        ignores: ['node_modules/', 'coverage/', 'data/', 'vitrine/']
     },
 
     js.configs.recommended,

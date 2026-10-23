@@ -12,6 +12,10 @@ quittent pas votre machine.
 
 ![Le tableau de bord : le mur des propriétés, les huit chiffres clés, le rendement annualisé sur cinq fenêtres et le suivi des incidents](docs/captures/vue-ensemble.png)
 
+**[Voir la démonstration](https://hermessnrj.github.io/bricks-analyser/)** — l'outil, en
+ligne, sur un portefeuille inventé. Rien à installer pour regarder ; rien de réel non plus
+n'y est branché, puisque la démonstration ne sait joindre aucun compte.
+
 ## Démarrer
 
 ### 1. Lancer l'application
@@ -143,6 +147,7 @@ Le détail des calculs, et ce que chaque écran montre exactement, sont dans
 | [Sécurité](docs/securite.md) | Cookie de session, CSP, le seul appel sortant, intégrité des dépendances |
 | [Développement](docs/developpement.md) | Tests, pile technique, architecture, publication d'une version |
 | [Captures d'écran](docs/captures/README.md) | Le portefeuille de démonstration, cadrages et emplacements |
+| [Vitrine](docs/vitrine.md) | Ce que la démonstration publie, ce qu'elle retire, et pourquoi |
 
 ## Licence
 
