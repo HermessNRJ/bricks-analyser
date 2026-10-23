@@ -11,8 +11,9 @@ import { logger, LOG_CATEGORIES } from '../utils/logger.js';
 export function setupResetCache() {
     const resetBtn = document.getElementById('resetCacheBtn');
 
+    // Retiré de la vitrine, qui n'enregistre rien : rien à effacer non plus
     if (!resetBtn) {
-        logger.warn(LOG_CATEGORIES.EVENT, 'Reset cache button not found');
+        logger.debug(LOG_CATEGORIES.EVENT, 'Reset cache button not found');
         return;
     }
 

@@ -29,8 +29,10 @@ export function setupAPIHandler() {
     const fetchBtn = document.getElementById('fetchApiDataBtn');
     const loadingMsg = document.getElementById('apiLoadingMessage');
 
+    // Absents de la vitrine, qui n'a rien à charger : une page sans ce
+    // formulaire est un cas prévu, pas une panne à crier dans la console.
     if (!tokenInput || !fetchBtn || !loadingMsg) {
-        logger.error(LOG_CATEGORIES.EVENT, 'API elements not found');
+        logger.debug(LOG_CATEGORIES.EVENT, 'API elements not found');
         return;
     }
 
