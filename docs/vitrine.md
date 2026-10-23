@@ -76,7 +76,10 @@ persister — `finalizeProcessing` reçoit `persister: false` — et plus rien d
 charge. Aucun portefeuille ne peut être écrit dans le `localStorage` de cette origine,
 puisque la vitrine n'a plus aucun moyen d'en obtenir un.
 
-Seules y vivent les préférences d'affichage : thème, tri, filtres, taille de page.
+N'y vivent que les préférences d'affichage — thème, tri, filtres, taille de page — et ce
+que la vérification de version garde d'un jour sur l'autre : la dernière version publiée
+(`versionDistante`) et le moment où GitHub a été interrogé (`versionVerifieeLe`). Rien
+là-dedans ne dit quoi que ce soit d'un portefeuille.
 
 ## Publication
 
