@@ -137,9 +137,17 @@ await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#propertiesList .property-card', { timeout: 10000 });
 
 // Le favori est bâti après un aller-retour vers la source : il n'est pas prêt
-// au même instant que le reste de la page.
+// au même instant que le reste de la page. Le schéma est lu par URL, et non
+// par préfixe : on attend un favori exécutable, ce n'est pas un filtre.
 await page.waitForFunction(
-    () => document.getElementById('favoriCollecte')?.getAttribute('href')?.startsWith('javascript:'),
+    () => {
+        const href = document.getElementById('favoriCollecte')?.getAttribute('href');
+        try {
+            return Boolean(href) && new URL(href).protocol === 'javascript:';
+        } catch {
+            return false;
+        }
+    },
     { timeout: 10000 }
 );
 
