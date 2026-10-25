@@ -57,6 +57,17 @@ describe('stripTags', () => {
         expect(stripTags('<p>Retard&nbsp;de travaux</p>')).toBe('Retard de travaux');
     });
 
+    it('retire aussi une balise jamais refermée', () => {
+        expect(stripTags('<p>Retard</p><script')).toBe('Retard');
+        expect(stripTags('Retard <img src=x onerror=alert(1)')).toBe('Retard');
+    });
+
+    it('ne laisse aucun chevron ouvrant', () => {
+        for (const entree of ['<<script>script>', '<scr<b>ipt>', 'a < b', '<<<']) {
+            expect(stripTags(entree)).not.toContain('<');
+        }
+    });
+
     it('gère les entrées vides', () => {
         expect(stripTags(null)).toBe('');
         expect(stripTags('')).toBe('');
