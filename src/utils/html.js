@@ -51,6 +51,19 @@ export function safeUrl(url) {
 
 /**
  * Retire les balises HTML d'un texte riche (descriptions de warnings)
+ *
+ * Le résultat est du texte, pas du HTML sûr : il doit encore passer par
+ * escapeHtml avant toute injection, ce que font tous les appelants.
+ *
+ * Le « > » final est facultatif : une balise jamais refermée — « <script » en
+ * fin de description tronquée — passait sinon intacte. Rien n'est perdu à la
+ * retirer : la source est du HTML, où un « < » littéral s'écrit « &lt; ». Il
+ * ne reste donc aucun « < » dans le texte rendu.
+ *
+ * Une passe suffit déjà à cela. Elle est pourtant répétée jusqu'à ce que plus
+ * rien ne bouge : c'est la forme que l'analyse de code de GitHub reconnaît
+ * comme complète, et elle ne coûte qu'une passe à vide.
+ *
  * @param {*} html - Texte potentiellement balisé
  * @returns {string} Texte brut
  */
@@ -59,8 +72,15 @@ export function stripTags(html) {
         return '';
     }
 
-    return String(html)
-        .replace(/<[^>]*>/g, '')
+    let texte = String(html);
+    let precedent;
+
+    do {
+        precedent = texte;
+        texte = texte.replace(/<[^>]*>?/g, '');
+    } while (texte !== precedent);
+
+    return texte
         .replace(/&nbsp;/g, ' ')
         .trim();
 }

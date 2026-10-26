@@ -89,7 +89,7 @@ describe('emballer', () => {
     it('produit une URL javascript: exécutable', () => {
         const url = emballer("const a = 1;");
 
-        expect(url.startsWith('javascript:')).toBe(true);
+        expect(new URL(url).protocol).toBe('javascript:');
     });
 
     it('encode les sauts de ligne, que certains gestionnaires de favoris avalent', () => {

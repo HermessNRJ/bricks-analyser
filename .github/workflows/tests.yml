@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Aucun job n'écrit sur le dépôt : lire le code suffit. Le cache et l'artefact
+# de capture passent par le jeton du runner, pas par GITHUB_TOKEN. Sans ce
+# bloc, le jeton reçoit les droits par défaut du dépôt, écriture comprise.
+permissions:
+  contents: read
+
 jobs:
   unit:
     name: Tests unitaires
