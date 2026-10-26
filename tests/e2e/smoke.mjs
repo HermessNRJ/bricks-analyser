@@ -137,16 +137,13 @@ await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#propertiesList .property-card', { timeout: 10000 });
 
 // Le favori est bâti après un aller-retour vers la source : il n'est pas prêt
-// au même instant que le reste de la page. Le schéma est lu par URL, et non
-// par préfixe : on attend un favori exécutable, ce n'est pas un filtre.
+// au même instant que le reste de la page. src/ui/favori.js lui retire
+// « aria-disabled » une fois le lien construit — c'est ce signal qu'on attend,
+// le contenu du lien étant vérifié juste en dessous.
 await page.waitForFunction(
     () => {
-        const href = document.getElementById('favoriCollecte')?.getAttribute('href');
-        try {
-            return Boolean(href) && new URL(href).protocol === 'javascript:';
-        } catch {
-            return false;
-        }
+        const lien = document.getElementById('favoriCollecte');
+        return Boolean(lien) && !lien.hasAttribute('aria-disabled');
     },
     { timeout: 10000 }
 );
